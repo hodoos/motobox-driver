@@ -129,7 +129,8 @@ export default function TodayQuickCard({
         <button
           onClick={onSave}
           disabled={saving}
-          className="retro-button-solid w-full py-3.5 text-base font-semibold disabled:opacity-60"
+          className="retro-button-solid px-5 py-3.5 text-base font-semibold disabled:opacity-60"
+          style={{ width: 'fit-content', minWidth: 'fit-content', alignSelf: 'center' }}
         >
           {saving ? "저장 중..." : "오늘 리포트 저장"}
         </button>

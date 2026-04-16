@@ -83,13 +83,14 @@ export default function ReportList({
             <button
               key={dateKey}
               onClick={() => onDateClick(dateKey)}
-              className={`w-full rounded-[24px] border p-4 text-left transition hover:translate-y-[-1px] ${
+              className={`rounded-[24px] border p-4 text-left transition hover:translate-y-[-1px] ${
                 isBiweeklyAnchor
                   ? "border-[rgba(0,255,128,0.48)] bg-[rgba(0,255,128,0.09)]"
                   : isToday
                   ? "border-[rgba(0,255,128,0.35)] bg-[rgba(0,255,128,0.06)]"
                   : "border-[rgba(0,255,128,0.16)] bg-[rgba(7,14,9,0.72)]"
               }`}
+              style={{ width: 'fit-content', minWidth: 'fit-content' }}
             >
               <div className="flex items-start justify-between gap-3">
                 <div>

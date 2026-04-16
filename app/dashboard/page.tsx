@@ -26,6 +26,8 @@ export default function DashboardPage() {
   const router = useRouter();
   const now = new Date();
   const todayString = toDateString(now);
+  const [showReportList, setShowReportList] = useState(false);
+  const [showStatCards, setShowStatCards] = useState(false);
 
   const emptyReportForm = (dateKey: string): ReportForm => ({
     report_date: dateKey,
@@ -530,19 +532,6 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        <StatCards
-          avgQty={summary.avgQty}
-          avgSales={formatMoney(summary.avgSales)}
-          totalSales={formatMoney(summary.totalSales)}
-          expectedSales={formatMoney(summary.expectedSales)}
-          adjustedPeriodDays={summary.adjustedPeriodDays}
-          totalPeriodDays={summary.totalPeriodDays}
-          regularOffDays={summary.regularOffDays}
-          workedDays={summary.workedDays}
-          additionalOffDays={summary.additionalOffDays}
-          remainingWorkDays={summary.remainingWorkDays}
-        />
-
         <TodayQuickCard
           todayString={todayString}
           reportForm={reportForm}
@@ -552,23 +541,57 @@ export default function DashboardPage() {
           onSave={saveTodayQuick}
           saving={saving}
         />
+        <div className="retro-panel rounded-[28px] px-4 py-4">
+  <button
+    onClick={() => setShowStatCards((prev) => !prev)}
+    className="retro-button-solid w-full py-3 text-sm font-semibold"
+  >
+    {showStatCards ? "통계 닫기" : "통계 보기"}
+  </button>
+</div>
 
-        {reportsLoading ? (
-          <div className="retro-panel rounded-[28px] p-10 text-center">
-            리스트 불러오는 중...
-          </div>
-        ) : (
-          <ReportList
-            dates={periodDates}
-            reportsMap={reportsMap}
-            weeklyOffDays={settings.off_days}
-            biweeklyOffDays={settings.biweekly_off_days}
-            biweeklyAnchorDate={settings.biweekly_anchor_date}
-            onDateClick={openReportModal}
-            todayString={todayString}
-            biweeklyPickMode={isBiweeklyPickMode}
-          />
-        )}
+        {showStatCards ? (
+  <StatCards
+    avgQty={summary.avgQty}
+    avgSales={formatMoney(summary.avgSales)}
+    totalSales={formatMoney(summary.totalSales)}
+    expectedSales={formatMoney(summary.expectedSales)}
+    adjustedPeriodDays={summary.adjustedPeriodDays}
+    totalPeriodDays={summary.totalPeriodDays}
+    regularOffDays={summary.regularOffDays}
+    workedDays={summary.workedDays}
+    additionalOffDays={summary.additionalOffDays}
+    remainingWorkDays={summary.remainingWorkDays}
+  />
+) : null}
+
+        <div className="retro-panel rounded-[28px] px-4 py-4">
+  <button
+    onClick={() => setShowReportList((prev) => !prev)}
+    className="retro-button-solid w-full py-3 text-sm font-semibold"
+  >
+    {showReportList ? "리포트 리스트 닫기" : "리포트 리스트 보기"}
+  </button>
+</div>
+
+        {showReportList ? (
+  reportsLoading ? (
+    <div className="retro-panel rounded-[28px] p-10 text-center">
+      리스트 불러오는 중...
+    </div>
+  ) : (
+    <ReportList
+      dates={periodDates}
+      reportsMap={reportsMap}
+      weeklyOffDays={settings.off_days}
+      biweeklyOffDays={settings.biweekly_off_days}
+      biweeklyAnchorDate={settings.biweekly_anchor_date}
+      onDateClick={openReportModal}
+      todayString={todayString}
+      biweeklyPickMode={isBiweeklyPickMode}
+    />
+  )
+) : null}
       </div>
 
       <ReportModal
