@@ -48,7 +48,7 @@ export default function TodayQuickCard({
                 }))
               }
             />
-            오늘 휴무
+            휴무
           </label>
         </div>
 

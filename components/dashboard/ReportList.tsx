@@ -99,7 +99,7 @@ export default function ReportList({
                       {dateKey}
                     </p>
                     <span className="text-sm text-[#7dffb1]/50">
-                      {getKoreanDayLabel(date.getDay())}요일
+                      {getKoreanDayLabel(date.getDay())}
                     </span>
                     {isToday ? (
                       <span className="retro-badge px-2 py-0.5 text-[10px] font-semibold text-[#b8ffd2]">
@@ -149,7 +149,7 @@ export default function ReportList({
                       </p>
                     </>
                   ) : (
-                    <p className="text-sm font-semibold text-[#7dffb1]/35">입력하기</p>
+                    <p className="text-sm font-semibold text-[#7dffb1]/35"></p>
                   )}
                 </div>
               </div>
