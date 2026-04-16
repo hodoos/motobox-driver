@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { UserType } from "@/types";
 import { useRouter } from "next/navigation";
-import LoginCard from "@/components/auth/LoginCard";
-import SignupModal from "@/components/auth/SignupModal";
+import { supabase } from "../lib/supabase";
+import { UserType } from "../types";
+import LoginCard from "../components/auth/LoginCard";
+import SignupModal from "../components/auth/SignupModal";
 
 export default function Home() {
   const router = useRouter();
@@ -89,17 +89,19 @@ export default function Home() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#f6f7fb] p-4 flex items-center justify-center text-black">
-        <div className="rounded-[28px] border border-black/8 bg-white px-6 py-5 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
-          불러오는 중...
+      <main className="retro-scanlines retro-grid-bg min-h-screen bg-[var(--bg)] px-4 py-6 text-[var(--text)]">
+        <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-md items-center justify-center">
+          <div className="retro-panel w-full rounded-[28px] px-6 py-5 text-center">
+            불러오는 중...
+          </div>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#ffffff,_#eef2ff_38%,_#f6f7fb_70%)] px-4 py-6 text-black md:px-6">
-      <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-6xl items-center justify-center">
+    <main className="retro-scanlines retro-grid-bg min-h-screen bg-[var(--bg)] px-4 py-6 text-[var(--text)]">
+      <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-md items-center justify-center">
         <LoginCard
           email={email}
           password={password}

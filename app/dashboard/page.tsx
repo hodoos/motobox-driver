@@ -1,21 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { DailyReportRow, DriverSettings, ReportForm, UserType } from "@/types";
 import { useRouter } from "next/navigation";
-import { formatMoney, getKoreanDayLabel, toDateString } from "@/lib/format";
+import { supabase } from "../../lib/supabase";
+import { formatMoney, getKoreanDayLabel, toDateString } from "../../lib/format";
 import {
   eachDateBetween,
   getSettlementRange,
   shiftSettlementAnchor,
-} from "@/lib/settlement";
-import { isBiweeklyOffDate } from "@/lib/offday";
-import DashboardHeader from "@/components/dashboard/DashboardHeader";
-import StatCards from "@/components/dashboard/StatCards";
-import ReportModal from "@/components/dashboard/ReportModal";
-import ReportList from "@/components/dashboard/ReportList";
-import TodayQuickCard from "@/components/dashboard/TodayQuickCard";
+} from "../../lib/settlement";
+import { isBiweeklyOffDate } from "../../lib/offday";
+import {
+  DailyReportRow,
+  DriverSettings,
+  ReportForm,
+  UserType,
+} from "../../types";
+import DashboardHeader from "../../components/dashboard/DashboardHeader";
+import StatCards from "../../components/dashboard/StatCards";
+import ReportModal from "../../components/dashboard/ReportModal";
+import ReportList from "../../components/dashboard/ReportList";
+import TodayQuickCard from "../../components/dashboard/TodayQuickCard";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -106,11 +111,15 @@ export default function DashboardPage() {
   }, [router]);
 
   useEffect(() => {
-    if (user) fetchSettings();
+    if (user) {
+      fetchSettings();
+    }
   }, [user]);
 
   useEffect(() => {
-    if (user) fetchReports();
+    if (user) {
+      fetchReports();
+    }
   }, [user, settlementRange.start.getTime(), settlementRange.end.getTime()]);
 
   const fetchSettings = async () => {
@@ -182,11 +191,10 @@ export default function DashboardPage() {
       return;
     }
 
-    setReports((data as DailyReportRow[]) ?? []);
+    const rows = (data as DailyReportRow[]) ?? [];
+    setReports(rows);
 
-    const todayReport = (data as DailyReportRow[]).find(
-      (item) => item.report_date === todayString
-    );
+    const todayReport = rows.find((item) => item.report_date === todayString);
 
     if (todayReport) {
       setReportForm({
@@ -286,20 +294,24 @@ export default function DashboardPage() {
 
   const closeReportModal = () => {
     setIsReportModalOpen(false);
-    setReportForm(reportsMap.get(todayString)
-      ? {
-          report_date: reportsMap.get(todayString)!.report_date,
-          delivered_count: String(reportsMap.get(todayString)!.delivered_count ?? ""),
-          returned_count: String(reportsMap.get(todayString)!.returned_count ?? ""),
-          canceled_count: String(reportsMap.get(todayString)!.canceled_count ?? ""),
-          memo: reportsMap.get(todayString)!.memo ?? "",
-          is_day_off: Boolean(reportsMap.get(todayString)!.is_day_off),
-          unit_price_override: reportsMap.get(todayString)!.unit_price_override
-            ? String(reportsMap.get(todayString)!.unit_price_override)
-            : "",
-        }
-      : emptyReportForm(todayString)
-    );
+
+    const todayReport = reportsMap.get(todayString);
+
+    if (todayReport) {
+      setReportForm({
+        report_date: todayReport.report_date,
+        delivered_count: String(todayReport.delivered_count ?? ""),
+        returned_count: String(todayReport.returned_count ?? ""),
+        canceled_count: String(todayReport.canceled_count ?? ""),
+        memo: todayReport.memo ?? "",
+        is_day_off: Boolean(todayReport.is_day_off),
+        unit_price_override: todayReport.unit_price_override
+          ? String(todayReport.unit_price_override)
+          : "",
+      });
+    } else {
+      setReportForm(emptyReportForm(todayString));
+    }
   };
 
   const saveReportInternal = async (form: ReportForm) => {
@@ -475,17 +487,19 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#f6f7fb] p-4 flex items-center justify-center text-black">
-        <div className="rounded-[28px] border border-black/8 bg-white px-6 py-5 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
-          불러오는 중...
+      <main className="retro-scanlines retro-grid-bg min-h-screen bg-[var(--bg)] px-4 py-6 text-[var(--text)]">
+        <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-md items-center justify-center">
+          <div className="retro-panel w-full rounded-[28px] px-6 py-5 text-center">
+            불러오는 중...
+          </div>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f7fb] p-4 text-black md:p-6">
-      <div className="mx-auto max-w-6xl space-y-5">
+    <main className="retro-scanlines retro-grid-bg min-h-screen bg-[var(--bg)] px-4 py-6 text-[var(--text)]">
+      <div className="mx-auto flex w-full max-w-md flex-col gap-4 md:max-w-2xl lg:max-w-4xl">
         <DashboardHeader
           driverName={settings.driver_name}
           email={user?.email}
@@ -496,21 +510,21 @@ export default function DashboardPage() {
           onLogout={signOut}
         />
 
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-[32px] border border-black/8 bg-white p-4 shadow-[0_20px_60px_rgba(0,0,0,0.06)] md:p-5">
+        <div className="retro-panel flex items-center justify-between gap-3 rounded-[28px] px-4 py-4">
           <button
             onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, -1))}
-            className="rounded-2xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:border-black/20 hover:bg-black hover:text-white"
+            className="retro-button px-4 py-2.5 text-sm font-semibold"
           >
             이전달
           </button>
 
-          <h2 className="text-center text-lg font-bold tracking-tight md:text-2xl">
+          <h2 className="retro-title text-center text-[11px] leading-relaxed text-[#b8ffd2] sm:text-xs">
             {toDateString(settlementRange.start)} ~ {toDateString(settlementRange.end)}
           </h2>
 
           <button
             onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, 1))}
-            className="rounded-2xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:border-black/20 hover:bg-black hover:text-white"
+            className="retro-button px-4 py-2.5 text-sm font-semibold"
           >
             다음달
           </button>
@@ -540,7 +554,7 @@ export default function DashboardPage() {
         />
 
         {reportsLoading ? (
-          <div className="rounded-[32px] border border-black/8 bg-white p-10 text-center shadow-[0_20px_60px_rgba(0,0,0,0.06)]">
+          <div className="retro-panel rounded-[28px] p-10 text-center">
             리스트 불러오는 중...
           </div>
         ) : (

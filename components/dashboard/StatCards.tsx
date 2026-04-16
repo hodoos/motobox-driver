@@ -8,10 +8,12 @@ function Card({
   sub?: string;
 }) {
   return (
-    <div className="rounded-3xl border border-black/10 bg-white p-4 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
-      <p className="text-xs font-semibold tracking-wide text-black/55">{label}</p>
-      <p className="mt-2 text-2xl font-bold tracking-tight text-black">{value}</p>
-      {sub ? <p className="mt-1 text-xs text-black/45">{sub}</p> : null}
+    <div className="retro-card rounded-[24px] p-4">
+      <p className="retro-title text-[10px] leading-relaxed text-[#6effa6]/58">
+        {label}
+      </p>
+      <p className="mt-4 text-2xl font-bold tracking-tight text-[#b8ffd2]">{value}</p>
+      {sub ? <p className="mt-2 text-xs text-[#7dffb1]/55">{sub}</p> : null}
     </div>
   );
 }
@@ -35,7 +37,7 @@ export default function StatCards(props: Props) {
       <div className="grid gap-3 md:grid-cols-4">
         <Card label="평균 수량" value={`${props.avgQty}건`} />
         <Card label="평균 매출" value={props.avgSales} />
-        <Card label="현재까지 총 수익" value={props.totalSales} />
+        <Card label="현재 총 수익" value={props.totalSales} />
         <Card label="예상 매출" value={props.expectedSales} />
       </div>
 
@@ -47,7 +49,7 @@ export default function StatCards(props: Props) {
         />
         <Card label="근무한 일 수" value={`${props.workedDays}일`} />
         <Card label="추가휴무 일 수" value={`${props.additionalOffDays}일`} />
-        <Card label="앞으로 남은 근무 일 수" value={`${props.remainingWorkDays}일`} />
+        <Card label="남은 근무 일 수" value={`${props.remainingWorkDays}일`} />
       </div>
     </>
   );

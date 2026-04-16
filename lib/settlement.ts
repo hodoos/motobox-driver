@@ -14,19 +14,6 @@ export function eachDateBetween(start: Date, end: Date) {
   return result;
 }
 
-export function buildSettlementCalendarGrid(start: Date, end: Date) {
-  const startDayOfWeek = start.getDay();
-  const leadingNulls = Array.from({ length: startDayOfWeek }, () => null);
-  const dates = eachDateBetween(start, end);
-  const cells = [...leadingNulls, ...dates];
-
-  while (cells.length % 7 !== 0) {
-    cells.push(null);
-  }
-
-  return cells;
-}
-
 export function getSettlementRange(
   baseDate: Date,
   startDay: number,

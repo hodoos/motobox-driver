@@ -1,26 +1,214 @@
-@import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pretendard:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #07110b;
+  --bg-soft: #0b1510;
+  --panel: #101c15;
+  --panel-2: #122118;
+  --border: rgba(0, 255, 128, 0.22);
+  --border-strong: rgba(0, 255, 128, 0.45);
+  --text: #7dffb1;
+  --text-strong: #b8ffd2;
+  --text-dim: rgba(125, 255, 177, 0.62);
+  --accent: #00ff80;
+  --accent-soft: rgba(0, 255, 128, 0.12);
+  --danger: #ff5a7a;
+  --shadow: 0 0 0 1px rgba(0, 255, 128, 0.08), 0 18px 60px rgba(0, 0, 0, 0.42);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top, rgba(0, 255, 128, 0.08), transparent 28%),
+    linear-gradient(180deg, #08110c 0%, #050806 100%);
+  color: var(--text);
+  font-family: "Pretendard", system-ui, sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: rgba(8, 16, 11, 0.95);
+  color: var(--text-strong);
+  outline: none;
+  transition: 0.15s ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(125, 255, 177, 0.32);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 3px rgba(0, 255, 128, 0.08);
+}
+
+button {
+  cursor: pointer;
+}
+
+.retro-title {
+  font-family: "Press Start 2P", monospace;
+  letter-spacing: 0.04em;
+}
+
+.retro-panel {
+  background:
+    linear-gradient(180deg, rgba(18, 33, 24, 0.96), rgba(10, 18, 12, 0.98));
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  position: relative;
+}
+
+.retro-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.025) 0%,
+    rgba(255, 255, 255, 0) 24%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+
+.retro-card {
+  background: linear-gradient(180deg, rgba(16, 28, 21, 0.98), rgba(10, 18, 13, 0.98));
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.retro-button {
+  border-radius: 16px;
+  border: 1px solid var(--border-strong);
+  background: linear-gradient(180deg, rgba(12, 24, 16, 1), rgba(8, 16, 11, 1));
+  color: var(--text-strong);
+  transition: 0.15s ease;
+}
+
+.retro-button:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(180deg, rgba(0, 255, 128, 0.18), rgba(8, 16, 11, 1));
+  box-shadow: 0 0 0 1px rgba(0, 255, 128, 0.12), 0 10px 30px rgba(0, 255, 128, 0.12);
+}
+
+.retro-button-solid {
+  border-radius: 16px;
+  border: 1px solid rgba(0, 255, 128, 0.55);
+  background: linear-gradient(180deg, rgba(0, 255, 128, 0.2), rgba(0, 255, 128, 0.08));
+  color: var(--text-strong);
+  box-shadow: 0 0 18px rgba(0, 255, 128, 0.12);
+  transition: 0.15s ease;
+}
+
+.retro-button-solid:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(180deg, rgba(0, 255, 128, 0.28), rgba(0, 255, 128, 0.12));
+}
+
+.retro-badge {
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(0, 255, 128, 0.08);
+  color: var(--text);
+}
+
+.retro-danger {
+  border-color: rgba(255, 90, 122, 0.28) !important;
+  background: rgba(255, 90, 122, 0.08) !important;
+  color: #ff8ea5 !important;
+}
+
+.retro-muted {
+  color: var(--text-dim);
+}
+
+.retro-grid-bg {
+  background-image:
+    linear-gradient(rgba(0, 255, 128, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 128, 0.035) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.retro-scanlines::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.02) 0%,
+    rgba(255, 255, 255, 0.01) 50%,
+    rgba(0, 0, 0, 0.03) 51%,
+    rgba(0, 0, 0, 0.02) 100%
+  );
+  background-size: 100% 4px;
+  opacity: 0.18;
+  z-index: 9999;
+}
+
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.no-spinner {
+  -moz-appearance: textfield;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #08110c;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 128, 0.22);
+  border-radius: 999px;
+  border: 2px solid #08110c;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 128, 0.36);
 }

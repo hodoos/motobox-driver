@@ -14,33 +14,29 @@ export default function DashboardHeader({
   onLogout,
 }: Props) {
   return (
-    <div className="rounded-[32px] border border-black/8 bg-white px-5 py-5 shadow-[0_20px_60px_rgba(0,0,0,0.06)] md:px-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-xs font-semibold tracking-[0.2em] text-black/40">
-            DRIVER REPORT
-          </p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight">
-            업무 리포트 달력
+    <div className="retro-panel rounded-[28px] px-4 py-5 text-center md:px-6 md:text-left">
+      <div className="flex flex-col items-center gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="w-full">
+          <p className="retro-title text-[10px] text-[#6effa6]/60">DRIVER REPORT</p>
+          <h1 className="retro-title mt-3 text-lg leading-relaxed text-[#b8ffd2] md:text-xl">
+            DASHBOARD
           </h1>
-          <p className="mt-1 text-sm text-black/60">
+          <p className="mt-3 text-sm text-[#7dffb1]/72">
             {driverName ? `${driverName} 기사님` : email}
           </p>
-          <p className="mt-1 text-sm font-medium text-black/70">
-            정산기간: {periodLabel}
-          </p>
+          <p className="mt-1 text-sm font-medium text-[#a7ffca]">{periodLabel}</p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
           <button
             onClick={onOpenSettings}
-            className="rounded-2xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:border-black/20 hover:bg-black hover:text-white"
+            className="retro-button w-full px-4 py-3 text-sm font-semibold md:w-auto"
           >
             기본설정
           </button>
           <button
             onClick={onLogout}
-            className="rounded-2xl bg-black px-4 py-2.5 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(0,0,0,0.18)] transition hover:translate-y-[-1px]"
+            className="retro-button-solid w-full px-4 py-3 text-sm font-semibold md:w-auto"
           >
             로그아웃
           </button>

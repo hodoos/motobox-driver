@@ -1,18 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { DriverSettings, UserType } from "@/types";
 import { useRouter } from "next/navigation";
-import SettingsForm from "@/components/settings/SettingsForm";
+import { supabase } from "../../lib/supabase";
+import { DriverSettings, UserType } from "../../types";
+import SettingsForm from "../../components/settings/SettingsForm";
 
 export default function SettingsPage() {
   const router = useRouter();
 
   const [user, setUser] = useState<UserType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [isBiweeklyPickMode, setIsBiweeklyPickMode] = useState(false);
 
   const [settings, setSettings] = useState<DriverSettings>({
@@ -50,7 +50,9 @@ export default function SettingsPage() {
   }, [router]);
 
   useEffect(() => {
-    if (user) fetchSettings();
+    if (user) {
+      fetchSettings();
+    }
   }, [user]);
 
   const fetchSettings = async () => {
@@ -64,11 +66,12 @@ export default function SettingsPage() {
       .eq("user_id", user.id)
       .single();
 
+    setSettingsLoading(false);
+
     if (error) {
       if (error.code !== "PGRST116") {
         alert("기본설정 불러오기 실패: " + error.message);
       }
-      setSettingsLoading(false);
       return;
     }
 
@@ -97,8 +100,6 @@ export default function SettingsPage() {
         : [],
       biweekly_anchor_date: data.biweekly_anchor_date ?? "",
     });
-
-    setSettingsLoading(false);
   };
 
   const handleSettingsChange = (
@@ -156,30 +157,38 @@ export default function SettingsPage() {
 
   if (loading || settingsLoading) {
     return (
-      <main className="min-h-screen bg-[#f6f7fb] p-4 flex items-center justify-center text-black">
-        <div className="rounded-[28px] border border-black/8 bg-white px-6 py-5 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
-          불러오는 중...
+      <main className="retro-scanlines retro-grid-bg min-h-screen bg-[var(--bg)] px-4 py-6 text-[var(--text)]">
+        <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-md items-center justify-center">
+          <div className="retro-panel w-full rounded-[28px] px-6 py-5 text-center">
+            불러오는 중...
+          </div>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f7fb] p-4 text-black md:p-6">
-      <div className="mx-auto max-w-4xl space-y-5">
-        <div className="flex items-center justify-between rounded-[28px] border border-black/8 bg-white px-5 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.06)]">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">기본 설정</h1>
-            <p className="mt-1 text-sm text-black/55">
-              업무 기준값과 휴무 패턴을 설정합니다.
-            </p>
+    <main className="retro-scanlines retro-grid-bg min-h-screen bg-[var(--bg)] px-4 py-6 text-[var(--text)]">
+      <div className="mx-auto flex w-full max-w-md flex-col gap-4 md:max-w-2xl">
+        <div className="retro-panel rounded-[28px] px-5 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="retro-title text-[10px] text-[#6effa6]/60">SETTINGS</p>
+              <h1 className="retro-title mt-3 text-lg leading-relaxed text-[#b8ffd2] md:text-xl">
+                CONFIG PANEL
+              </h1>
+              <p className="mt-3 text-sm text-[#7dffb1]/62">
+                정산기간, 단가, 휴무 기준을 설정합니다.
+              </p>
+            </div>
+
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="retro-button px-4 py-2.5 text-sm font-semibold"
+            >
+              돌아가기
+            </button>
           </div>
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="rounded-2xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-black hover:text-white"
-          >
-            달력으로 돌아가기
-          </button>
         </div>
 
         <SettingsForm

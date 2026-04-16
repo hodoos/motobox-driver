@@ -16,60 +16,68 @@ export default function LoginCard({
   onOpenSignup,
 }: Props) {
   return (
-    <div className="w-full max-w-md">
-      <div className="rounded-[36px] border border-black/8 bg-white p-6 shadow-[0_30px_80px_rgba(0,0,0,0.08)] md:p-8">
-        <div className="mb-6 text-center">
-          <p className="text-xs font-semibold tracking-[0.24em] text-black/40">
+    <div className="w-full max-w-[360px]">
+      <div className="retro-panel rounded-[26px] px-5 py-6">
+        <div className="text-center">
+          <p className="retro-title text-[9px] text-[#6effa6]/60">
             DRIVER REPORT
           </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-black">
-            기사 플랫폼 로그인
+
+          <h1 className="retro-title mt-4 text-[17px] text-[#b8ffd2]">
+            LOGIN
           </h1>
-          <p className="mt-2 text-sm leading-6 text-black/55">
-            로그인 후 정산기간 달력과 업무 리포트를 바로 사용할 수 있습니다.
+
+          <p className="mt-3 text-[12px] text-[#7dffb1]/62">
+            정산 · 휴무 · 매출 관리
           </p>
         </div>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-black/70">이메일</label>
+        <div className="mt-5 space-y-3">
+          <div className="space-y-1">
+            <label className="block text-center text-[11px] font-semibold text-[#9fffc4]">
+              이메일
+            </label>
+
             <input
               type="email"
               placeholder="이메일"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-2xl border border-black/10 bg-[#fafafa] px-4 py-3 text-black outline-none transition focus:border-black/25 focus:bg-white"
+              className="bg-[#09120d] px-4 py-2 text-center text-[13px]"
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-black/70">비밀번호</label>
+          <div className="space-y-1">
+            <label className="block text-center text-[11px] font-semibold text-[#9fffc4]">
+              비밀번호
+            </label>
+
             <input
               type="password"
               placeholder="비밀번호"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-2xl border border-black/10 bg-[#fafafa] px-4 py-3 text-black outline-none transition focus:border-black/25 focus:bg-white"
+              className="bg-[#09120d] px-4 py-2 text-center text-[13px]"
             />
           </div>
 
           <button
             onClick={onLogin}
-            className="w-full rounded-2xl bg-black py-3.5 text-base font-semibold text-white shadow-[0_16px_32px_rgba(0,0,0,0.18)] transition hover:translate-y-[-1px]"
+            className="retro-button-solid w-full py-2 text-[13px] font-semibold"
           >
             로그인
           </button>
 
           <button
             onClick={onOpenSignup}
-            className="w-full rounded-2xl border border-black/10 bg-white py-3.5 text-base font-semibold text-black transition hover:bg-black hover:text-white"
+            className="retro-button w-full py-2 text-[13px] font-semibold"
           >
             회원가입
           </button>
         </div>
       </div>
 
-      <p className="mt-5 text-center text-xs text-black/70">
+      <p className="mt-4 text-center text-[10px] text-[#7dffb1]/55">
         support : motoboxx@naver.com
       </p>
     </div>
