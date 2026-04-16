@@ -101,7 +101,7 @@ export default function Home() {
 
   return (
     <main className="retro-scanlines retro-grid-bg min-h-screen bg-[var(--bg)] px-4 py-6 text-[var(--text)]">
-      <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-md items-center justify-center">
+      <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-md items-center justify-center relative">
         <LoginCard
           email={email}
           password={password}
@@ -110,17 +110,17 @@ export default function Home() {
           onLogin={signIn}
           onOpenSignup={() => setIsSignupModalOpen(true)}
         />
-      </div>
 
-      <SignupModal
-        open={isSignupModalOpen}
-        email={signupEmail}
-        password={signupPassword}
-        setEmail={setSignupEmail}
-        setPassword={setSignupPassword}
-        onClose={() => setIsSignupModalOpen(false)}
-        onSubmit={signUp}
-      />
+        <SignupModal
+          open={isSignupModalOpen}
+          email={signupEmail}
+          password={signupPassword}
+          setEmail={setSignupEmail}
+          setPassword={setSignupPassword}
+          onClose={() => setIsSignupModalOpen(false)}
+          onSubmit={signUp}
+        />
+      </div>
     </main>
   );
 }

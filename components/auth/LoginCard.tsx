@@ -42,24 +42,24 @@ export default function LoginCard({
                 placeholder="이메일"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="block bg-[#09120d] h-20 mx-auto w-1/2 rounded-2xl border border-[#2a3a2f] px-6 py-4 text-center text-[20px] outline-none transition focus:border-[#6effa6]/70 focus:ring-2 focus:ring-[#6effa6]/20"
+                className="block bg-[#09120d] h-20 mx-auto w-3/4 rounded-2xl border border-[#2a3a2f] px-6 py-4 text-center text-[20px] outline-none transition focus:border-[#6effa6]/70 focus:ring-2 focus:ring-[#6effa6]/20"
               />
             </div>
           </div>
 
-          <div className="w-full max-w-[260px]" style={{ marginTop: "2rem" }}>
+          <div className="w-full max-w-[260px]" style={{ marginTop: "1.5rem" }}>
             <div>
               <input
                 type="password"
                 placeholder="비밀번호"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="block bg-[#09120d] h-20 mx-auto w-1/2 rounded-2xl border border-[#2a3a2f] px-6 py-4 text-center text-[20px] outline-none transition focus:border-[#6effa6]/70 focus:ring-2 focus:ring-[#6effa6]/20"
+                className="block bg-[#09120d] h-20 mx-auto w-3/4 rounded-2xl border border-[#2a3a2f] px-6 py-4 text-center text-[20px] outline-none transition focus:border-[#6effa6]/70 focus:ring-2 focus:ring-[#6effa6]/20"
               />
             </div>
           </div>
 
-          <div className="w-full max-w-[260px]" style={{ marginTop: "1.5rem" }}>
+          <div className="w-full max-w-[260px]" style={{ marginTop: "4rem" }}>
             <div>
               <button
                 onClick={onLogin}
@@ -69,7 +69,7 @@ export default function LoginCard({
               </button>
             </div>
 
-            <div style={{ marginTop: "2rem" }}>
+            <div style={{ marginTop: "2.5rem" }}>
               <button
                 onClick={onOpenSignup}
                 className="block retro-button mx-auto w-1/2 h-12 rounded-2xl text-[22px] font-semibold"
