@@ -8,18 +8,31 @@ type Props = {
 
 export default function DashboardHeader({
   driverName,
+  email,
   onOpenSettings,
   onLogout,
 }: Props) {
+  const loginId = email?.split("@")[0]?.trim();
+  const headerLabel = driverName
+    ? `${driverName} 기사님`
+    : loginId
+    ? `${loginId} 기사님`
+    : "업무 현황";
+
   return (
     <div className="retro-panel relative rounded-[24px] px-4 py-4 text-left sm:rounded-[28px] sm:px-5 sm:py-5 md:px-6">
       <div className="flex items-start justify-between gap-3 sm:gap-4">
         <div className="min-w-0 flex-1">
           <p
-            className="theme-copy text-xs sm:text-sm"
-            style={{ fontSize: "0.875rem", paddingLeft: "0.5rem" }}
+            className="text-xs sm:text-sm"
+            style={{
+              fontSize: "0.875rem",
+              paddingLeft: "0.5rem",
+              color: "#f8fafc",
+              fontWeight: 700,
+            }}
           >
-            {driverName ? `${driverName} 기사님` : "업무 현황"}
+            {headerLabel}
           </p>
 
           <div

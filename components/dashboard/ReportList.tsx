@@ -109,7 +109,6 @@ export default function ReportList({
                   key={dateKey}
                   data-report-date={dateKey}
                   onClick={() => onDateClick(dateKey)}
-                  title={`${dateKey} 리포트 수정`}
                   style={cardStyle}
                   className={`min-h-[146px] rounded-[20px] border p-3 text-left transition hover:translate-y-[-1px] sm:rounded-[24px] ${
                     isBiweeklyAnchor

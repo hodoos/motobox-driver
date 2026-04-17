@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import SessionTimeout from "../components/auth/SessionTimeout";
 
 export const metadata: Metadata = {
   title: "Driver Report",
@@ -13,7 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <SessionTimeout />
+        {children}
+      </body>
     </html>
   );
 }

@@ -416,8 +416,6 @@ export default function DashboardPage() {
     } else {
       setReportForm(createEmptyReportForm(nextQuickEntryDate));
     }
-
-    setIsReportModalOpen(true);
   };
 
   const closeReportModal = () => {
