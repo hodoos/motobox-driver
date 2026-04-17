@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
-import { UserType } from "../types";
 import LoginCard from "../components/auth/LoginCard";
 import SignupModal from "../components/auth/SignupModal";
 
@@ -17,7 +16,6 @@ export default function Home() {
   const [signupPassword, setSignupPassword] = useState("");
   const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
 
-  const [user, setUser] = useState<UserType | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,10 +25,6 @@ export default function Home() {
       } = await supabase.auth.getUser();
 
       if (user) {
-        setUser({
-          id: user.id,
-          email: user.email,
-        });
         router.replace("/dashboard");
       }
 
@@ -52,10 +46,6 @@ export default function Home() {
     }
 
     if (data.user && data.session) {
-      setUser({
-        id: data.user.id,
-        email: data.user.email,
-      });
       router.replace("/dashboard");
     }
 
@@ -77,10 +67,6 @@ export default function Home() {
     }
 
     if (data.user) {
-      setUser({
-        id: data.user.id,
-        email: data.user.email,
-      });
       router.replace("/dashboard");
     }
 
@@ -89,8 +75,8 @@ export default function Home() {
 
   if (loading) {
     return (
-      <main className="retro-scanlines retro-grid-bg min-h-screen bg-[var(--bg)] px-4 py-6 text-[var(--text)]">
-        <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-md items-center justify-center">
+      <main className="retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-3 py-4 text-[var(--text)] sm:px-4 sm:py-6">
+        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-[28rem] items-center justify-center sm:min-h-[calc(100vh-3rem)]">
           <div className="retro-panel w-full rounded-[28px] px-6 py-5 text-center">
             불러오는 중...
           </div>
@@ -100,8 +86,8 @@ export default function Home() {
   }
 
   return (
-    <main className="retro-scanlines retro-grid-bg min-h-screen bg-[var(--bg)] px-4 py-6 text-[var(--text)]">
-      <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-md items-center justify-center relative">
+    <main className="retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-3 py-4 text-[var(--text)] sm:px-4 sm:py-6">
+      <div className="relative mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-[28rem] items-center justify-center sm:min-h-[calc(100vh-3rem)]">
         <LoginCard
           email={email}
           password={password}

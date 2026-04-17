@@ -14,31 +14,33 @@ export default function DashboardHeader({
   onLogout,
 }: Props) {
   return (
-    <div className="retro-panel rounded-[28px] px-4 py-5 text-center md:px-6 md:text-left relative">
-      <div className="flex flex-col items-center gap-4 md:flex-row md:items-center md:justify-between">
+    <div className="retro-panel relative rounded-[24px] px-4 py-5 text-left sm:rounded-[28px] sm:px-5 sm:py-6 md:px-6">
+      <div className="flex flex-col items-start gap-4 sm:gap-5 md:flex-row md:items-center md:justify-between">
         <div className="w-full">
-          <p className="retro-title text-[10px] text-[#6effa6]/60">DRIVER REPORT</p>
-          <h1 className="retro-title mt-3 text-lg leading-relaxed text-[#b8ffd2] md:text-xl">
+          <p className="retro-title theme-kicker text-[10px]">DRIVER REPORT</p>
+          <h1 className="retro-title theme-heading mt-3 text-base leading-relaxed sm:text-lg md:text-xl">
             DASHBOARD
           </h1>
-          <p className="mt-3 text-sm text-[#7dffb1]/72">
-            {driverName ? `${driverName} 기사님` : null}
+          <p className="theme-copy mt-3 text-sm">
+            {driverName ? `${driverName} 기사님` : "업무 현황"}
           </p>
-          
+
+          <div className="theme-kicker mt-2 flex flex-col items-start gap-1 text-[11px] sm:text-xs md:flex-row md:items-center md:gap-3">
+            <span>{periodLabel}</span>
+            {email ? <span>{email}</span> : null}
+          </div>
         </div>
 
-        <div className="flex w-full flex-row gap-2 md:w-auto justify-center items-stretch">
+        <div className="grid w-full gap-3 sm:grid-cols-2 md:w-auto">
           <button
             onClick={onOpenSettings}
-            className="retro-button text-base font-semibold h-full"
-            style={{ width: 'fit-content', minWidth: 'fit-content', padding: '8px 18px', lineHeight: 1.2 }}
+            className="retro-button ui-action-fit min-h-[46px] px-4 py-2.5 text-sm font-semibold md:min-w-[120px]"
           >
             기본설정
           </button>
           <button
             onClick={onLogout}
-            className="retro-button-solid text-base font-semibold h-full"
-            style={{ width: 'fit-content', minWidth: 'fit-content', padding: '8px 18px', lineHeight: 1.2 }}
+            className="retro-button-solid ui-action-fit min-h-[46px] px-4 py-2.5 text-sm font-semibold md:min-w-[120px]"
           >
             로그아웃
           </button>

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { formatMoney, getKoreanDayLabel, toDateString } from "../../lib/format";
+import { formatMoney, toDateString } from "../../lib/format";
 import {
   eachDateBetween,
   getSettlementRange,
@@ -22,14 +22,8 @@ import ReportModal from "../../components/dashboard/ReportModal";
 import ReportList from "../../components/dashboard/ReportList";
 import TodayQuickCard from "../../components/dashboard/TodayQuickCard";
 
-export default function DashboardPage() {
-  const router = useRouter();
-  const now = new Date();
-  const todayString = toDateString(now);
-  const [showReportList, setShowReportList] = useState(false);
-  const [showStatCards, setShowStatCards] = useState(false);
-
-  const emptyReportForm = (dateKey: string): ReportForm => ({
+function createEmptyReportForm(dateKey: string): ReportForm {
+  return {
     report_date: dateKey,
     delivered_count: "",
     returned_count: "",
@@ -37,7 +31,53 @@ export default function DashboardPage() {
     memo: "",
     is_day_off: false,
     unit_price_override: "",
-  });
+  };
+}
+
+function getReportFormForDate(rows: DailyReportRow[], dateKey: string): ReportForm {
+  const report = rows.find((item) => item.report_date === dateKey);
+
+  if (!report) {
+    return createEmptyReportForm(dateKey);
+  }
+
+  return {
+    report_date: report.report_date,
+    delivered_count: String(report.delivered_count ?? ""),
+    returned_count: String(report.returned_count ?? ""),
+    canceled_count: String(report.canceled_count ?? ""),
+    memo: report.memo ?? "",
+    is_day_off: Boolean(report.is_day_off),
+    unit_price_override: report.unit_price_override
+      ? String(report.unit_price_override)
+      : "",
+  };
+}
+
+async function loadDriverSettings(userId: string) {
+  return supabase.from("driver_settings").select("*").eq("user_id", userId).single();
+}
+
+async function loadReportsForRange(
+  userId: string,
+  startDate: string,
+  endDate: string
+) {
+  return supabase
+    .from("daily_reports")
+    .select("*")
+    .eq("user_id", userId)
+    .gte("report_date", startDate)
+    .lte("report_date", endDate)
+    .order("report_date", { ascending: true });
+}
+
+export default function DashboardPage() {
+  const router = useRouter();
+  const now = new Date();
+  const todayString = toDateString(now);
+  const [showReportList, setShowReportList] = useState(false);
+  const [showStatCards, setShowStatCards] = useState(false);
 
   const [user, setUser] = useState<UserType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,10 +103,9 @@ export default function DashboardPage() {
   const [reports, setReports] = useState<DailyReportRow[]>([]);
   const [selectedDate, setSelectedDate] = useState(todayString);
   const [reportForm, setReportForm] = useState<ReportForm>(
-    emptyReportForm(todayString)
+    createEmptyReportForm(todayString)
   );
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [isBiweeklyPickMode, setIsBiweeklyPickMode] = useState(false);
 
   const defaultUnitPrice = Number(settings.unit_price || 0);
 
@@ -89,6 +128,9 @@ export default function DashboardPage() {
     reports.forEach((report) => map.set(report.report_date, report));
     return map;
   }, [reports]);
+
+  const settlementStartKey = toDateString(settlementRange.start);
+  const settlementEndKey = toDateString(settlementRange.end);
 
   useEffect(() => {
     const init = async () => {
@@ -114,77 +156,84 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (user) {
-      fetchSettings();
+      const loadSettings = async () => {
+        const { data, error } = await loadDriverSettings(user.id);
+
+        if (error) {
+          if (error.code !== "PGRST116") {
+            alert("기본설정 불러오기 실패: " + error.message);
+          }
+          return;
+        }
+
+        setSettings({
+          driver_name: data.driver_name ?? "",
+          unit_price: data.unit_price ? String(data.unit_price) : "",
+          settlement_start_day: data.settlement_start_day
+            ? String(data.settlement_start_day)
+            : "26",
+          settlement_start_month_offset:
+            data.settlement_start_month_offset !== null &&
+            data.settlement_start_month_offset !== undefined
+              ? String(data.settlement_start_month_offset)
+              : "-1",
+          settlement_end_day: data.settlement_end_day
+            ? String(data.settlement_end_day)
+            : "25",
+          settlement_end_month_offset:
+            data.settlement_end_month_offset !== null &&
+            data.settlement_end_month_offset !== undefined
+              ? String(data.settlement_end_month_offset)
+              : "0",
+          off_days: Array.isArray(data.off_days) ? data.off_days : [],
+          biweekly_off_days: Array.isArray(data.biweekly_off_days)
+            ? data.biweekly_off_days
+            : [],
+          biweekly_anchor_date: data.biweekly_anchor_date ?? "",
+        });
+      };
+
+      void loadSettings();
     }
   }, [user]);
 
   useEffect(() => {
     if (user) {
-      fetchReports();
+      const loadReports = async () => {
+        setReportsLoading(true);
+
+        const { data, error } = await loadReportsForRange(
+          user.id,
+          settlementStartKey,
+          settlementEndKey
+        );
+
+        setReportsLoading(false);
+
+        if (error) {
+          alert("리포트 불러오기 실패: " + error.message);
+          return;
+        }
+
+        const rows = (data as DailyReportRow[]) ?? [];
+        setReports(rows);
+        setReportForm(getReportFormForDate(rows, todayString));
+      };
+
+      void loadReports();
     }
-  }, [user, settlementRange.start.getTime(), settlementRange.end.getTime()]);
+  }, [user, settlementEndKey, settlementStartKey, todayString]);
 
-  const fetchSettings = async () => {
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from("driver_settings")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
-
-    if (error) {
-      if (error.code !== "PGRST116") {
-        alert("기본설정 불러오기 실패: " + error.message);
-      }
-      return;
-    }
-
-    setSettings({
-      driver_name: data.driver_name ?? "",
-      unit_price: data.unit_price ? String(data.unit_price) : "",
-      settlement_start_day: data.settlement_start_day
-        ? String(data.settlement_start_day)
-        : "26",
-      settlement_start_month_offset:
-        data.settlement_start_month_offset !== null &&
-        data.settlement_start_month_offset !== undefined
-          ? String(data.settlement_start_month_offset)
-          : "-1",
-      settlement_end_day: data.settlement_end_day
-        ? String(data.settlement_end_day)
-        : "25",
-      settlement_end_month_offset:
-        data.settlement_end_month_offset !== null &&
-        data.settlement_end_month_offset !== undefined
-          ? String(data.settlement_end_month_offset)
-          : "0",
-      off_days: Array.isArray(data.off_days) ? data.off_days : [],
-      biweekly_off_days: Array.isArray(data.biweekly_off_days)
-        ? data.biweekly_off_days
-        : [],
-      biweekly_anchor_date: data.biweekly_anchor_date ?? "",
-    });
-
-    const storedPickMode = localStorage.getItem("biweeklyPickMode");
-    if (storedPickMode) {
-      setIsBiweeklyPickMode(JSON.parse(storedPickMode));
-      localStorage.removeItem("biweeklyPickMode");
-    }
-  };
-
-  const fetchReports = async () => {
+  const refreshReports = async () => {
     if (!user) return;
 
     setReportsLoading(true);
 
-    const { data, error } = await supabase
-      .from("daily_reports")
-      .select("*")
-      .eq("user_id", user.id)
-      .gte("report_date", toDateString(settlementRange.start))
-      .lte("report_date", toDateString(settlementRange.end))
-      .order("report_date", { ascending: true });
+    const { data, error } = await loadReportsForRange(
+      user.id,
+      settlementStartKey,
+      settlementEndKey
+    );
 
     setReportsLoading(false);
 
@@ -195,24 +244,7 @@ export default function DashboardPage() {
 
     const rows = (data as DailyReportRow[]) ?? [];
     setReports(rows);
-
-    const todayReport = rows.find((item) => item.report_date === todayString);
-
-    if (todayReport) {
-      setReportForm({
-        report_date: todayReport.report_date,
-        delivered_count: String(todayReport.delivered_count ?? ""),
-        returned_count: String(todayReport.returned_count ?? ""),
-        canceled_count: String(todayReport.canceled_count ?? ""),
-        memo: todayReport.memo ?? "",
-        is_day_off: Boolean(todayReport.is_day_off),
-        unit_price_override: todayReport.unit_price_override
-          ? String(todayReport.unit_price_override)
-          : "",
-      });
-    } else {
-      setReportForm(emptyReportForm(todayString));
-    }
+    setReportForm(getReportFormForDate(rows, todayString));
   };
 
   const handleReportChange = (
@@ -227,50 +259,6 @@ export default function DashboardPage() {
   };
 
   const openReportModal = (dateKey: string) => {
-    if (isBiweeklyPickMode) {
-      const pickedDate = new Date(dateKey);
-      const pickedDay = pickedDate.getDay();
-
-      setSettings((prev) => ({
-        ...prev,
-        biweekly_anchor_date: dateKey,
-        biweekly_off_days: [pickedDay],
-      }));
-
-      setIsBiweeklyPickMode(false);
-
-      supabase
-        .from("driver_settings")
-        .upsert(
-          {
-            user_id: user?.id,
-            driver_name: settings.driver_name,
-            unit_price: settings.unit_price ? Number(settings.unit_price) : null,
-            settlement_start_day: Number(settings.settlement_start_day || 1),
-            settlement_start_month_offset: Number(
-              settings.settlement_start_month_offset || 0
-            ),
-            settlement_end_day: Number(settings.settlement_end_day || 31),
-            settlement_end_month_offset: Number(
-              settings.settlement_end_month_offset || 0
-            ),
-            off_days: settings.off_days,
-            biweekly_off_days: [pickedDay],
-            biweekly_anchor_date: dateKey,
-          },
-          { onConflict: "user_id" }
-        )
-        .then(() => {
-          alert(
-            `격주휴무 기준일이 ${dateKey} (${getKoreanDayLabel(
-              pickedDay
-            )}요일)로 설정되었습니다.`
-          );
-        });
-
-      return;
-    }
-
     setSelectedDate(dateKey);
 
     const existing = reportsMap.get(dateKey);
@@ -288,7 +276,7 @@ export default function DashboardPage() {
           : "",
       });
     } else {
-      setReportForm(emptyReportForm(dateKey));
+      setReportForm(createEmptyReportForm(dateKey));
     }
 
     setIsReportModalOpen(true);
@@ -297,23 +285,7 @@ export default function DashboardPage() {
   const closeReportModal = () => {
     setIsReportModalOpen(false);
 
-    const todayReport = reportsMap.get(todayString);
-
-    if (todayReport) {
-      setReportForm({
-        report_date: todayReport.report_date,
-        delivered_count: String(todayReport.delivered_count ?? ""),
-        returned_count: String(todayReport.returned_count ?? ""),
-        canceled_count: String(todayReport.canceled_count ?? ""),
-        memo: todayReport.memo ?? "",
-        is_day_off: Boolean(todayReport.is_day_off),
-        unit_price_override: todayReport.unit_price_override
-          ? String(todayReport.unit_price_override)
-          : "",
-      });
-    } else {
-      setReportForm(emptyReportForm(todayString));
-    }
+    setReportForm(getReportFormForDate(reports, todayString));
   };
 
   const saveReportInternal = async (form: ReportForm) => {
@@ -387,7 +359,7 @@ export default function DashboardPage() {
     if (!ok) return;
 
     alert("오늘 리포트 저장 완료");
-    await fetchReports();
+    await refreshReports();
   };
 
   const saveModalReport = async () => {
@@ -399,7 +371,7 @@ export default function DashboardPage() {
 
     alert("저장 완료");
     setIsReportModalOpen(false);
-    await fetchReports();
+    await refreshReports();
   };
 
   const signOut = async () => {
@@ -489,8 +461,8 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <main className="retro-scanlines retro-grid-bg min-h-screen bg-[var(--bg)] px-4 py-6 text-[var(--text)]">
-        <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-md items-center justify-center">
+      <main className="retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-3 py-4 text-[var(--text)] sm:px-4 sm:py-6">
+        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-[28rem] items-center justify-center sm:min-h-[calc(100vh-3rem)]">
           <div className="retro-panel w-full rounded-[28px] px-6 py-5 text-center">
             불러오는 중...
           </div>
@@ -500,8 +472,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="retro-scanlines retro-grid-bg min-h-screen bg-[var(--bg)] px-4 py-6 text-[var(--text)]">
-      <div className="mx-auto flex w-full max-w-md flex-col gap-4 md:max-w-2xl lg:max-w-4xl">
+    <main className="retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-3 py-4 text-[var(--text)] sm:px-4 sm:py-6">
+      <div className="mx-auto flex w-full max-w-[34rem] flex-col gap-3 sm:gap-4 sm:max-w-2xl lg:max-w-4xl">
         <DashboardHeader
           driverName={settings.driver_name}
           email={user?.email}
@@ -512,24 +484,28 @@ export default function DashboardPage() {
           onLogout={signOut}
         />
 
-        <div className="retro-panel flex items-center justify-between gap-3 rounded-[28px] px-4 py-4">
-          <button
-            onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, -1))}
-            className="retro-button px-4 py-2.5 text-sm font-semibold"
-          >
-            이전달
-          </button>
+        <div className="retro-panel rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="retro-title theme-heading text-center text-[11px] leading-relaxed sm:flex-1 sm:text-left sm:text-xs">
+              {toDateString(settlementRange.start)} ~ {toDateString(settlementRange.end)}
+            </h2>
 
-          <h2 className="retro-title text-center text-[11px] leading-relaxed text-[#b8ffd2] sm:text-xs">
-            {toDateString(settlementRange.start)} ~ {toDateString(settlementRange.end)}
-          </h2>
+            <div className="grid grid-cols-2 gap-3 sm:flex sm:w-auto sm:gap-3">
+              <button
+                onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, -1))}
+                className="retro-button ui-action-fit min-h-[44px] px-4 py-2.5 text-sm font-semibold"
+              >
+                이전달
+              </button>
 
-          <button
-            onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, 1))}
-            className="retro-button px-4 py-2.5 text-sm font-semibold"
-          >
-            다음달
-          </button>
+              <button
+                onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, 1))}
+                className="retro-button ui-action-fit min-h-[44px] px-4 py-2.5 text-sm font-semibold"
+              >
+                다음달
+              </button>
+            </div>
+          </div>
         </div>
 
         <TodayQuickCard
@@ -541,57 +517,56 @@ export default function DashboardPage() {
           onSave={saveTodayQuick}
           saving={saving}
         />
-        <div className="retro-panel rounded-[28px] px-4 py-4">
-  <button
-    onClick={() => setShowStatCards((prev) => !prev)}
-    className="retro-button-solid w-full py-3 text-sm font-semibold"
-  >
-    {showStatCards ? "통계 닫기" : "통계 보기"}
-  </button>
-</div>
+        <div className="retro-panel rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
+          <button
+            onClick={() => setShowStatCards((prev) => !prev)}
+            className="retro-button-solid ui-action-fit px-5 py-3 text-sm font-semibold"
+          >
+            {showStatCards ? "통계 닫기" : "통계 보기"}
+          </button>
+        </div>
 
         {showStatCards ? (
-  <StatCards
-    avgQty={summary.avgQty}
-    avgSales={formatMoney(summary.avgSales)}
-    totalSales={formatMoney(summary.totalSales)}
-    expectedSales={formatMoney(summary.expectedSales)}
-    adjustedPeriodDays={summary.adjustedPeriodDays}
-    totalPeriodDays={summary.totalPeriodDays}
-    regularOffDays={summary.regularOffDays}
-    workedDays={summary.workedDays}
-    additionalOffDays={summary.additionalOffDays}
-    remainingWorkDays={summary.remainingWorkDays}
-  />
-) : null}
+          <StatCards
+            avgQty={summary.avgQty}
+            avgSales={formatMoney(summary.avgSales)}
+            totalSales={formatMoney(summary.totalSales)}
+            expectedSales={formatMoney(summary.expectedSales)}
+            adjustedPeriodDays={summary.adjustedPeriodDays}
+            totalPeriodDays={summary.totalPeriodDays}
+            regularOffDays={summary.regularOffDays}
+            workedDays={summary.workedDays}
+            additionalOffDays={summary.additionalOffDays}
+            remainingWorkDays={summary.remainingWorkDays}
+          />
+        ) : null}
 
-        <div className="retro-panel rounded-[28px] px-4 py-4">
-  <button
-    onClick={() => setShowReportList((prev) => !prev)}
-    className="retro-button-solid w-full py-3 text-sm font-semibold"
-  >
-    {showReportList ? "리포트 리스트 닫기" : "리포트 리스트 보기"}
-  </button>
-</div>
+        <div className="retro-panel rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
+          <button
+            onClick={() => setShowReportList((prev) => !prev)}
+            className="retro-button-solid ui-action-fit px-5 py-3 text-sm font-semibold"
+          >
+            {showReportList ? "리포트 리스트 닫기" : "리포트 리스트 보기"}
+          </button>
+        </div>
 
         {showReportList ? (
-  reportsLoading ? (
-    <div className="retro-panel rounded-[28px] p-10 text-center">
-      리스트 불러오는 중...
-    </div>
-  ) : (
-    <ReportList
-      dates={periodDates}
-      reportsMap={reportsMap}
-      weeklyOffDays={settings.off_days}
-      biweeklyOffDays={settings.biweekly_off_days}
-      biweeklyAnchorDate={settings.biweekly_anchor_date}
-      onDateClick={openReportModal}
-      todayString={todayString}
-      biweeklyPickMode={isBiweeklyPickMode}
-    />
-  )
-) : null}
+          reportsLoading ? (
+            <div className="retro-panel rounded-[24px] p-8 text-center sm:rounded-[28px] sm:p-10">
+              리스트 불러오는 중...
+            </div>
+          ) : (
+            <ReportList
+              dates={periodDates}
+              reportsMap={reportsMap}
+              weeklyOffDays={settings.off_days}
+              biweeklyOffDays={settings.biweekly_off_days}
+              biweeklyAnchorDate={settings.biweekly_anchor_date}
+              onDateClick={openReportModal}
+              todayString={todayString}
+            />
+          )
+        ) : null}
       </div>
 
       <ReportModal

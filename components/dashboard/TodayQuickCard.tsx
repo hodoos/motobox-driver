@@ -22,18 +22,18 @@ export default function TodayQuickCard({
   saving,
 }: Props) {
   return (
-    <div className="retro-panel rounded-[28px] p-4 md:p-5">
+    <div className="retro-panel rounded-[24px] p-4 sm:rounded-[28px] sm:p-5">
       <div className="mb-5 text-center">
-        <p className="retro-title text-[10px] text-[#6effa6]/60">TODAY REPORT</p>
-        <h2 className="retro-title mt-3 text-lg leading-relaxed text-[#b8ffd2] md:text-xl">
+        <p className="retro-title theme-kicker text-[10px]">TODAY REPORT</p>
+        <h2 className="retro-title theme-heading mt-3 text-base leading-relaxed sm:text-lg md:text-xl">
           QUICK INPUT
         </h2>
-        <p className="mt-2 text-sm text-[#7dffb1]/65">{todayString}</p>
+        <p className="theme-copy mt-2 text-sm">{todayString}</p>
       </div>
 
-      <div className="space-y-4">
-        <div className="rounded-2xl border border-[rgba(0,255,128,0.18)] bg-[rgba(0,255,128,0.05)] px-3 py-3">
-          <label className="flex items-center justify-center gap-2 font-semibold text-[#a7ffca]">
+      <div className="space-y-5">
+        <div className="theme-note-box rounded-2xl px-4 py-3">
+          <label className="theme-label flex items-center justify-start gap-2 font-semibold">
             <input
               id="today-dayoff"
               type="checkbox"
@@ -53,7 +53,7 @@ export default function TodayQuickCard({
         </div>
 
         <div className="space-y-2">
-          <label className="block text-center text-sm font-semibold text-[#9fffc4]">
+          <label className="theme-label block text-left text-sm font-semibold">
             단가
           </label>
           <input
@@ -63,13 +63,13 @@ export default function TodayQuickCard({
             onChange={handleReportChange}
             disabled={reportForm.is_day_off}
             placeholder={defaultUnitPrice ? `${defaultUnitPrice}원` : "단가"}
-            className="no-spinner bg-[#09120d] px-4 py-3 text-center disabled:opacity-60"
+            className="no-spinner px-4 py-3 text-left disabled:opacity-60"
           />
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="space-y-2">
-            <label className="block text-center text-sm font-semibold text-[#9fffc4]">
+            <label className="theme-label block text-left text-sm font-semibold">
               배송
             </label>
             <input
@@ -79,12 +79,12 @@ export default function TodayQuickCard({
               onChange={handleReportChange}
               disabled={reportForm.is_day_off}
               placeholder="배송"
-              className="no-spinner bg-[#09120d] px-3 py-3 text-center disabled:opacity-60"
+              className="no-spinner px-4 py-3 text-left disabled:opacity-60"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="block text-center text-sm font-semibold text-[#9fffc4]">
+            <label className="theme-label block text-left text-sm font-semibold">
               반품
             </label>
             <input
@@ -94,12 +94,12 @@ export default function TodayQuickCard({
               onChange={handleReportChange}
               disabled={reportForm.is_day_off}
               placeholder="반품"
-              className="no-spinner bg-[#09120d] px-3 py-3 text-center disabled:opacity-60"
+              className="no-spinner px-4 py-3 text-left disabled:opacity-60"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="block text-center text-sm font-semibold text-[#9fffc4]">
+            <label className="theme-label block text-left text-sm font-semibold">
               취소
             </label>
             <input
@@ -109,28 +109,27 @@ export default function TodayQuickCard({
               onChange={handleReportChange}
               disabled={reportForm.is_day_off}
               placeholder="취소"
-              className="no-spinner bg-[#09120d] px-3 py-3 text-center disabled:opacity-60"
+              className="no-spinner px-4 py-3 text-left disabled:opacity-60"
             />
           </div>
         </div>
 
         <div className="space-y-2">
-          <label className="block text-center text-sm font-semibold text-[#9fffc4]">
+          <label className="theme-label block text-left text-sm font-semibold">
             특이사항
           </label>
           <textarea
             name="memo"
             value={reportForm.memo}
             onChange={handleReportChange}
-            className="min-h-[88px] bg-[#09120d] px-4 py-3"
+            className="min-h-[112px] px-4 py-3"
           />
         </div>
 
         <button
           onClick={onSave}
           disabled={saving}
-          className="retro-button-solid px-5 py-3.5 text-base font-semibold disabled:opacity-60"
-          style={{ width: 'fit-content', minWidth: 'fit-content', alignSelf: 'center' }}
+          className="retro-button-solid ui-action-fit min-h-[48px] px-5 py-3.5 text-base font-semibold disabled:opacity-60"
         >
           {saving ? "저장 중..." : "오늘 리포트 저장"}
         </button>

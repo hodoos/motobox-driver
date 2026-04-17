@@ -6,6 +6,10 @@ import { supabase } from "../../lib/supabase";
 import { DriverSettings, UserType } from "../../types";
 import SettingsForm from "../../components/settings/SettingsForm";
 
+async function loadDriverSettings(userId: string) {
+  return supabase.from("driver_settings").select("*").eq("user_id", userId).single();
+}
+
 export default function SettingsPage() {
   const router = useRouter();
 
@@ -13,7 +17,6 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [isBiweeklyPickMode, setIsBiweeklyPickMode] = useState(false);
 
   const [settings, setSettings] = useState<DriverSettings>({
     driver_name: "",
@@ -51,56 +54,50 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (user) {
-      fetchSettings();
+      const loadSettings = async () => {
+        setSettingsLoading(true);
+
+        const { data, error } = await loadDriverSettings(user.id);
+
+        setSettingsLoading(false);
+
+        if (error) {
+          if (error.code !== "PGRST116") {
+            alert("기본설정 불러오기 실패: " + error.message);
+          }
+          return;
+        }
+
+        setSettings({
+          driver_name: data.driver_name ?? "",
+          unit_price: data.unit_price ? String(data.unit_price) : "",
+          settlement_start_day: data.settlement_start_day
+            ? String(data.settlement_start_day)
+            : "26",
+          settlement_start_month_offset:
+            data.settlement_start_month_offset !== null &&
+            data.settlement_start_month_offset !== undefined
+              ? String(data.settlement_start_month_offset)
+              : "-1",
+          settlement_end_day: data.settlement_end_day
+            ? String(data.settlement_end_day)
+            : "25",
+          settlement_end_month_offset:
+            data.settlement_end_month_offset !== null &&
+            data.settlement_end_month_offset !== undefined
+              ? String(data.settlement_end_month_offset)
+              : "0",
+          off_days: Array.isArray(data.off_days) ? data.off_days : [],
+          biweekly_off_days: Array.isArray(data.biweekly_off_days)
+            ? data.biweekly_off_days
+            : [],
+          biweekly_anchor_date: data.biweekly_anchor_date ?? "",
+        });
+      };
+
+      void loadSettings();
     }
   }, [user]);
-
-  const fetchSettings = async () => {
-    if (!user) return;
-
-    setSettingsLoading(true);
-
-    const { data, error } = await supabase
-      .from("driver_settings")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
-
-    setSettingsLoading(false);
-
-    if (error) {
-      if (error.code !== "PGRST116") {
-        alert("기본설정 불러오기 실패: " + error.message);
-      }
-      return;
-    }
-
-    setSettings({
-      driver_name: data.driver_name ?? "",
-      unit_price: data.unit_price ? String(data.unit_price) : "",
-      settlement_start_day: data.settlement_start_day
-        ? String(data.settlement_start_day)
-        : "26",
-      settlement_start_month_offset:
-        data.settlement_start_month_offset !== null &&
-        data.settlement_start_month_offset !== undefined
-          ? String(data.settlement_start_month_offset)
-          : "-1",
-      settlement_end_day: data.settlement_end_day
-        ? String(data.settlement_end_day)
-        : "25",
-      settlement_end_month_offset:
-        data.settlement_end_month_offset !== null &&
-        data.settlement_end_month_offset !== undefined
-          ? String(data.settlement_end_month_offset)
-          : "0",
-      off_days: Array.isArray(data.off_days) ? data.off_days : [],
-      biweekly_off_days: Array.isArray(data.biweekly_off_days)
-        ? data.biweekly_off_days
-        : [],
-      biweekly_anchor_date: data.biweekly_anchor_date ?? "",
-    });
-  };
 
   const handleSettingsChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -146,19 +143,14 @@ export default function SettingsPage() {
       return;
     }
 
-    localStorage.setItem(
-      "biweeklyPickMode",
-      JSON.stringify(isBiweeklyPickMode)
-    );
-
     alert("기본설정 저장 완료");
     router.push("/dashboard");
   };
 
   if (loading || settingsLoading) {
     return (
-      <main className="retro-scanlines retro-grid-bg min-h-screen bg-[var(--bg)] px-4 py-6 text-[var(--text)]">
-        <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-md items-center justify-center">
+      <main className="retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-3 py-4 text-[var(--text)] sm:px-4 sm:py-6">
+        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-[28rem] items-center justify-center sm:min-h-[calc(100vh-3rem)]">
           <div className="retro-panel w-full rounded-[28px] px-6 py-5 text-center">
             불러오는 중...
           </div>
@@ -168,23 +160,23 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="retro-scanlines retro-grid-bg min-h-screen bg-[var(--bg)] px-4 py-6 text-[var(--text)]">
-      <div className="mx-auto flex w-full max-w-md flex-col gap-4 md:max-w-2xl">
-        <div className="retro-panel rounded-[28px] px-5 py-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="retro-title text-[10px] text-[#6effa6]/60">SETTINGS</p>
-              <h1 className="retro-title mt-3 text-lg leading-relaxed text-[#b8ffd2] md:text-xl">
+    <main className="retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-3 py-4 text-[var(--text)] sm:px-4 sm:py-6">
+      <div className="mx-auto flex w-full max-w-[34rem] flex-col gap-4 sm:gap-5 sm:max-w-2xl">
+        <div className="retro-panel rounded-[24px] px-4 py-4 sm:rounded-[28px] sm:px-6 sm:py-5">
+          <div className="flex flex-col items-start gap-4 text-left sm:items-center sm:text-center">
+            <div className="max-w-lg">
+              <p className="retro-title theme-kicker text-[10px]">SETTINGS</p>
+              <h1 className="retro-title theme-heading mt-3 text-base leading-relaxed sm:text-lg md:text-xl">
                 CONFIG PANEL
               </h1>
-              <p className="mt-3 text-sm text-[#7dffb1]/62">
+              <p className="theme-copy mt-3 text-sm">
                 정산기간, 단가, 휴무 기준을 설정합니다.
               </p>
             </div>
 
             <button
               onClick={() => router.push("/dashboard")}
-              className="retro-button px-4 py-2.5 text-sm font-semibold"
+              className="retro-button ui-action-fit min-h-[48px] px-5 py-2.5 text-sm font-semibold"
             >
               돌아가기
             </button>
@@ -197,8 +189,6 @@ export default function SettingsPage() {
           handleSettingsChange={handleSettingsChange}
           saveSettings={saveSettings}
           saving={saving}
-          isBiweeklyPickMode={isBiweeklyPickMode}
-          setIsBiweeklyPickMode={setIsBiweeklyPickMode}
         />
       </div>
     </main>

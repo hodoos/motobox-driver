@@ -8,12 +8,12 @@ function Card({
   sub?: string;
 }) {
   return (
-    <div className="retro-card rounded-[24px] p-4">
-      <p className="retro-title text-[10px] leading-relaxed text-[#6effa6]/58">
+    <div className="retro-card rounded-[20px] p-4 sm:rounded-[24px] sm:p-5">
+      <p className="retro-title theme-kicker text-[10px] leading-relaxed">
         {label}
       </p>
-      <p className="mt-4 text-2xl font-bold tracking-tight text-[#b8ffd2]">{value}</p>
-      {sub ? <p className="mt-2 text-xs text-[#7dffb1]/55">{sub}</p> : null}
+      <p className="theme-heading mt-4 text-xl font-bold tracking-tight sm:text-2xl">{value}</p>
+      {sub ? <p className="theme-copy mt-2 text-xs">{sub}</p> : null}
     </div>
   );
 }
@@ -34,14 +34,14 @@ type Props = {
 export default function StatCards(props: Props) {
   return (
     <>
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Card label="평균 수량" value={`${props.avgQty}건`} />
         <Card label="평균 매출" value={props.avgSales} />
         <Card label="현재 총 수익" value={props.totalSales} />
         <Card label="예상 매출" value={props.expectedSales} />
       </div>
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Card
           label="정산기간 일 수"
           value={`${props.adjustedPeriodDays}일`}

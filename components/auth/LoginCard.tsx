@@ -16,63 +16,63 @@ export default function LoginCard({
   onOpenSignup,
 }: Props) {
   return (
-    <div className="w-full max-w-[380px] mx-auto">
-      <div className="relative retro-panel overflow-hidden rounded-[30px] px-7 py-8 min-h-[520px]">
-        <div className="absolute right-5 top-5 h-28 w-28 rounded-full bg-[#6effa6]/20 blur-3xl" />
-        <div className="absolute left-6 bottom-8 h-24 w-24 rounded-full bg-[#7dffb1]/15 blur-3xl" />
+    <div className="mx-auto w-full max-w-[28rem]">
+      <div className="relative retro-panel overflow-hidden rounded-[28px] px-5 py-7 sm:rounded-[32px] sm:px-7 sm:py-8 sm:min-h-[520px]">
+        <div className="absolute right-4 top-4 h-32 w-32 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute bottom-10 left-8 h-24 w-24 rounded-full bg-white/6 blur-3xl" />
         <div className="relative z-10 text-center">
-          <p className="retro-title text-[30px] text-[#6effa6]/60">
+          <p className="retro-title theme-kicker text-[20px] sm:text-[26px] md:text-[28px]">
             DRIVER REPORT
           </p>
 
-          <h1 className="retro-title mt-4 text-[30px] text-[#b8ffd2]">
+          <h1 className="retro-title theme-heading mt-4 text-[26px] sm:text-[30px] md:text-[32px]">
             LOGIN
           </h1>
 
-          <p className="mx-auto mt-3 max-w-[280px] text-[15px] leading-relaxed text-[#7dffb1]/62">
+          <p className="theme-copy mx-auto mt-3 max-w-[240px] text-sm leading-relaxed sm:max-w-[280px] sm:text-[15px]">
             택배 종사자 매출 기록 시스템
           </p>
         </div>
 
-        <div className="mt-8 flex flex-col items-center">
-          <div className="w-full max-w-[260px]">
+        <div className="mt-8 flex flex-col items-center gap-5 sm:mt-10 sm:gap-6">
+          <div className="w-full">
             <div>
               <input
                 type="email"
                 placeholder="이메일"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="block bg-[#09120d] h-20 mx-auto w-3/4 rounded-2xl border border-[#2a3a2f] px-6 py-4 text-center text-[20px] outline-none transition focus:border-[#6effa6]/70 focus:ring-2 focus:ring-[#6effa6]/20"
+                className="block h-14 w-full px-5 py-4 text-center text-base sm:h-16 sm:px-6 sm:text-lg"
               />
             </div>
           </div>
 
-          <div className="w-full max-w-[260px]" style={{ marginTop: "1.5rem" }}>
+          <div className="w-full">
             <div>
               <input
                 type="password"
                 placeholder="비밀번호"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="block bg-[#09120d] h-20 mx-auto w-3/4 rounded-2xl border border-[#2a3a2f] px-6 py-4 text-center text-[20px] outline-none transition focus:border-[#6effa6]/70 focus:ring-2 focus:ring-[#6effa6]/20"
+                className="block h-14 w-full px-5 py-4 text-center text-base sm:h-16 sm:px-6 sm:text-lg"
               />
             </div>
           </div>
 
-          <div className="w-full max-w-[260px]" style={{ marginTop: "4rem" }}>
-            <div>
+          <div className="mt-4 w-full space-y-4 sm:mt-6">
+            <div className="w-full">
               <button
                 onClick={onLogin}
-                className="block retro-button-solid mx-auto w-1/2 h-12 rounded-2xl text-[22px] font-semibold"
+                className="retro-button-solid ui-action-fit h-12 px-5 text-base font-semibold"
               >
                 로그인
               </button>
             </div>
 
-            <div style={{ marginTop: "2.5rem" }}>
+            <div className="w-full">
               <button
                 onClick={onOpenSignup}
-                className="block retro-button mx-auto w-1/2 h-12 rounded-2xl text-[22px] font-semibold"
+                className="retro-button ui-action-fit h-12 px-5 text-base font-semibold"
               >
                 회원가입
               </button>
@@ -81,7 +81,7 @@ export default function LoginCard({
         </div>
       </div>
 
-      <p className="mt-4 text-center text-[10px] text-[#7dffb1]/55">
+      <p className="theme-kicker mt-4 text-center text-[10px] sm:text-[11px]">
         support : motoboxx@naver.com
       </p>
     </div>

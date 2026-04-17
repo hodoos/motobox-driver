@@ -3,15 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@fontsource-variable/hubot-sans": "^5.2.8",
+    "@fontsource-variable/mona-sans": "^5.2.8",
     "@supabase/supabase-js": "^2.103.1",
     "next": "16.2.3",
     "react": "19.2.4",
+    "react-calendar": "^6.0.1",
     "react-dom": "19.2.4"
   },
   "devDependencies": {

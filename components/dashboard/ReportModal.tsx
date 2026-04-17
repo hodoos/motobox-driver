@@ -28,26 +28,26 @@ export default function ReportModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm md:items-center md:p-4">
-      <div className="retro-panel w-full max-w-md rounded-t-[28px] p-5 md:rounded-[28px]">
-        <div className="mb-4 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:p-4">
+      <div className="retro-panel max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-[28px] px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:max-w-lg sm:rounded-[28px] sm:p-5">
+        <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h3 className="retro-title text-sm leading-relaxed text-[#b8ffd2]">
+            <h3 className="retro-title theme-heading text-base leading-relaxed">
               REPORT EDIT
             </h3>
-            <p className="mt-2 text-sm text-[#7dffb1]/65">{selectedDate}</p>
+            <p className="theme-copy mt-2 text-sm">{selectedDate}</p>
           </div>
           <button
             onClick={onClose}
-            className="retro-button px-3 py-2 text-sm font-semibold"
+            className="retro-button min-h-[40px] shrink-0 px-3 py-2 text-sm font-semibold"
           >
             닫기
           </button>
         </div>
 
-        <div className="space-y-3.5">
-          <div className="rounded-2xl border border-[rgba(0,255,128,0.18)] bg-[rgba(0,255,128,0.05)] px-3 py-3">
-            <label className="flex items-center gap-2 font-semibold text-[#a7ffca]">
+        <div className="space-y-4">
+          <div className="theme-note-box rounded-2xl px-3 py-3">
+            <label className="theme-label flex items-center justify-start gap-2 font-semibold">
               <input
                 id="dayoff"
                 type="checkbox"
@@ -67,7 +67,7 @@ export default function ReportModal({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-[#9fffc4]">단가</label>
+            <label className="theme-label block text-sm font-semibold">단가</label>
             <input
               type="number"
               name="unit_price_override"
@@ -75,13 +75,13 @@ export default function ReportModal({
               onChange={handleReportChange}
               disabled={reportForm.is_day_off}
               placeholder={defaultUnitPrice ? `${defaultUnitPrice}원` : "단가"}
-              className="no-spinner bg-[#09120d] px-4 py-3 disabled:opacity-60"
+              className="no-spinner px-4 py-3 text-left disabled:opacity-60"
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-[#9fffc4]">배송 건수</label>
+              <label className="theme-label block text-sm font-semibold">배송 건수</label>
               <input
                 type="number"
                 name="delivered_count"
@@ -89,12 +89,12 @@ export default function ReportModal({
                 onChange={handleReportChange}
                 disabled={reportForm.is_day_off}
                 placeholder="배송"
-                className="no-spinner bg-[#09120d] px-3 py-3 disabled:opacity-60"
+                className="no-spinner px-4 py-3 text-left disabled:opacity-60"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-[#9fffc4]">반품</label>
+              <label className="theme-label block text-sm font-semibold">반품</label>
               <input
                 type="number"
                 name="returned_count"
@@ -102,12 +102,12 @@ export default function ReportModal({
                 onChange={handleReportChange}
                 disabled={reportForm.is_day_off}
                 placeholder="반품"
-                className="no-spinner bg-[#09120d] px-3 py-3 disabled:opacity-60"
+                className="no-spinner px-4 py-3 text-left disabled:opacity-60"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-[#9fffc4]">취소</label>
+              <label className="theme-label block text-sm font-semibold">취소</label>
               <input
                 type="number"
                 name="canceled_count"
@@ -115,25 +115,25 @@ export default function ReportModal({
                 onChange={handleReportChange}
                 disabled={reportForm.is_day_off}
                 placeholder="취소"
-                className="no-spinner bg-[#09120d] px-3 py-3 disabled:opacity-60"
+                className="no-spinner px-4 py-3 text-left disabled:opacity-60"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-[#9fffc4]">특이사항</label>
+            <label className="theme-label block text-sm font-semibold">특이사항</label>
             <textarea
               name="memo"
               value={reportForm.memo}
               onChange={handleReportChange}
-              className="min-h-[96px] bg-[#09120d] px-4 py-3"
+              className="min-h-[120px] px-4 py-3"
             />
           </div>
 
           <button
             onClick={onSave}
             disabled={saving}
-            className="retro-button-solid w-full py-3.5 text-base font-semibold disabled:opacity-60"
+            className="retro-button-solid ui-action-fit min-h-[48px] px-5 py-3.5 text-base font-semibold disabled:opacity-60"
           >
             {saving ? "저장 중..." : "저장"}
           </button>
