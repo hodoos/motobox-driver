@@ -1,6 +1,33 @@
+import type { CSSProperties } from "react";
 import { DailyReportRow } from "../../types";
 import { formatMoney, getKoreanDayLabel, toDateString } from "../../lib/format";
 import { isBiweeklyOffDate } from "../../lib/offday";
+import {
+  getReportDayStatus,
+  getReportDayStatusLabel,
+} from "../../lib/reportStatus";
+
+const offStatusStyle: CSSProperties = {
+  borderColor: "rgba(248, 113, 113, 0.72)",
+  backgroundColor: "rgba(239, 68, 68, 0.28)",
+  color: "#fee2e2",
+};
+
+const workedStatusStyle: CSSProperties = {
+  borderColor: "rgba(52, 211, 153, 0.72)",
+  backgroundColor: "rgba(16, 185, 129, 0.28)",
+  color: "#d1fae5",
+};
+
+const offCardStyle: CSSProperties = {
+  borderColor: "rgba(248, 113, 113, 0.9)",
+  borderWidth: "2px",
+};
+
+const workedCardStyle: CSSProperties = {
+  borderColor: "rgba(52, 211, 153, 0.9)",
+  borderWidth: "2px",
+};
 
 type Props = {
   dates: Date[];
@@ -23,130 +50,130 @@ export default function ReportList({
 }: Props) {
   return (
     <div className="retro-panel rounded-[24px] p-4 sm:rounded-[28px] sm:p-5">
-      <div className="mb-4">
-        <p className="retro-title theme-kicker text-[10px]">SETTLEMENT LIST</p>
-        <h2 className="retro-title theme-heading mt-3 text-base leading-relaxed sm:text-lg md:text-xl">
-          PERIOD RECORDS
-        </h2>
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          
+        </div>
+      
       </div>
 
-      <div className="space-y-3">
-        {dates.map((date) => {
-          const dateKey = toDateString(date);
-          const report = reportsMap.get(dateKey);
+      <div className="overflow-x-auto pb-1">
+        <div className="min-w-[640px]">
+          <div className="grid grid-cols-7 gap-2">
+            {dates.map((date) => {
+              const dateKey = toDateString(date);
+              const report = reportsMap.get(dateKey);
+              const isToday = dateKey === todayString;
+              const isWeeklyRegularOff = weeklyOffDays.includes(date.getDay());
+              const isBiweeklyRegularOff = isBiweeklyOffDate(
+                date,
+                biweeklyOffDays,
+                biweeklyAnchorDate
+              );
+              const isBiweeklyAnchor = dateKey === biweeklyAnchorDate;
 
-          const isToday = dateKey === todayString;
-          const isWeeklyRegularOff = weeklyOffDays.includes(date.getDay());
-          const isBiweeklyRegularOff = isBiweeklyOffDate(
-            date,
-            biweeklyOffDays,
-            biweeklyAnchorDate
-          );
-          const isBiweeklyAnchor = dateKey === biweeklyAnchorDate;
+              const dayStatus = getReportDayStatus({
+                report,
+                isWeeklyRegularOff,
+                isBiweeklyRegularOff,
+              });
+              const hasWorked = dayStatus === "worked";
 
-          const hasWorked =
-            !!report &&
-            !report.is_day_off &&
-            (report.delivered_count > 0 ||
-              report.returned_count > 0 ||
-              report.canceled_count > 0 ||
-              (report.memo && report.memo.trim() !== "") ||
-              !!report.unit_price_override);
+              const statusLabel = getReportDayStatusLabel(dayStatus);
+              let statusClass =
+                "retro-badge px-2 py-0.5 text-[10px] text-[var(--text-muted)]";
+              let statusStyle: CSSProperties | undefined;
+              let cardStyle: CSSProperties | undefined;
 
-          let statusLabel = "미입력";
-          let statusClass = "retro-badge text-[var(--text-muted)]";
+              if (dayStatus === "additional-off") {
+                statusClass = "retro-badge px-2 py-0.5 text-[10px] font-semibold";
+                statusStyle = offStatusStyle;
+                cardStyle = offCardStyle;
+              } else if (dayStatus === "weekly-off") {
+                statusClass = "retro-badge px-2 py-0.5 text-[10px] font-semibold";
+                statusStyle = offStatusStyle;
+                cardStyle = offCardStyle;
+              } else if (dayStatus === "biweekly-off") {
+                statusClass = "retro-badge px-2 py-0.5 text-[10px] font-semibold";
+                statusStyle = offStatusStyle;
+                cardStyle = offCardStyle;
+              } else if (dayStatus === "worked") {
+                statusClass = "retro-badge px-2 py-0.5 text-[10px] font-semibold";
+                statusStyle = workedStatusStyle;
+                cardStyle = workedCardStyle;
+              }
 
-          if (report?.is_day_off) {
-            statusLabel = "추가휴무";
-            statusClass = "retro-badge retro-danger";
-          } else if (isWeeklyRegularOff) {
-            statusLabel = "정기휴무";
-            statusClass = "retro-badge retro-danger";
-          } else if (isBiweeklyRegularOff) {
-            statusLabel = "격주휴무";
-            statusClass = "retro-badge retro-danger";
-          } else if (hasWorked) {
-            statusLabel = "근무";
-            statusClass =
-              "theme-chip-strong px-3 py-1 text-xs font-semibold";
-          }
+              return (
+                <button
+                  type="button"
+                  key={dateKey}
+                  data-report-date={dateKey}
+                  onClick={() => onDateClick(dateKey)}
+                  title={`${dateKey} 리포트 수정`}
+                  style={cardStyle}
+                  className={`min-h-[146px] rounded-[20px] border p-3 text-left transition hover:translate-y-[-1px] sm:rounded-[24px] ${
+                    isBiweeklyAnchor
+                      ? "border-[var(--border-strong)] bg-[rgba(255,255,255,0.08)]"
+                      : isToday
+                      ? "border-[var(--border)] bg-[rgba(255,255,255,0.06)]"
+                      : "border-[var(--border)] bg-[rgba(255,255,255,0.02)]"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="mt-0.5 flex items-center gap-1 whitespace-nowrap">
+                        <p
+                          className="theme-heading text-[13px] font-semibold tracking-tight sm:text-sm"
+                          style={{ color: "#f8fafc" }}
+                        >
+                          {dateKey.slice(5)}
+                        </p>
+                        <p
+                          className="theme-heading text-[13px] font-semibold tracking-tight sm:text-sm"
+                          style={{ color: "#f8fafc" }}
+                        >
+                          {getKoreanDayLabel(date.getDay())}
+                        </p>
+                      </div>
+                    </div>
 
-          return (
-            <button
-              key={dateKey}
-              onClick={() => onDateClick(dateKey)}
-              className={`w-full rounded-[20px] border p-4 text-left transition hover:translate-y-[-1px] sm:rounded-[24px] sm:p-5 ${
-                isBiweeklyAnchor
-                  ? "border-[var(--border-strong)] bg-[rgba(255,255,255,0.08)]"
-                  : isToday
-                  ? "border-[var(--border)] bg-[rgba(255,255,255,0.05)]"
-                  : "border-[var(--border)] bg-[rgba(255,255,255,0.02)]"
-              }`}
-            >
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="theme-heading text-base font-bold tracking-tight sm:text-lg">
-                      {dateKey}
-                    </p>
-                    <span className="theme-copy text-sm">
-                      {getKoreanDayLabel(date.getDay())}
+                    <div className="flex flex-col items-end gap-1">
+                      {isToday ? (
+                        <span className="theme-chip-subtle px-2 py-0.5 text-[10px] font-semibold">
+                          TODAY
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    <span className={statusClass} style={statusStyle}>
+                      {statusLabel}
                     </span>
-                    {isToday ? (
-                      <span className="theme-chip-subtle px-2 py-0.5 text-[10px] font-semibold">
-                        TODAY
-                      </span>
-                    ) : null}
-                    {isBiweeklyAnchor ? (
-                      <span className="theme-chip-strong px-2 py-0.5 text-[10px] font-semibold">
-                        격주 기준일
-                      </span>
-                    ) : null}
                   </div>
 
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <span className={statusClass}>{statusLabel}</span>
-
-                    {hasWorked ? (
-                      <>
-                        <span className="theme-chip-subtle px-3 py-1 text-xs font-semibold">
-                          배송 {report?.delivered_count ?? 0}
-                        </span>
-                        <span className="theme-chip-subtle px-3 py-1 text-xs font-semibold">
-                          반품 {report?.returned_count ?? 0}
-                        </span>
-                        <span className="theme-chip-subtle px-3 py-1 text-xs font-semibold">
-                          취소 {report?.canceled_count ?? 0}
-                        </span>
-                      </>
-                    ) : null}
-                  </div>
-
-                  {report?.memo ? (
-                    <p className="theme-copy mt-3 line-clamp-2 text-sm">
-                      {report.memo}
-                    </p>
+                  {hasWorked && report ? (
+                    <div className="mt-3 space-y-1.5">
+                      <div className="theme-copy text-[11px]">
+                        배송 {report.delivered_count}
+                      </div>
+                      <div className="theme-copy text-[11px]">
+                        반품 {report.returned_count}
+                      </div>
+                      <div className="theme-copy text-[11px]">
+                        취소 {report.canceled_count}
+                      </div>
+                      <div className="theme-heading pt-1 text-sm font-bold">
+                        {formatMoney(report.daily_sales)}
+                      </div>
+                    </div>
                   ) : null}
-                </div>
-
-                <div className="w-full shrink-0 text-left sm:w-auto sm:text-right">
-                  {hasWorked ? (
-                    <>
-                      <p className="retro-title theme-kicker text-[10px] leading-relaxed">
-                        SALES
-                      </p>
-                      <p className="theme-heading mt-2 text-lg font-bold">
-                        {formatMoney(report?.daily_sales ?? 0)}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="theme-empty text-sm font-semibold"></p>
-                  )}
-                </div>
-              </div>
-            </button>
-          );
-        })}
+                  
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

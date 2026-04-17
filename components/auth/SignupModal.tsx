@@ -34,7 +34,7 @@ export default function SignupModal({
           <div className="text-center">
             <p className="retro-title theme-kicker text-[10px]">SIGN UP</p>
             <h2 className="retro-title theme-heading mt-3 text-base leading-relaxed sm:text-lg">
-              CREATE ACCOUNT
+              회원가입
             </h2>
           </div>
 

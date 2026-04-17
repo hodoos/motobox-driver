@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { formatMoney, toDateString } from "../../lib/format";
@@ -10,6 +10,7 @@ import {
   shiftSettlementAnchor,
 } from "../../lib/settlement";
 import { isBiweeklyOffDate } from "../../lib/offday";
+import { getReportDayStatus, isRegularOffStatus } from "../../lib/reportStatus";
 import {
   DailyReportRow,
   DriverSettings,
@@ -52,6 +53,35 @@ function getReportFormForDate(rows: DailyReportRow[], dateKey: string): ReportFo
       ? String(report.unit_price_override)
       : "",
   };
+}
+
+function getBillableQuantity(deliveredCount: number, returnedCount: number) {
+  return deliveredCount + (returnedCount > 0 ? 1 : 0);
+}
+
+function getDailySales(
+  deliveredCount: number,
+  returnedCount: number,
+  unitPrice: number
+) {
+  return (deliveredCount + returnedCount) * unitPrice;
+}
+
+function getDateWithinRange(
+  dateKey: string,
+  startDateKey: string,
+  endDateKey: string,
+  fallbackDateKey: string
+) {
+  if (dateKey >= startDateKey && dateKey <= endDateKey) {
+    return dateKey;
+  }
+
+  if (fallbackDateKey >= startDateKey && fallbackDateKey <= endDateKey) {
+    return fallbackDateKey;
+  }
+
+  return startDateKey;
 }
 
 async function loadDriverSettings(userId: string) {
@@ -101,11 +131,70 @@ export default function DashboardPage() {
   });
 
   const [reports, setReports] = useState<DailyReportRow[]>([]);
+  const [quickEntryDate, setQuickEntryDate] = useState(todayString);
   const [selectedDate, setSelectedDate] = useState(todayString);
+  const [reportListScrollDate, setReportListScrollDate] = useState<string | null>(null);
   const [reportForm, setReportForm] = useState<ReportForm>(
     createEmptyReportForm(todayString)
   );
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const quickEntryDateRef = useRef(quickEntryDate);
+  const quickEntryCardRef = useRef<HTMLElement | null>(null);
+  const statCardsSectionRef = useRef<HTMLElement | null>(null);
+  const reportListSectionRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    quickEntryDateRef.current = quickEntryDate;
+  }, [quickEntryDate]);
+
+  useEffect(() => {
+    if (!showStatCards) return;
+
+    const animationFrameId = window.requestAnimationFrame(() => {
+      statCardsSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(animationFrameId);
+  }, [showStatCards]);
+
+  useEffect(() => {
+    if (!showReportList || reportListScrollDate) return;
+
+    const animationFrameId = window.requestAnimationFrame(() => {
+      reportListSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(animationFrameId);
+  }, [showReportList, reportListScrollDate]);
+
+  useEffect(() => {
+    if (!showReportList || !reportListScrollDate || reportsLoading) return;
+
+    const animationFrameId = window.requestAnimationFrame(() => {
+      const targetCard = document.querySelector<HTMLElement>(
+        `[data-report-date="${reportListScrollDate}"]`
+      );
+
+      if (!targetCard) {
+        return;
+      }
+
+      targetCard.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+        inline: "nearest",
+      });
+      setReportListScrollDate(null);
+    });
+
+    return () => window.cancelAnimationFrame(animationFrameId);
+  }, [showReportList, reportListScrollDate, reportsLoading, reports]);
 
   const defaultUnitPrice = Number(settings.unit_price || 0);
 
@@ -131,6 +220,13 @@ export default function DashboardPage() {
 
   const settlementStartKey = toDateString(settlementRange.start);
   const settlementEndKey = toDateString(settlementRange.end);
+  const periodMonthLabel = `${periodAnchor.getFullYear()}년 ${periodAnchor.getMonth() + 1}월`;
+  const activeQuickEntryDate = getDateWithinRange(
+    quickEntryDate,
+    settlementStartKey,
+    settlementEndKey,
+    todayString
+  );
 
   useEffect(() => {
     const init = async () => {
@@ -216,15 +312,23 @@ export default function DashboardPage() {
         }
 
         const rows = (data as DailyReportRow[]) ?? [];
+        const nextQuickEntryDate = getDateWithinRange(
+          quickEntryDateRef.current,
+          settlementStartKey,
+          settlementEndKey,
+          todayString
+        );
+
+        setQuickEntryDate(nextQuickEntryDate);
         setReports(rows);
-        setReportForm(getReportFormForDate(rows, todayString));
+        setReportForm(getReportFormForDate(rows, nextQuickEntryDate));
       };
 
       void loadReports();
     }
   }, [user, settlementEndKey, settlementStartKey, todayString]);
 
-  const refreshReports = async () => {
+  const refreshReports = async (nextDateKey = activeQuickEntryDate) => {
     if (!user) return;
 
     setReportsLoading(true);
@@ -243,8 +347,16 @@ export default function DashboardPage() {
     }
 
     const rows = (data as DailyReportRow[]) ?? [];
+    const nextQuickEntryDate = getDateWithinRange(
+      nextDateKey,
+      settlementStartKey,
+      settlementEndKey,
+      todayString
+    );
+
+    setQuickEntryDate(nextQuickEntryDate);
     setReports(rows);
-    setReportForm(getReportFormForDate(rows, todayString));
+    setReportForm(getReportFormForDate(rows, nextQuickEntryDate));
   };
 
   const handleReportChange = (
@@ -258,10 +370,36 @@ export default function DashboardPage() {
     }));
   };
 
-  const openReportModal = (dateKey: string) => {
-    setSelectedDate(dateKey);
+  const handleQuickEntryDateChange = (dateKey: string) => {
+    if (!dateKey) return;
 
-    const existing = reportsMap.get(dateKey);
+    const nextQuickEntryDate = getDateWithinRange(
+      dateKey,
+      settlementStartKey,
+      settlementEndKey,
+      todayString
+    );
+
+    setQuickEntryDate(nextQuickEntryDate);
+    setReportForm(getReportFormForDate(reports, nextQuickEntryDate));
+  };
+
+  const openReportModal = (dateKey: string) => {
+    const nextQuickEntryDate = getDateWithinRange(
+      dateKey,
+      settlementStartKey,
+      settlementEndKey,
+      todayString
+    );
+
+    setQuickEntryDate(nextQuickEntryDate);
+    setSelectedDate(nextQuickEntryDate);
+    quickEntryCardRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+
+    const existing = reportsMap.get(nextQuickEntryDate);
 
     if (existing) {
       setReportForm({
@@ -276,7 +414,7 @@ export default function DashboardPage() {
           : "",
       });
     } else {
-      setReportForm(createEmptyReportForm(dateKey));
+      setReportForm(createEmptyReportForm(nextQuickEntryDate));
     }
 
     setIsReportModalOpen(true);
@@ -284,8 +422,7 @@ export default function DashboardPage() {
 
   const closeReportModal = () => {
     setIsReportModalOpen(false);
-
-    setReportForm(getReportFormForDate(reports, todayString));
+    setReportForm(getReportFormForDate(reports, activeQuickEntryDate));
   };
 
   const saveReportInternal = async (form: ReportForm) => {
@@ -324,15 +461,17 @@ export default function DashboardPage() {
       : defaultUnitPrice;
 
     const deliveredCount = form.is_day_off ? 0 : Number(form.delivered_count || 0);
-
+    const returnedCount = form.is_day_off ? 0 : Number(form.returned_count || 0);
     const payload = {
       user_id: user.id,
       report_date: form.report_date,
       delivered_count: deliveredCount,
-      returned_count: form.is_day_off ? 0 : Number(form.returned_count || 0),
+      returned_count: returnedCount,
       canceled_count: form.is_day_off ? 0 : Number(form.canceled_count || 0),
       memo: form.memo,
-      daily_sales: form.is_day_off ? 0 : deliveredCount * appliedUnitPrice,
+      daily_sales: form.is_day_off
+        ? 0
+        : getDailySales(deliveredCount, returnedCount, appliedUnitPrice),
       is_day_off: form.is_day_off,
       unit_price_override: form.unit_price_override
         ? Number(form.unit_price_override)
@@ -358,8 +497,13 @@ export default function DashboardPage() {
 
     if (!ok) return;
 
-    alert("오늘 리포트 저장 완료");
-    await refreshReports();
+    const savedDateKey = activeQuickEntryDate;
+
+    alert("리포트 저장 완료");
+    await refreshReports(savedDateKey);
+    setShowStatCards(false);
+    setShowReportList(true);
+    setReportListScrollDate(savedDateKey);
   };
 
   const saveModalReport = async () => {
@@ -371,7 +515,7 @@ export default function DashboardPage() {
 
     alert("저장 완료");
     setIsReportModalOpen(false);
-    await refreshReports();
+    await refreshReports(activeQuickEntryDate);
   };
 
   const signOut = async () => {
@@ -385,6 +529,26 @@ export default function DashboardPage() {
     router.replace("/");
   };
 
+  const toggleStatCards = () => {
+    const nextShowStatCards = !showStatCards;
+
+    setShowStatCards(nextShowStatCards);
+
+    if (nextShowStatCards) {
+      setShowReportList(false);
+    }
+  };
+
+  const toggleReportList = () => {
+    const nextShowReportList = !showReportList;
+
+    setShowReportList(nextShowReportList);
+
+    if (nextShowReportList) {
+      setShowStatCards(false);
+    }
+  };
+
   const summary = useMemo(() => {
     const periodData = periodDates.map((date) => {
       const key = toDateString(date);
@@ -395,25 +559,19 @@ export default function DashboardPage() {
         settings.biweekly_off_days,
         settings.biweekly_anchor_date
       );
-      const isRegularOff = isWeeklyRegularOff || isBiweeklyRegularOff;
-
-      const isWorked = Boolean(
-        report &&
-          !report.is_day_off &&
-          (report.delivered_count > 0 ||
-            report.returned_count > 0 ||
-            report.canceled_count > 0 ||
-            (report.memo && report.memo.trim() !== "") ||
-            report.unit_price_override)
-      );
-
-      const isAdditionalOff = Boolean(
-        report && report.is_day_off && !isRegularOff
-      );
+      const dayStatus = getReportDayStatus({
+        report,
+        isWeeklyRegularOff,
+        isBiweeklyRegularOff,
+      });
+      const isWorked = dayStatus === "worked";
+      const isRegularOff = isRegularOffStatus(dayStatus);
+      const isAdditionalOff = dayStatus === "additional-off";
 
       return {
         date,
         report,
+        dayStatus,
         isRegularOff,
         isWorked,
         isAdditionalOff,
@@ -423,9 +581,12 @@ export default function DashboardPage() {
     const workedDays = periodData.filter((item) => item.isWorked).length;
     const additionalOffDays = periodData.filter((item) => item.isAdditionalOff).length;
 
-    const totalDelivered = periodData.reduce((sum, item) => {
+    const totalQuantity = periodData.reduce((sum, item) => {
       if (!item.isWorked || !item.report) return sum;
-      return sum + (item.report.delivered_count || 0);
+      return sum + getBillableQuantity(
+        item.report.delivered_count || 0,
+        item.report.returned_count || 0
+      );
     }, 0);
 
     const totalSales = periodData.reduce((sum, item) => {
@@ -433,7 +594,7 @@ export default function DashboardPage() {
       return sum + (item.report.daily_sales || 0);
     }, 0);
 
-    const avgQty = workedDays > 0 ? Math.round(totalDelivered / workedDays) : 0;
+    const avgQty = workedDays > 0 ? Math.round(totalQuantity / workedDays) : 0;
     const avgSales = workedDays > 0 ? Math.round(totalSales / workedDays) : 0;
 
     const totalPeriodDays = periodDates.length;
@@ -484,89 +645,122 @@ export default function DashboardPage() {
           onLogout={signOut}
         />
 
+        <section ref={quickEntryCardRef}>
+          <TodayQuickCard
+            selectedDate={activeQuickEntryDate}
+            minDate={settlementStartKey}
+            maxDate={settlementEndKey}
+            onDateChange={handleQuickEntryDateChange}
+            reportForm={reportForm}
+            setReportForm={setReportForm}
+            defaultUnitPrice={defaultUnitPrice}
+            handleReportChange={handleReportChange}
+            onSave={saveTodayQuick}
+            saving={saving}
+          />
+        </section>
         <div className="retro-panel rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="retro-title theme-heading text-center text-[11px] leading-relaxed sm:flex-1 sm:text-left sm:text-xs">
-              {toDateString(settlementRange.start)} ~ {toDateString(settlementRange.end)}
-            </h2>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={toggleStatCards}
+              className="retro-button-solid min-h-[48px] w-full px-4 py-3 text-sm font-semibold"
+            >
+              {showStatCards ? "통계 닫기" : "통계 보기"}
+            </button>
 
-            <div className="grid grid-cols-2 gap-3 sm:flex sm:w-auto sm:gap-3">
-              <button
-                onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, -1))}
-                className="retro-button ui-action-fit min-h-[44px] px-4 py-2.5 text-sm font-semibold"
-              >
-                이전달
-              </button>
-
-              <button
-                onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, 1))}
-                className="retro-button ui-action-fit min-h-[44px] px-4 py-2.5 text-sm font-semibold"
-              >
-                다음달
-              </button>
-            </div>
+            <button
+              onClick={toggleReportList}
+              className="retro-button-solid min-h-[48px] w-full px-4 py-3 text-sm font-semibold"
+            >
+              {showReportList ? "업무 캘린더 닫기" : "업무 캘린더"}
+            </button>
           </div>
         </div>
 
-        <TodayQuickCard
-          todayString={todayString}
-          reportForm={reportForm}
-          setReportForm={setReportForm}
-          defaultUnitPrice={defaultUnitPrice}
-          handleReportChange={handleReportChange}
-          onSave={saveTodayQuick}
-          saving={saving}
-        />
-        <div className="retro-panel rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
-          <button
-            onClick={() => setShowStatCards((prev) => !prev)}
-            className="retro-button-solid ui-action-fit px-5 py-3 text-sm font-semibold"
-          >
-            {showStatCards ? "통계 닫기" : "통계 보기"}
-          </button>
-        </div>
+        <section ref={statCardsSectionRef}>
+          {showStatCards ? (
+            <>
+              <div className="retro-panel mb-3 rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
+                <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:flex sm:items-center sm:justify-between sm:gap-3">
+                  <button
+                    onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, -1))}
+                    className="retro-button min-h-[44px] px-4 py-2.5 text-sm font-semibold"
+                  >
+                    이전달
+                  </button>
 
-        {showStatCards ? (
-          <StatCards
-            avgQty={summary.avgQty}
-            avgSales={formatMoney(summary.avgSales)}
-            totalSales={formatMoney(summary.totalSales)}
-            expectedSales={formatMoney(summary.expectedSales)}
-            adjustedPeriodDays={summary.adjustedPeriodDays}
-            totalPeriodDays={summary.totalPeriodDays}
-            regularOffDays={summary.regularOffDays}
-            workedDays={summary.workedDays}
-            additionalOffDays={summary.additionalOffDays}
-            remainingWorkDays={summary.remainingWorkDays}
-          />
-        ) : null}
+                  <p className="retro-title theme-heading text-center text-[11px] leading-relaxed sm:text-sm">
+                    {periodMonthLabel} 통계
+                  </p>
 
-        <div className="retro-panel rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
-          <button
-            onClick={() => setShowReportList((prev) => !prev)}
-            className="retro-button-solid ui-action-fit px-5 py-3 text-sm font-semibold"
-          >
-            {showReportList ? "리포트 리스트 닫기" : "리포트 리스트 보기"}
-          </button>
-        </div>
+                  <button
+                    onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, 1))}
+                    className="retro-button min-h-[44px] px-4 py-2.5 text-sm font-semibold"
+                  >
+                    다음달
+                  </button>
+                </div>
+              </div>
 
-        {showReportList ? (
-          reportsLoading ? (
-            <div className="retro-panel rounded-[24px] p-8 text-center sm:rounded-[28px] sm:p-10">
-              리스트 불러오는 중...
-            </div>
-          ) : (
-            <ReportList
-              dates={periodDates}
-              reportsMap={reportsMap}
-              weeklyOffDays={settings.off_days}
-              biweeklyOffDays={settings.biweekly_off_days}
-              biweeklyAnchorDate={settings.biweekly_anchor_date}
-              onDateClick={openReportModal}
-              todayString={todayString}
-            />
-          )
-        ) : null}
+              <StatCards
+                avgQty={summary.avgQty}
+                avgSales={formatMoney(summary.avgSales)}
+                totalSales={formatMoney(summary.totalSales)}
+                expectedSales={formatMoney(summary.expectedSales)}
+                adjustedPeriodDays={summary.adjustedPeriodDays}
+                totalPeriodDays={summary.totalPeriodDays}
+                regularOffDays={summary.regularOffDays}
+                workedDays={summary.workedDays}
+                additionalOffDays={summary.additionalOffDays}
+                remainingWorkDays={summary.remainingWorkDays}
+              />
+            </>
+          ) : null}
+        </section>
+
+        <section ref={reportListSectionRef}>
+          {showReportList ? (
+            <>
+              <div className="retro-panel mb-3 rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
+                <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:flex sm:items-center sm:justify-between sm:gap-3">
+                  <button
+                    onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, -1))}
+                    className="retro-button min-h-[44px] px-4 py-2.5 text-sm font-semibold"
+                  >
+                    이전달
+                  </button>
+
+                  <p className="retro-title theme-heading text-center text-[11px] leading-relaxed sm:text-sm">
+                    {periodMonthLabel} 업무 캘린더
+                  </p>
+
+                  <button
+                    onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, 1))}
+                    className="retro-button min-h-[44px] px-4 py-2.5 text-sm font-semibold"
+                  >
+                    다음달
+                  </button>
+                </div>
+              </div>
+
+              {reportsLoading ? (
+                <div className="retro-panel rounded-[24px] p-8 text-center sm:rounded-[28px] sm:p-10">
+                  달력 불러오는 중...
+                </div>
+              ) : (
+                <ReportList
+                  dates={periodDates}
+                  reportsMap={reportsMap}
+                  weeklyOffDays={settings.off_days}
+                  biweeklyOffDays={settings.biweekly_off_days}
+                  biweeklyAnchorDate={settings.biweekly_anchor_date}
+                  onDateClick={openReportModal}
+                  todayString={todayString}
+                />
+              )}
+            </>
+          ) : null}
+        </section>
       </div>
 
       <ReportModal

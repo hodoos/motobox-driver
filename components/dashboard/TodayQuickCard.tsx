@@ -1,7 +1,33 @@
+import type { CSSProperties } from "react";
+import { toDateString } from "../../lib/format";
 import { ReportForm } from "../../types";
 
+const compactInputStyle = {
+  width: "100%",
+  maxWidth: "8rem",
+} as CSSProperties;
+
+function parseDateKey(dateKey: string) {
+  const parsed = new Date(`${dateKey}T12:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function shiftDateKey(dateKey: string, diffDays: number) {
+  const parsed = parseDateKey(dateKey);
+
+  if (!parsed) {
+    return dateKey;
+  }
+
+  parsed.setDate(parsed.getDate() + diffDays);
+  return toDateString(parsed);
+}
+
 type Props = {
-  todayString: string;
+  selectedDate: string;
+  minDate: string;
+  maxDate: string;
+  onDateChange: (dateKey: string) => void;
   reportForm: ReportForm;
   setReportForm: React.Dispatch<React.SetStateAction<ReportForm>>;
   defaultUnitPrice: number;
@@ -13,7 +39,10 @@ type Props = {
 };
 
 export default function TodayQuickCard({
-  todayString,
+  selectedDate,
+  minDate,
+  maxDate,
+  onDateChange,
   reportForm,
   setReportForm,
   defaultUnitPrice,
@@ -21,19 +50,50 @@ export default function TodayQuickCard({
   onSave,
   saving,
 }: Props) {
+  const previousDate = shiftDateKey(selectedDate, -1);
+  const nextDate = shiftDateKey(selectedDate, 1);
+  const canMoveToPreviousDate = previousDate >= minDate;
+  const canMoveToNextDate = nextDate <= maxDate;
+
   return (
     <div className="retro-panel rounded-[24px] p-4 sm:rounded-[28px] sm:p-5">
-      <div className="mb-5 text-center">
-        <p className="retro-title theme-kicker text-[10px]">TODAY REPORT</p>
-        <h2 className="retro-title theme-heading mt-3 text-base leading-relaxed sm:text-lg md:text-xl">
-          QUICK INPUT
-        </h2>
-        <p className="theme-copy mt-2 text-sm">{todayString}</p>
-      </div>
-
       <div className="space-y-5">
+        <div className="space-y-2">
+          <label className="theme-label block text-left text-sm font-semibold">
+            {/* 입력 날짜 */}
+          </label>
+          <div className="mx-auto flex w-full max-w-[22rem] items-center justify-between gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--field-bg)] px-3 py-3">
+            <button
+              type="button"
+              onClick={() => onDateChange(previousDate)}
+              disabled={!canMoveToPreviousDate}
+              className="retro-button min-h-[40px] min-w-[40px] px-3 py-2 text-sm font-semibold disabled:cursor-default disabled:opacity-40"
+              aria-label="이전 날짜"
+            >
+              ←
+            </button>
+
+            <p className="theme-heading text-sm font-semibold tracking-tight sm:text-base">
+              {selectedDate}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => onDateChange(nextDate)}
+              disabled={!canMoveToNextDate}
+              className="retro-button min-h-[40px] min-w-[40px] px-3 py-2 text-sm font-semibold disabled:cursor-default disabled:opacity-40"
+              aria-label="다음 날짜"
+            >
+              →
+            </button>
+          </div>
+          <p className="theme-copy text-xs">
+            {/* 좌우 화살표를 눌러 하루씩 이동할 수 있습니다. */}
+          </p>
+        </div>
+
         <div className="theme-note-box rounded-2xl px-4 py-3">
-          <label className="theme-label flex items-center justify-start gap-2 font-semibold">
+          <label className="theme-label flex items-center justify-center gap-2 font-semibold text-center">
             <input
               id="today-dayoff"
               type="checkbox"
@@ -52,24 +112,25 @@ export default function TodayQuickCard({
           </label>
         </div>
 
-        <div className="space-y-2">
-          <label className="theme-label block text-left text-sm font-semibold">
-            단가
-          </label>
-          <input
-            type="number"
-            name="unit_price_override"
-            value={reportForm.unit_price_override}
-            onChange={handleReportChange}
-            disabled={reportForm.is_day_off}
-            placeholder={defaultUnitPrice ? `${defaultUnitPrice}원` : "단가"}
-            className="no-spinner px-4 py-3 text-left disabled:opacity-60"
-          />
-        </div>
+        <div className="mx-auto grid max-w-[20rem] grid-cols-2 justify-items-center gap-x-4 gap-y-4">
+          <div className="flex w-full max-w-[8rem] flex-col items-center space-y-2">
+            <label className="theme-label block text-center text-sm font-semibold">
+              단가
+            </label>
+            <input
+              type="number"
+              name="unit_price_override"
+              value={reportForm.unit_price_override}
+              onChange={handleReportChange}
+              disabled={reportForm.is_day_off}
+              placeholder={defaultUnitPrice ? `${defaultUnitPrice}원` : "단가"}
+              className="no-spinner px-4 py-3 text-center disabled:opacity-60"
+              style={compactInputStyle}
+            />
+          </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="space-y-2">
-            <label className="theme-label block text-left text-sm font-semibold">
+          <div className="flex w-full max-w-[8rem] flex-col items-center space-y-2">
+            <label className="theme-label block text-center text-sm font-semibold">
               배송
             </label>
             <input
@@ -79,12 +140,13 @@ export default function TodayQuickCard({
               onChange={handleReportChange}
               disabled={reportForm.is_day_off}
               placeholder="배송"
-              className="no-spinner px-4 py-3 text-left disabled:opacity-60"
+              className="no-spinner px-4 py-3 text-center disabled:opacity-60"
+              style={compactInputStyle}
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="theme-label block text-left text-sm font-semibold">
+          <div className="flex w-full max-w-[8rem] flex-col items-center space-y-2">
+            <label className="theme-label block text-center text-sm font-semibold">
               반품
             </label>
             <input
@@ -94,12 +156,13 @@ export default function TodayQuickCard({
               onChange={handleReportChange}
               disabled={reportForm.is_day_off}
               placeholder="반품"
-              className="no-spinner px-4 py-3 text-left disabled:opacity-60"
+              className="no-spinner px-4 py-3 text-center disabled:opacity-60"
+              style={compactInputStyle}
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="theme-label block text-left text-sm font-semibold">
+          <div className="flex w-full max-w-[8rem] flex-col items-center space-y-2">
+            <label className="theme-label block text-center text-sm font-semibold">
               취소
             </label>
             <input
@@ -109,20 +172,21 @@ export default function TodayQuickCard({
               onChange={handleReportChange}
               disabled={reportForm.is_day_off}
               placeholder="취소"
-              className="no-spinner px-4 py-3 text-left disabled:opacity-60"
+              className="no-spinner px-4 py-3 text-center disabled:opacity-60"
+              style={compactInputStyle}
             />
           </div>
         </div>
 
-        <div className="space-y-2">
-          <label className="theme-label block text-left text-sm font-semibold">
+        <div className="space-y-2 text-center">
+          <label className="theme-label block text-center text-sm font-semibold">
             특이사항
           </label>
           <textarea
             name="memo"
             value={reportForm.memo}
             onChange={handleReportChange}
-            className="min-h-[112px] px-4 py-3"
+            className="min-h-[112px] px-4 py-3 text-left"
           />
         </div>
 
@@ -131,7 +195,7 @@ export default function TodayQuickCard({
           disabled={saving}
           className="retro-button-solid ui-action-fit min-h-[48px] px-5 py-3.5 text-base font-semibold disabled:opacity-60"
         >
-          {saving ? "저장 중..." : "오늘 리포트 저장"}
+          {saving ? "저장 중..." : "저 장"}
         </button>
       </div>
     </div>

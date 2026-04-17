@@ -1,6 +1,10 @@
 import { DailyReportRow } from "@/types";
 import { formatMoney, toDateString } from "@/lib/format";
 import { isBiweeklyOffDate } from "@/lib/offday";
+import {
+  getReportDayStatus,
+  getReportDayStatusLabel,
+} from "@/lib/reportStatus";
 
 type Props = {
   calendarCells: (Date | null)[];
@@ -52,14 +56,12 @@ export default function CalendarBoard({
             );
             const isBiweeklyAnchor = dateKey === biweeklyAnchorDate;
 
-            const isEmptySavedReport =
-              report &&
-              !report.is_day_off &&
-              report.delivered_count === 0 &&
-              report.returned_count === 0 &&
-              report.canceled_count === 0 &&
-              (!report.memo || report.memo.trim() === "") &&
-              !report.unit_price_override;
+            const dayStatus = getReportDayStatus({
+              report,
+              isWeeklyRegularOff,
+              isBiweeklyRegularOff,
+            });
+            const hasWorked = dayStatus === "worked";
 
             return (
               <button
@@ -84,31 +86,19 @@ export default function CalendarBoard({
                 ) : null}
 
                 <div className="mt-2 space-y-1 text-[11px] md:text-xs">
-                  {report ? (
-                    report.is_day_off ? (
-                      <div className="theme-heading font-semibold">추가휴무</div>
-                    ) : isEmptySavedReport ? (
-                      isWeeklyRegularOff ? (
-                        <div className="theme-heading font-semibold">정기휴무</div>
-                      ) : isBiweeklyRegularOff ? (
-                        <div className="theme-heading font-semibold">격주휴무</div>
-                      ) : (
-                        <div className="theme-empty">미입력</div>
-                      )
-                    ) : (
-                      <>
-                        <div className="theme-copy">배송 {report.delivered_count}</div>
-                        <div className="theme-heading font-semibold">
-                          {formatMoney(report.daily_sales)}
-                        </div>
-                      </>
-                    )
-                  ) : isWeeklyRegularOff ? (
-                    <div className="theme-heading font-semibold">정기휴무</div>
-                  ) : isBiweeklyRegularOff ? (
-                    <div className="theme-heading font-semibold">격주휴무</div>
-                  ) : (
+                  {hasWorked && report ? (
+                    <>
+                      <div className="theme-copy">배송 {report.delivered_count}</div>
+                      <div className="theme-heading font-semibold">
+                        {formatMoney(report.daily_sales)}
+                      </div>
+                    </>
+                  ) : dayStatus === "empty" ? (
                     <div className="theme-empty">미입력</div>
+                  ) : (
+                    <div className="theme-heading font-semibold">
+                      {getReportDayStatusLabel(dayStatus)}
+                    </div>
                   )}
                 </div>
               </button>
