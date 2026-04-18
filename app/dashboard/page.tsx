@@ -615,9 +615,10 @@ export default function DashboardPage() {
       adjustedPeriodDays - workedDays - additionalOffDays,
       0
     );
-    const expectedSales = avgSales * remainingWorkDays;
+    const expectedSales = totalSales + avgSales * remainingWorkDays;
 
     return {
+      totalQuantity,
       avgQty,
       avgSales,
       totalSales,
@@ -670,7 +671,7 @@ export default function DashboardPage() {
             saving={saving}
           />
         </section>
-        <div className="retro-panel rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
+        <div className="rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={toggleStatCards}
@@ -702,7 +703,7 @@ export default function DashboardPage() {
                     이전달
                   </button>
 
-                  <p className="retro-title theme-heading text-center text-[11px] leading-relaxed sm:text-sm">
+                  <p className="retro-title theme-heading text-center text-base leading-relaxed sm:text-lg">
                     {periodMonthLabel} 통계
                   </p>
 
@@ -716,6 +717,7 @@ export default function DashboardPage() {
               </div>
 
               <StatCards
+                totalQuantity={summary.totalQuantity}
                 avgQty={summary.avgQty}
                 avgSales={formatMoney(summary.avgSales)}
                 totalSales={formatMoney(summary.totalSales)}

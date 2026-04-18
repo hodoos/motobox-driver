@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { toDateString } from "../../lib/format";
 import { ReportForm } from "../../types";
 
@@ -50,23 +50,10 @@ export default function TodayQuickCard({
   onSave,
   saving,
 }: Props) {
-  const [isPddChecked, setIsPddChecked] = useState(false);
   const previousDate = shiftDateKey(selectedDate, -1);
   const nextDate = shiftDateKey(selectedDate, 1);
   const canMoveToPreviousDate = previousDate >= minDate;
   const canMoveToNextDate = nextDate <= maxDate;
-
-  const handlePddToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const nextChecked = event.target.checked;
-    const nextDateKey = shiftDateKey(selectedDate, nextChecked ? 1 : -1);
-
-    if (nextDateKey < minDate || nextDateKey > maxDate) {
-      return;
-    }
-
-    setIsPddChecked(nextChecked);
-    onDateChange(nextDateKey);
-  };
 
   return (
     <div className="retro-panel rounded-[24px] p-4 sm:rounded-[28px] sm:p-5">
@@ -80,15 +67,6 @@ export default function TodayQuickCard({
             style={{ marginTop: "12px", marginBottom: "12px" }}
           >
             <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={isPddChecked}
-                onChange={handlePddToggle}
-              />
-              PDD 야간
-            </label>
-
-            <label className="flex items-center gap-2" style={{ marginLeft: "12px" }}>
               <input
                 id="today-dayoff"
                 type="checkbox"
