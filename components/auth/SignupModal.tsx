@@ -2,20 +2,32 @@
 
 type Props = {
   open: boolean;
+  driverName: string;
   email: string;
+  phoneNumber: string;
   password: string;
+  passwordConfirm: string;
+  setDriverName: (value: string) => void;
   setEmail: (value: string) => void;
+  setPhoneNumber: (value: string) => void;
   setPassword: (value: string) => void;
+  setPasswordConfirm: (value: string) => void;
   onClose: () => void;
   onSubmit: () => void;
 };
 
 export default function SignupModal({
   open,
+  driverName,
   email,
+  phoneNumber,
   password,
+  passwordConfirm,
+  setDriverName,
   setEmail,
+  setPhoneNumber,
   setPassword,
+  setPasswordConfirm,
   onClose,
   onSubmit,
 }: Props) {
@@ -42,10 +54,27 @@ export default function SignupModal({
 
           <div className="space-y-5">
             <input
+              type="text"
+              placeholder="이름"
+              value={driverName}
+              onChange={(e) => setDriverName(e.target.value)}
+              autoComplete="name"
+              className="block h-12 w-full px-4 py-3 text-left text-base sm:text-center"
+            />
+            <input
               type="email"
               placeholder="이메일"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              className="block h-12 w-full px-4 py-3 text-left text-base sm:text-center"
+            />
+            <input
+              type="tel"
+              placeholder="휴대폰번호"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              autoComplete="tel"
               className="block h-12 w-full px-4 py-3 text-left text-base sm:text-center"
             />
             <input
@@ -53,6 +82,15 @@ export default function SignupModal({
               placeholder="비밀번호"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              className="block h-12 w-full px-4 py-3 text-left text-base sm:text-center"
+            />
+            <input
+              type="password"
+              placeholder="비밀번호 확인"
+              value={passwordConfirm}
+              onChange={(e) => setPasswordConfirm(e.target.value)}
+              autoComplete="new-password"
               className="block h-12 w-full px-4 py-3 text-left text-base sm:text-center"
             />
           </div>

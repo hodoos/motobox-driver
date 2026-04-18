@@ -1,6 +1,8 @@
 export type UserType = {
   id: string;
   email?: string;
+  driver_name?: string;
+  phone_number?: string;
 };
 
 export type DriverSettings = {

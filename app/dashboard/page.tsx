@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import { extractDriverProfileSeed } from "../../lib/driverSettings";
 import { formatMoney, toDateString } from "../../lib/format";
 import {
   eachDateBetween,
@@ -240,10 +241,20 @@ export default function DashboardPage() {
         return;
       }
 
+      const profileSeed = extractDriverProfileSeed(user);
+
       setUser({
         id: user.id,
         email: user.email,
+        driver_name: profileSeed.driverName,
+        phone_number: profileSeed.phoneNumber,
       });
+
+      setSettings((prev) => ({
+        ...prev,
+        driver_name: profileSeed.driverName || prev.driver_name,
+        phone_number: profileSeed.phoneNumber || prev.phone_number,
+      }));
 
       setLoading(false);
     };
@@ -264,8 +275,8 @@ export default function DashboardPage() {
         }
 
         setSettings({
-          driver_name: data.driver_name ?? "",
-          phone_number: data.phone_number ?? "",
+          driver_name: data.driver_name ?? user.driver_name ?? "",
+          phone_number: data.phone_number ?? user.phone_number ?? "",
           unit_price: data.unit_price ? String(data.unit_price) : "",
           settlement_start_day: data.settlement_start_day
             ? String(data.settlement_start_day)

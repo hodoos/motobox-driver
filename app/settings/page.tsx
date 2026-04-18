@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import {
+  extractDriverProfileSeed,
+  isMissingDriverSettingsPhoneNumberColumn,
+} from "../../lib/driverSettings";
 import { DriverSettings, UserType } from "../../types";
 import SettingsForm from "../../components/settings/SettingsForm";
 
@@ -42,10 +46,20 @@ export default function SettingsPage() {
         return;
       }
 
+      const profileSeed = extractDriverProfileSeed(user);
+
       setUser({
         id: user.id,
         email: user.email,
+        driver_name: profileSeed.driverName,
+        phone_number: profileSeed.phoneNumber,
       });
+
+      setSettings((prev) => ({
+        ...prev,
+        driver_name: profileSeed.driverName || prev.driver_name,
+        phone_number: profileSeed.phoneNumber || prev.phone_number,
+      }));
 
       setLoading(false);
     };
@@ -70,8 +84,8 @@ export default function SettingsPage() {
         }
 
         setSettings({
-          driver_name: data.driver_name ?? "",
-          phone_number: data.phone_number ?? "",
+          driver_name: data.driver_name ?? user.driver_name ?? "",
+          phone_number: data.phone_number ?? user.phone_number ?? "",
           unit_price: data.unit_price ? String(data.unit_price) : "",
           settlement_start_day: data.settlement_start_day
             ? String(data.settlement_start_day)
@@ -117,10 +131,22 @@ export default function SettingsPage() {
 
     setSaving(true);
 
-    const payload = {
+    const { error: authError } = await supabase.auth.updateUser({
+      data: {
+        driver_name: settings.driver_name.trim(),
+        phone_number: settings.phone_number.trim(),
+      },
+    });
+
+    if (authError) {
+      setSaving(false);
+      alert("기본설정 저장 실패: " + authError.message);
+      return;
+    }
+
+    const basePayload = {
       user_id: user.id,
-      driver_name: settings.driver_name,
-      phone_number: settings.phone_number || null,
+      driver_name: settings.driver_name.trim(),
       unit_price: settings.unit_price ? Number(settings.unit_price) : null,
       settlement_start_day: Number(settings.settlement_start_day || 1),
       settlement_start_month_offset: Number(
@@ -135,9 +161,22 @@ export default function SettingsPage() {
       biweekly_anchor_date: settings.biweekly_anchor_date || null,
     };
 
-    const { error } = await supabase
+    const payloadWithPhoneNumber = {
+      ...basePayload,
+      phone_number: settings.phone_number.trim() || null,
+    };
+
+    let { error } = await supabase
       .from("driver_settings")
-      .upsert(payload, { onConflict: "user_id" });
+      .upsert(payloadWithPhoneNumber, { onConflict: "user_id" });
+
+    if (isMissingDriverSettingsPhoneNumberColumn(error)) {
+      const fallbackResult = await supabase
+        .from("driver_settings")
+        .upsert(basePayload, { onConflict: "user_id" });
+
+      error = fallbackResult.error;
+    }
 
     setSaving(false);
 
@@ -145,6 +184,16 @@ export default function SettingsPage() {
       alert("기본설정 저장 실패: " + error.message);
       return;
     }
+
+    setUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            driver_name: settings.driver_name.trim(),
+            phone_number: settings.phone_number.trim(),
+          }
+        : prev
+    );
 
     alert("기본설정 저장 완료");
     router.push("/dashboard");

@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { toDateString } from "../../lib/format";
 import { ReportForm } from "../../types";
 
@@ -50,10 +50,23 @@ export default function TodayQuickCard({
   onSave,
   saving,
 }: Props) {
+  const [isPddChecked, setIsPddChecked] = useState(false);
   const previousDate = shiftDateKey(selectedDate, -1);
   const nextDate = shiftDateKey(selectedDate, 1);
   const canMoveToPreviousDate = previousDate >= minDate;
   const canMoveToNextDate = nextDate <= maxDate;
+
+  const handlePddToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const nextChecked = event.target.checked;
+    const nextDateKey = shiftDateKey(selectedDate, nextChecked ? 1 : -1);
+
+    if (nextDateKey < minDate || nextDateKey > maxDate) {
+      return;
+    }
+
+    setIsPddChecked(nextChecked);
+    onDateChange(nextDateKey);
+  };
 
   return (
     <div className="retro-panel rounded-[24px] p-4 sm:rounded-[28px] sm:p-5">
@@ -62,54 +75,65 @@ export default function TodayQuickCard({
           <label className="theme-label block text-left text-sm font-semibold">
             {/* 입력 날짜 */}
           </label>
+          <div
+            className="theme-label mx-auto flex w-fit items-center justify-center gap-5 text-[16px] font-semibold"
+            style={{ marginTop: "12px", marginBottom: "12px" }}
+          >
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={isPddChecked}
+                onChange={handlePddToggle}
+              />
+              PDD 야간
+            </label>
+
+            <label className="flex items-center gap-2" style={{ marginLeft: "12px" }}>
+              <input
+                id="today-dayoff"
+                type="checkbox"
+                checked={reportForm.is_day_off}
+                onChange={(e) =>
+                  setReportForm((prev) => ({
+                    ...prev,
+                    is_day_off: e.target.checked,
+                    delivered_count: e.target.checked ? "" : prev.delivered_count,
+                    returned_count: e.target.checked ? "" : prev.returned_count,
+                    canceled_count: e.target.checked ? "" : prev.canceled_count,
+                  }))
+                }
+              />
+              추가 휴무
+            </label>
+          </div>
           <div className="mx-auto flex w-full max-w-[12rem] items-center justify-between gap-2 rounded-[18px] border border-[var(--border)] bg-[var(--field-bg)] px-2 py-2.5">
-            <button
-              type="button"
-              onClick={() => onDateChange(previousDate)}
-              disabled={!canMoveToPreviousDate}
-              className="retro-button min-h-[32px] min-w-[32px] px-2 py-1.5 text-xs font-semibold disabled:cursor-default disabled:opacity-40"
-              aria-label="이전 날짜"
-            >
-              ←
-            </button>
+              <button
+                type="button"
+                onClick={() => onDateChange(previousDate)}
+                disabled={!canMoveToPreviousDate}
+                className="retro-button min-h-[32px] min-w-[32px] px-2 py-1.5 text-xs font-semibold disabled:cursor-default disabled:opacity-40"
+                aria-label="이전 날짜"
+              >
+                ←
+              </button>
 
-            <p className="theme-heading text-xs font-semibold tracking-tight sm:text-sm">
-              {selectedDate}
-            </p>
+              <p className="theme-heading text-xs font-semibold tracking-tight sm:text-sm">
+                {selectedDate}
+              </p>
 
-            <button
-              type="button"
-              onClick={() => onDateChange(nextDate)}
-              disabled={!canMoveToNextDate}
-              className="retro-button min-h-[32px] min-w-[32px] px-2 py-1.5 text-xs font-semibold disabled:cursor-default disabled:opacity-40"
-              aria-label="다음 날짜"
-            >
-              →
-            </button>
+              <button
+                type="button"
+                onClick={() => onDateChange(nextDate)}
+                disabled={!canMoveToNextDate}
+                className="retro-button min-h-[32px] min-w-[32px] px-2 py-1.5 text-xs font-semibold disabled:cursor-default disabled:opacity-40"
+                aria-label="다음 날짜"
+              >
+                →
+              </button>
           </div>
           <p className="theme-copy text-xs">
             {/* 좌우 화살표를 눌러 하루씩 이동할 수 있습니다. */}
           </p>
-        </div>
-
-        <div>
-          <label className="theme-label flex items-center justify-center gap-2 font-semibold text-center">
-            <input
-              id="today-dayoff"
-              type="checkbox"
-              checked={reportForm.is_day_off}
-              onChange={(e) =>
-                setReportForm((prev) => ({
-                  ...prev,
-                  is_day_off: e.target.checked,
-                  delivered_count: e.target.checked ? "" : prev.delivered_count,
-                  returned_count: e.target.checked ? "" : prev.returned_count,
-                  canceled_count: e.target.checked ? "" : prev.canceled_count,
-                }))
-              }
-            />
-            추가 휴무
-          </label>
         </div>
 
         <div className="mx-auto grid max-w-[20rem] grid-cols-2 justify-items-center gap-x-4 gap-y-4">
