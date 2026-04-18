@@ -164,7 +164,6 @@ export default function StatCards(props: Props) {
               key={card.label}
               label={card.label}
               value={card.value}
-              sub={card.sub}
               accent={getCardAccent(index + primaryStats.length)}
               className="w-fit shrink-0"
               style={index < secondaryStats.length - 1 ? cardSpacing : undefined}
