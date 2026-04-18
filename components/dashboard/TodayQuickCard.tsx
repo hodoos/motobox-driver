@@ -1,11 +1,26 @@
 import type { CSSProperties } from "react";
 import { toDateString } from "../../lib/format";
-import { ReportForm } from "../../types";
+import { AdditionalWorkItemForm, ReportForm } from "../../types";
 
 const compactInputStyle = {
   width: "100%",
   maxWidth: "8rem",
 } as CSSProperties;
+
+const inlineInputStyle = {
+  width: "100%",
+  maxWidth: "100%",
+} as CSSProperties;
+
+function createAdditionalWorkItem(): AdditionalWorkItemForm {
+  return {
+    key: `additional-work-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    unit_price: "",
+    delivered_count: "",
+    returned_count: "",
+    canceled_count: "",
+  };
+}
 
 function parseDateKey(dateKey: string) {
   const parsed = new Date(`${dateKey}T12:00:00`);
@@ -54,6 +69,40 @@ export default function TodayQuickCard({
   const nextDate = shiftDateKey(selectedDate, 1);
   const canMoveToPreviousDate = previousDate >= minDate;
   const canMoveToNextDate = nextDate <= maxDate;
+  const additionalWorks = reportForm.additional_works ?? [];
+
+  const handleAddAdditionalWork = () => {
+    if (reportForm.is_day_off) {
+      return;
+    }
+
+    setReportForm((prev) => ({
+      ...prev,
+      additional_works: [...(prev.additional_works ?? []), createAdditionalWorkItem()],
+    }));
+  };
+
+  const handleAdditionalWorkChange = (
+    key: string,
+    field: Exclude<keyof AdditionalWorkItemForm, "key">,
+    value: string
+  ) => {
+    setReportForm((prev) => ({
+      ...prev,
+      additional_works: (prev.additional_works ?? []).map((item) =>
+        item.key === key ? { ...item, [field]: value } : item
+      ),
+    }));
+  };
+
+  const handleRemoveAdditionalWork = (key: string) => {
+    setReportForm((prev) => ({
+      ...prev,
+      additional_works: (prev.additional_works ?? []).filter(
+        (item) => item.key !== key
+      ),
+    }));
+  };
 
   return (
     <div className="retro-panel rounded-[24px] p-4 sm:rounded-[28px] sm:p-5">
@@ -71,20 +120,22 @@ export default function TodayQuickCard({
                 id="today-dayoff"
                 type="checkbox"
                 checked={reportForm.is_day_off}
-                onChange={(e) =>
+                onChange={(e) => {
                   setReportForm((prev) => ({
                     ...prev,
                     is_day_off: e.target.checked,
                     delivered_count: e.target.checked ? "" : prev.delivered_count,
                     returned_count: e.target.checked ? "" : prev.returned_count,
                     canceled_count: e.target.checked ? "" : prev.canceled_count,
-                  }))
-                }
+                    additional_works: e.target.checked ? [] : prev.additional_works ?? [],
+                  }));
+                }}
               />
               추가 휴무
             </label>
           </div>
-          <div className="mx-auto flex w-full max-w-[12rem] items-center justify-between gap-2 rounded-[18px] border border-[var(--border)] bg-[var(--field-bg)] px-2 py-2.5">
+          <div className="mx-auto flex w-full max-w-[20rem] items-center gap-2">
+            <div className="flex flex-1 items-center justify-between gap-2 rounded-[18px] border border-[var(--border)] bg-[var(--field-bg)] px-2 py-2.5">
               <button
                 type="button"
                 onClick={() => onDateChange(previousDate)}
@@ -108,6 +159,16 @@ export default function TodayQuickCard({
               >
                 →
               </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAddAdditionalWork}
+              disabled={reportForm.is_day_off}
+              className="retro-button min-h-[42px] shrink-0 whitespace-nowrap px-3 py-2 text-xs font-semibold disabled:cursor-default disabled:opacity-40 sm:text-sm"
+            >
+              추가 업무
+            </button>
           </div>
           <p className="theme-copy text-xs">
             {/* 좌우 화살표를 눌러 하루씩 이동할 수 있습니다. */}
@@ -125,7 +186,11 @@ export default function TodayQuickCard({
               value={reportForm.unit_price_override}
               onChange={handleReportChange}
               disabled={reportForm.is_day_off}
-              placeholder={defaultUnitPrice ? `${defaultUnitPrice}원` : "단가"}
+              placeholder={
+                defaultUnitPrice
+                  ? `${defaultUnitPrice}원 / 직접입력`
+                  : "직접입력"
+              }
               className="no-spinner px-4 py-3 text-center disabled:opacity-60"
               style={{ ...compactInputStyle, marginBottom: "12px" }}
             />
@@ -179,6 +244,110 @@ export default function TodayQuickCard({
             />
           </div>
         </div>
+
+        {additionalWorks.length > 0 ? (
+          <div className="space-y-3">
+            {additionalWorks.map((item, index) => (
+              <div
+                key={item.key}
+                className="retro-card rounded-[20px] px-3 py-3 sm:rounded-[24px] sm:px-4 sm:py-4"
+              >
+                <div className="grid grid-cols-[repeat(4,minmax(0,1fr))_auto] items-end gap-2">
+                  <div className="space-y-1">
+                    <label className="theme-label block text-center text-[11px] font-semibold">
+                      단가
+                    </label>
+                    <input
+                      type="number"
+                      value={item.unit_price}
+                      onChange={(e) =>
+                        handleAdditionalWorkChange(item.key, "unit_price", e.target.value)
+                      }
+                      disabled={reportForm.is_day_off}
+                      placeholder="단가"
+                      className="no-spinner px-2 py-2 text-center disabled:opacity-60"
+                      style={inlineInputStyle}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="theme-label block text-center text-[11px] font-semibold">
+                      배송
+                    </label>
+                    <input
+                      type="number"
+                      value={item.delivered_count}
+                      onChange={(e) =>
+                        handleAdditionalWorkChange(
+                          item.key,
+                          "delivered_count",
+                          e.target.value
+                        )
+                      }
+                      disabled={reportForm.is_day_off}
+                      placeholder="배송"
+                      className="no-spinner px-2 py-2 text-center disabled:opacity-60"
+                      style={inlineInputStyle}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="theme-label block text-center text-[11px] font-semibold">
+                      반품
+                    </label>
+                    <input
+                      type="number"
+                      value={item.returned_count}
+                      onChange={(e) =>
+                        handleAdditionalWorkChange(
+                          item.key,
+                          "returned_count",
+                          e.target.value
+                        )
+                      }
+                      disabled={reportForm.is_day_off}
+                      placeholder="반품"
+                      className="no-spinner px-2 py-2 text-center disabled:opacity-60"
+                      style={inlineInputStyle}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="theme-label block text-center text-[11px] font-semibold">
+                      취소
+                    </label>
+                    <input
+                      type="number"
+                      value={item.canceled_count}
+                      onChange={(e) =>
+                        handleAdditionalWorkChange(
+                          item.key,
+                          "canceled_count",
+                          e.target.value
+                        )
+                      }
+                      disabled={reportForm.is_day_off}
+                      placeholder="취소"
+                      className="no-spinner px-2 py-2 text-center disabled:opacity-60"
+                      style={inlineInputStyle}
+                    />
+                  </div>
+
+                  <div className="flex h-full items-center justify-center pb-0.5">
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveAdditionalWork(item.key)}
+                      className="retro-button min-h-[36px] min-w-[36px] px-2 py-1.5 text-xs font-semibold"
+                      aria-label={`추가 업무 ${index + 1} 삭제`}
+                    >
+                      x
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         <div className="space-y-2 text-center">
           <label

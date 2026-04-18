@@ -13,6 +13,7 @@ import {
 import { isBiweeklyOffDate } from "../../lib/offday";
 import { getReportDayStatus, isRegularOffStatus } from "../../lib/reportStatus";
 import {
+  AdditionalWorkItemForm,
   DailyReportRow,
   DriverSettings,
   ReportForm,
@@ -99,6 +100,141 @@ function WorkSummaryStrip(props: WorkSummaryStripProps) {
   );
 }
 
+type StoredAdditionalWorkItem = Omit<AdditionalWorkItemForm, "key">;
+
+const LEGACY_ADDITIONAL_WORK_MEMO_MARKER =
+  /\n?\[\[MOTOBOX_ADDITIONAL_WORK:([0-9]+(?:\.[0-9]+)?)\]\]$/;
+const ADDITIONAL_WORKS_MEMO_MARKER = /\n?\[\[MOTOBOX_ADDITIONAL_WORKS:(.+)\]\]$/s;
+
+let additionalWorkKeySeed = 0;
+
+function createAdditionalWorkItem(
+  overrides: Partial<StoredAdditionalWorkItem> = {}
+): AdditionalWorkItemForm {
+  additionalWorkKeySeed += 1;
+
+  return {
+    key: `additional-work-${additionalWorkKeySeed}`,
+    unit_price: overrides.unit_price ?? "",
+    delivered_count: overrides.delivered_count ?? "",
+    returned_count: overrides.returned_count ?? "",
+    canceled_count: overrides.canceled_count ?? "",
+  };
+}
+
+function hasAdditionalWorkValues(item: StoredAdditionalWorkItem | AdditionalWorkItemForm) {
+  return Boolean(
+    item.unit_price.trim() ||
+      item.delivered_count.trim() ||
+      item.returned_count.trim() ||
+      item.canceled_count.trim()
+  );
+}
+
+function getAdditionalWorkMetrics(additionalWorks: AdditionalWorkItemForm[]) {
+  return additionalWorks.reduce(
+    (totals, item) => {
+      const deliveredCount = Number(item.delivered_count || 0);
+      const returnedCount = Number(item.returned_count || 0);
+      const canceledCount = Number(item.canceled_count || 0);
+      const unitPrice = Number(item.unit_price || 0);
+      const workCount = deliveredCount + returnedCount;
+
+      totals.deliveredCount += deliveredCount;
+      totals.returnedCount += returnedCount;
+      totals.canceledCount += canceledCount;
+
+      if (unitPrice > 0) {
+        totals.sales += workCount > 0 ? workCount * unitPrice : unitPrice;
+      }
+
+      return totals;
+    },
+    {
+      deliveredCount: 0,
+      returnedCount: 0,
+      canceledCount: 0,
+      sales: 0,
+    }
+  );
+}
+
+function parseStoredMemo(rawMemo?: string | null) {
+  if (!rawMemo) {
+    return { memo: "", additionalWorks: [] as AdditionalWorkItemForm[] };
+  }
+
+  const worksMatch = rawMemo.match(ADDITIONAL_WORKS_MEMO_MARKER);
+
+  if (worksMatch && typeof worksMatch.index === "number") {
+    try {
+      const decoded = decodeURIComponent(worksMatch[1] ?? "");
+      const parsed = JSON.parse(decoded);
+
+      if (Array.isArray(parsed)) {
+        return {
+          memo: rawMemo.slice(0, worksMatch.index).trimEnd(),
+          additionalWorks: parsed.map((item) =>
+            createAdditionalWorkItem({
+              unit_price:
+                typeof item?.unit_price === "string"
+                  ? item.unit_price
+                  : String(item?.unit_price ?? ""),
+              delivered_count:
+                typeof item?.delivered_count === "string"
+                  ? item.delivered_count
+                  : String(item?.delivered_count ?? ""),
+              returned_count:
+                typeof item?.returned_count === "string"
+                  ? item.returned_count
+                  : String(item?.returned_count ?? ""),
+              canceled_count:
+                typeof item?.canceled_count === "string"
+                  ? item.canceled_count
+                  : String(item?.canceled_count ?? ""),
+            })
+          ),
+        };
+      }
+    } catch {
+      return { memo: rawMemo, additionalWorks: [] as AdditionalWorkItemForm[] };
+    }
+  }
+
+  const legacyMatch = rawMemo.match(LEGACY_ADDITIONAL_WORK_MEMO_MARKER);
+
+  if (legacyMatch && typeof legacyMatch.index === "number") {
+    return {
+      memo: rawMemo.slice(0, legacyMatch.index).trimEnd(),
+      additionalWorks: [createAdditionalWorkItem({ unit_price: legacyMatch[1] ?? "" })],
+    };
+  }
+
+  return { memo: rawMemo, additionalWorks: [] as AdditionalWorkItemForm[] };
+}
+
+function buildStoredMemo(memo: string, additionalWorks: AdditionalWorkItemForm[]) {
+  const trimmedMemo = memo.trimEnd();
+  const sanitizedAdditionalWorks = additionalWorks
+    .filter(hasAdditionalWorkValues)
+    .map(({ unit_price, delivered_count, returned_count, canceled_count }) => ({
+      unit_price,
+      delivered_count,
+      returned_count,
+      canceled_count,
+    }));
+
+  if (sanitizedAdditionalWorks.length === 0) {
+    return trimmedMemo;
+  }
+
+  const marker = `[[MOTOBOX_ADDITIONAL_WORKS:${encodeURIComponent(
+    JSON.stringify(sanitizedAdditionalWorks)
+  )}]]`;
+
+  return trimmedMemo ? `${trimmedMemo}\n${marker}` : marker;
+}
+
 function createEmptyReportForm(dateKey: string): ReportForm {
   return {
     report_date: dateKey,
@@ -108,6 +244,7 @@ function createEmptyReportForm(dateKey: string): ReportForm {
     memo: "",
     is_day_off: false,
     unit_price_override: "",
+    additional_works: [],
   };
 }
 
@@ -118,16 +255,26 @@ function getReportFormForDate(rows: DailyReportRow[], dateKey: string): ReportFo
     return createEmptyReportForm(dateKey);
   }
 
+  const parsedMemo = parseStoredMemo(report.memo);
+  const additionalWorkMetrics = getAdditionalWorkMetrics(parsedMemo.additionalWorks);
+
   return {
     report_date: report.report_date,
-    delivered_count: String(report.delivered_count ?? ""),
-    returned_count: String(report.returned_count ?? ""),
-    canceled_count: String(report.canceled_count ?? ""),
-    memo: report.memo ?? "",
+    delivered_count: String(
+      Math.max((report.delivered_count ?? 0) - additionalWorkMetrics.deliveredCount, 0)
+    ),
+    returned_count: String(
+      Math.max((report.returned_count ?? 0) - additionalWorkMetrics.returnedCount, 0)
+    ),
+    canceled_count: String(
+      Math.max((report.canceled_count ?? 0) - additionalWorkMetrics.canceledCount, 0)
+    ),
+    memo: parsedMemo.memo,
     is_day_off: Boolean(report.is_day_off),
     unit_price_override: report.unit_price_override
       ? String(report.unit_price_override)
       : "",
+    additional_works: parsedMemo.additionalWorks,
   };
 }
 
@@ -490,16 +637,26 @@ export default function DashboardPage() {
     const existing = reportsMap.get(nextQuickEntryDate);
 
     if (existing) {
+      const parsedMemo = parseStoredMemo(existing.memo);
+      const additionalWorkMetrics = getAdditionalWorkMetrics(parsedMemo.additionalWorks);
+
       setReportForm({
         report_date: existing.report_date,
-        delivered_count: String(existing.delivered_count ?? ""),
-        returned_count: String(existing.returned_count ?? ""),
-        canceled_count: String(existing.canceled_count ?? ""),
-        memo: existing.memo ?? "",
+        delivered_count: String(
+          Math.max((existing.delivered_count ?? 0) - additionalWorkMetrics.deliveredCount, 0)
+        ),
+        returned_count: String(
+          Math.max((existing.returned_count ?? 0) - additionalWorkMetrics.returnedCount, 0)
+        ),
+        canceled_count: String(
+          Math.max((existing.canceled_count ?? 0) - additionalWorkMetrics.canceledCount, 0)
+        ),
+        memo: parsedMemo.memo,
         is_day_off: Boolean(existing.is_day_off),
         unit_price_override: existing.unit_price_override
           ? String(existing.unit_price_override)
           : "",
+        additional_works: parsedMemo.additionalWorks,
       });
     } else {
       setReportForm(createEmptyReportForm(nextQuickEntryDate));
@@ -514,7 +671,24 @@ export default function DashboardPage() {
   const saveReportInternal = async (form: ReportForm) => {
     if (!user) return false;
 
-    if (!settings.unit_price) {
+    const additionalWorks = form.additional_works ?? [];
+    const sanitizedAdditionalWorks = additionalWorks.filter(hasAdditionalWorkValues);
+    const additionalWorkMetrics = form.is_day_off
+      ? {
+          deliveredCount: 0,
+          returnedCount: 0,
+          canceledCount: 0,
+          sales: 0,
+        }
+      : getAdditionalWorkMetrics(sanitizedAdditionalWorks);
+
+    const hasStandardWorkInput =
+      !form.is_day_off &&
+      (form.delivered_count !== "" ||
+        form.returned_count !== "" ||
+        form.canceled_count !== "");
+
+    if (!settings.unit_price && hasStandardWorkInput && !form.unit_price_override) {
       alert("먼저 기본설정에서 배송 단가를 입력해주세요.");
       return false;
     }
@@ -525,7 +699,8 @@ export default function DashboardPage() {
       form.returned_count === "" &&
       form.canceled_count === "" &&
       form.memo.trim() === "" &&
-      form.unit_price_override === "";
+      form.unit_price_override === "" &&
+      sanitizedAdditionalWorks.length === 0;
 
     if (isEmptyReport) {
       const { error } = await supabase
@@ -548,16 +723,22 @@ export default function DashboardPage() {
 
     const deliveredCount = form.is_day_off ? 0 : Number(form.delivered_count || 0);
     const returnedCount = form.is_day_off ? 0 : Number(form.returned_count || 0);
+    const canceledCount = form.is_day_off ? 0 : Number(form.canceled_count || 0);
+    const storedMemo = buildStoredMemo(
+      form.memo,
+      form.is_day_off ? [] : sanitizedAdditionalWorks
+    );
     const payload = {
       user_id: user.id,
       report_date: form.report_date,
-      delivered_count: deliveredCount,
-      returned_count: returnedCount,
-      canceled_count: form.is_day_off ? 0 : Number(form.canceled_count || 0),
-      memo: form.memo,
+      delivered_count: deliveredCount + additionalWorkMetrics.deliveredCount,
+      returned_count: returnedCount + additionalWorkMetrics.returnedCount,
+      canceled_count: canceledCount + additionalWorkMetrics.canceledCount,
+      memo: storedMemo,
       daily_sales: form.is_day_off
         ? 0
-        : getDailySales(deliveredCount, returnedCount, appliedUnitPrice),
+        : getDailySales(deliveredCount, returnedCount, appliedUnitPrice) +
+          additionalWorkMetrics.sales,
       is_day_off: form.is_day_off,
       unit_price_override: form.unit_price_override
         ? Number(form.unit_price_override)

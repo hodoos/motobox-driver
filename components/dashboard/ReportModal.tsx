@@ -59,6 +59,7 @@ export default function ReportModal({
                     delivered_count: e.target.checked ? "" : prev.delivered_count,
                     returned_count: e.target.checked ? "" : prev.returned_count,
                     canceled_count: e.target.checked ? "" : prev.canceled_count,
+                    additional_works: e.target.checked ? [] : prev.additional_works ?? [],
                   }))
                 }
               />

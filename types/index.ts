@@ -18,6 +18,14 @@ export type DriverSettings = {
   biweekly_anchor_date: string;
 };
 
+export type AdditionalWorkItemForm = {
+  key: string;
+  unit_price: string;
+  delivered_count: string;
+  returned_count: string;
+  canceled_count: string;
+};
+
 export type ReportForm = {
   report_date: string;
   delivered_count: string;
@@ -26,6 +34,7 @@ export type ReportForm = {
   memo: string;
   is_day_off: boolean;
   unit_price_override: string;
+  additional_works: AdditionalWorkItemForm[];
 };
 
 export type DailyReportRow = {

@@ -56,7 +56,7 @@ export default function ReportList({
             날짜를 눌러 바로 수정
           </p>
           <p className="theme-copy text-xs leading-relaxed sm:text-sm">
-            모바일에서는 날짜 카드가 5칸 기준으로 촘촘하게 정리됩니다.
+            {/* 모바일에서는 날짜 카드가 5칸 기준으로 촘촘하게 정리됩니다. */}
           </p>
         </div>
       </div>
