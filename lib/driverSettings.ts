@@ -2,8 +2,8 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 
 type DriverProfileSeed = {
-  driverName?: string | null;
-  phoneNumber?: string | null;
+  driverName?: string;
+  phoneNumber?: string;
 };
 
 function normalizeSeedValue(value?: string | null) {
