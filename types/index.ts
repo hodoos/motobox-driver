@@ -5,6 +5,7 @@ export type UserType = {
 
 export type DriverSettings = {
   driver_name: string;
+  phone_number: string;
   unit_price: string;
   settlement_start_day: string;
   settlement_start_month_offset: string;

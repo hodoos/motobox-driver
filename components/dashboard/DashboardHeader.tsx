@@ -44,18 +44,21 @@ export default function DashboardHeader({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-2 self-start">
+        <div
+          className="flex shrink-0 items-center justify-end gap-2 self-start"
+          style={{ marginTop: "12px" }}
+        >
           <button
             onClick={onOpenSettings}
             className="retro-button ui-action-fit min-h-[38px] px-3 py-2 text-xs font-semibold md:min-w-[88px]"
-            style={{ fontSize: "0.75rem" }}
+            style={{ fontSize: "0.75rem", marginRight: "12px", marginBottom: "12px" }}
           >
             기본설정
           </button>
           <button
             onClick={onLogout}
             className="retro-button-solid ui-action-fit min-h-[38px] px-3 py-2 text-xs font-semibold md:min-w-[88px]"
-            style={{ fontSize: "0.75rem" }}
+            style={{ fontSize: "0.75rem", marginRight: "12px", marginBottom: "12px" }}
           >
             로그아웃
           </button>

@@ -120,6 +120,7 @@ export default function DashboardPage() {
 
   const [settings, setSettings] = useState<DriverSettings>({
     driver_name: "",
+    phone_number: "",
     unit_price: "",
     settlement_start_day: "26",
     settlement_start_month_offset: "-1",
@@ -264,6 +265,7 @@ export default function DashboardPage() {
 
         setSettings({
           driver_name: data.driver_name ?? "",
+          phone_number: data.phone_number ?? "",
           unit_price: data.unit_price ? String(data.unit_price) : "",
           settlement_start_day: data.settlement_start_day
             ? String(data.settlement_start_day)
@@ -662,6 +664,7 @@ export default function DashboardPage() {
             <button
               onClick={toggleStatCards}
               className="retro-button-solid min-h-[48px] w-full px-4 py-3 text-sm font-semibold"
+              style={{ marginTop: "12px", marginBottom: "12px" }}
             >
               {showStatCards ? "통계 닫기" : "통계 보기"}
             </button>
@@ -669,6 +672,7 @@ export default function DashboardPage() {
             <button
               onClick={toggleReportList}
               className="retro-button-solid min-h-[48px] w-full px-4 py-3 text-sm font-semibold"
+              style={{ marginTop: "12px", marginBottom: "12px" }}
             >
               {showReportList ? "업무 캘린더 닫기" : "업무 캘린더"}
             </button>

@@ -1,3 +1,5 @@
+"use client";
+
 type Props = {
   open: boolean;
   email: string;

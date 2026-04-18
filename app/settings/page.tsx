@@ -20,6 +20,7 @@ export default function SettingsPage() {
 
   const [settings, setSettings] = useState<DriverSettings>({
     driver_name: "",
+    phone_number: "",
     unit_price: "",
     settlement_start_day: "26",
     settlement_start_month_offset: "-1",
@@ -70,6 +71,7 @@ export default function SettingsPage() {
 
         setSettings({
           driver_name: data.driver_name ?? "",
+          phone_number: data.phone_number ?? "",
           unit_price: data.unit_price ? String(data.unit_price) : "",
           settlement_start_day: data.settlement_start_day
             ? String(data.settlement_start_day)
@@ -118,6 +120,7 @@ export default function SettingsPage() {
     const payload = {
       user_id: user.id,
       driver_name: settings.driver_name,
+      phone_number: settings.phone_number || null,
       unit_price: settings.unit_price ? Number(settings.unit_price) : null,
       settlement_start_day: Number(settings.settlement_start_day || 1),
       settlement_start_month_offset: Number(
@@ -162,24 +165,31 @@ export default function SettingsPage() {
   return (
     <main className="retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-3 py-4 text-[var(--text)] sm:px-4 sm:py-6">
       <div className="mx-auto flex w-full max-w-[34rem] flex-col gap-4 sm:gap-5 sm:max-w-2xl">
-        <div className="retro-panel rounded-[24px] px-4 py-4 sm:rounded-[28px] sm:px-6 sm:py-5">
-          <div className="flex flex-col items-start gap-4 text-left sm:items-center sm:text-center">
-            <div className="max-w-lg">
-              <p className="retro-title theme-kicker text-[10px]">SETTINGS</p>
-              <h1 className="retro-title theme-heading mt-3 text-base leading-relaxed sm:text-lg md:text-xl">
-                CONFIG PANEL
-              </h1>
-              <p className="theme-copy mt-3 text-sm">
-                정산기간, 단가, 휴무 기준을 설정합니다.
-              </p>
+        <div className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">
+          <div className="space-y-3">
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+              <div aria-hidden="true" />
+
+              <div className="text-center">
+                <h1 className="retro-title theme-heading text-xl leading-none text-[rgba(255,255,255,0.96)] sm:text-2xl md:text-[1.9rem]">
+                  설정
+                </h1>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  onClick={() => router.push("/dashboard")}
+                  className="retro-button min-h-[38px] px-3.5 py-1.5 text-[12px] font-semibold sm:text-xs"
+                  style={{ marginRight: "0.875rem" }}
+                >
+                  돌아가기
+                </button>
+              </div>
             </div>
 
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="retro-button ui-action-fit min-h-[48px] px-5 py-2.5 text-sm font-semibold"
-            >
-              돌아가기
-            </button>
+            <p className="theme-copy text-center text-sm">
+              정산기간, 단가, 휴무 기준을 설정합니다.
+            </p>
           </div>
         </div>
 

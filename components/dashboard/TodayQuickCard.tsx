@@ -62,18 +62,18 @@ export default function TodayQuickCard({
           <label className="theme-label block text-left text-sm font-semibold">
             {/* 입력 날짜 */}
           </label>
-          <div className="mx-auto flex w-full max-w-[22rem] items-center justify-between gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--field-bg)] px-3 py-3">
+          <div className="mx-auto flex w-full max-w-[12rem] items-center justify-between gap-2 rounded-[18px] border border-[var(--border)] bg-[var(--field-bg)] px-2 py-2.5">
             <button
               type="button"
               onClick={() => onDateChange(previousDate)}
               disabled={!canMoveToPreviousDate}
-              className="retro-button min-h-[40px] min-w-[40px] px-3 py-2 text-sm font-semibold disabled:cursor-default disabled:opacity-40"
+              className="retro-button min-h-[32px] min-w-[32px] px-2 py-1.5 text-xs font-semibold disabled:cursor-default disabled:opacity-40"
               aria-label="이전 날짜"
             >
               ←
             </button>
 
-            <p className="theme-heading text-sm font-semibold tracking-tight sm:text-base">
+            <p className="theme-heading text-xs font-semibold tracking-tight sm:text-sm">
               {selectedDate}
             </p>
 
@@ -81,7 +81,7 @@ export default function TodayQuickCard({
               type="button"
               onClick={() => onDateChange(nextDate)}
               disabled={!canMoveToNextDate}
-              className="retro-button min-h-[40px] min-w-[40px] px-3 py-2 text-sm font-semibold disabled:cursor-default disabled:opacity-40"
+              className="retro-button min-h-[32px] min-w-[32px] px-2 py-1.5 text-xs font-semibold disabled:cursor-default disabled:opacity-40"
               aria-label="다음 날짜"
             >
               →
@@ -92,7 +92,7 @@ export default function TodayQuickCard({
           </p>
         </div>
 
-        <div className="theme-note-box rounded-2xl px-4 py-3">
+        <div>
           <label className="theme-label flex items-center justify-center gap-2 font-semibold text-center">
             <input
               id="today-dayoff"
@@ -108,7 +108,7 @@ export default function TodayQuickCard({
                 }))
               }
             />
-            휴무
+            추가 휴무
           </label>
         </div>
 
@@ -125,7 +125,7 @@ export default function TodayQuickCard({
               disabled={reportForm.is_day_off}
               placeholder={defaultUnitPrice ? `${defaultUnitPrice}원` : "단가"}
               className="no-spinner px-4 py-3 text-center disabled:opacity-60"
-              style={compactInputStyle}
+              style={{ ...compactInputStyle, marginBottom: "12px" }}
             />
           </div>
 
@@ -141,7 +141,7 @@ export default function TodayQuickCard({
               disabled={reportForm.is_day_off}
               placeholder="배송"
               className="no-spinner px-4 py-3 text-center disabled:opacity-60"
-              style={compactInputStyle}
+              style={{ ...compactInputStyle, marginBottom: "12px" }}
             />
           </div>
 
@@ -157,7 +157,7 @@ export default function TodayQuickCard({
               disabled={reportForm.is_day_off}
               placeholder="반품"
               className="no-spinner px-4 py-3 text-center disabled:opacity-60"
-              style={compactInputStyle}
+              style={{ ...compactInputStyle, marginBottom: "12px" }}
             />
           </div>
 
@@ -173,13 +173,16 @@ export default function TodayQuickCard({
               disabled={reportForm.is_day_off}
               placeholder="취소"
               className="no-spinner px-4 py-3 text-center disabled:opacity-60"
-              style={compactInputStyle}
+              style={{ ...compactInputStyle, marginBottom: "12px" }}
             />
           </div>
         </div>
 
         <div className="space-y-2 text-center">
-          <label className="theme-label block text-center text-sm font-semibold">
+          <label
+            className="theme-label block text-center text-sm font-semibold"
+            style={{ marginBottom: "12px" }}
+          >
             특이사항
           </label>
           <textarea
@@ -187,6 +190,7 @@ export default function TodayQuickCard({
             value={reportForm.memo}
             onChange={handleReportChange}
             className="min-h-[112px] px-4 py-3 text-left"
+            style={{ marginBottom: "12px" }}
           />
         </div>
 
@@ -194,6 +198,7 @@ export default function TodayQuickCard({
           onClick={onSave}
           disabled={saving}
           className="retro-button-solid ui-action-fit min-h-[48px] px-5 py-3.5 text-base font-semibold disabled:opacity-60"
+          style={{ marginBottom: "12px" }}
         >
           {saving ? "저장 중..." : "저 장"}
         </button>
