@@ -110,17 +110,11 @@ type Props = {
   avgSales: string;
   totalSales: string;
   expectedSales: string;
-  adjustedPeriodDays: number;
-  totalPeriodDays: number;
-  regularOffDays: number;
-  workedDays: number;
-  additionalOffDays: number;
-  remainingWorkDays: number;
 };
 
 export default function StatCards(props: Props) {
-  const cardSpacing = { marginRight: "24px" } as const;
-  const primaryRowSpacing = { marginTop: "20px", marginBottom: "20px" } as const;
+  const cardSpacing = { marginRight: "16px" } as const;
+  const primaryRowSpacing = { marginTop: "16px", marginBottom: "16px" } as const;
 
   const primaryStats = [
     { label: "누적 건 수", value: `${props.totalQuantity}건` },
@@ -130,50 +124,21 @@ export default function StatCards(props: Props) {
     { label: "평균 매출", value: props.avgSales },
   ];
 
-  const secondaryStats = [
-    { label: "정산기간 일 수", value: `${props.adjustedPeriodDays}일` },
-    { label: "근무한 일 수", value: `${props.workedDays}일` },
-    { label: "추가휴무 일 수", value: `${props.additionalOffDays}일` },
-    { label: "남은 근무 일 수", value: `${props.remainingWorkDays}일` },
-  ];
-
-  const secondarySummary = `전체 ${props.totalPeriodDays}일 - 정기/격주휴무 ${props.regularOffDays}일`;
-
   return (
-    <>
-      <div
-        className="mx-auto flex w-fit max-w-full flex-wrap items-start justify-center gap-3"
-        style={primaryRowSpacing}
-      >
-        {primaryStats.map((card, index) => (
-          <Card
-            key={card.label}
-            label={card.label}
-            value={card.value}
-            accent={getCardAccent(index)}
-            className="w-fit shrink-0"
-            style={index < primaryStats.length - 1 ? cardSpacing : undefined}
-          />
-        ))}
-      </div>
-
-      <div className="mx-auto w-fit max-w-full rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
-        <div className="flex flex-wrap items-start justify-center gap-3">
-          {secondaryStats.map((card, index) => (
-            <Card
-              key={card.label}
-              label={card.label}
-              value={card.value}
-              accent={getCardAccent(index + primaryStats.length)}
-              className="w-fit shrink-0"
-              style={index < secondaryStats.length - 1 ? cardSpacing : undefined}
-            />
-          ))}
-        </div>
-        <p className="theme-copy mt-3 text-center text-sm leading-relaxed">
-          {secondarySummary}
-        </p>
-      </div>
-    </>
+    <div
+      className="mx-auto flex w-fit max-w-full flex-wrap items-start justify-center gap-2"
+      style={primaryRowSpacing}
+    >
+      {primaryStats.map((card, index) => (
+        <Card
+          key={card.label}
+          label={card.label}
+          value={card.value}
+          accent={getCardAccent(index)}
+          className="w-fit shrink-0"
+          style={index < primaryStats.length - 1 ? cardSpacing : undefined}
+        />
+      ))}
+    </div>
   );
 }

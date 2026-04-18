@@ -24,6 +24,77 @@ import ReportModal from "../../components/dashboard/ReportModal";
 import ReportList from "../../components/dashboard/ReportList";
 import TodayQuickCard from "../../components/dashboard/TodayQuickCard";
 
+type WorkSummaryStripProps = {
+  adjustedPeriodDays: number;
+  totalPeriodDays: number;
+  regularOffDays: number;
+  workedDays: number;
+  additionalOffDays: number;
+  remainingWorkDays: number;
+};
+
+const WORK_SUMMARY_ITEMS = [
+  {
+    label: "이달 근무",
+    valueKey: "adjustedPeriodDays",
+    labelClassName: "text-[rgba(255,203,128,0.96)]",
+    valueClassName: "text-[rgba(255,245,228,0.98)]",
+  },
+  {
+    label: "정상 근무",
+    valueKey: "workedDays",
+    labelClassName: "text-[rgba(199,229,160,0.96)]",
+    valueClassName: "text-[rgba(246,252,235,0.98)]",
+  },
+  {
+    label: "추가 휴무",
+    valueKey: "additionalOffDays",
+    labelClassName: "text-[rgba(148,234,198,0.96)]",
+    valueClassName: "text-[rgba(236,253,246,0.98)]",
+  },
+  {
+    label: "남은 근무",
+    valueKey: "remainingWorkDays",
+    labelClassName: "text-[rgba(173,210,255,0.96)]",
+    valueClassName: "text-[rgba(239,245,255,0.98)]",
+  },
+] as const;
+
+function WorkSummaryStrip(props: WorkSummaryStripProps) {
+  const cardSpacing = { marginRight: "24px" } as const;
+
+  const values = {
+    adjustedPeriodDays: `${props.adjustedPeriodDays}일`,
+    workedDays: `${props.workedDays}일`,
+    additionalOffDays: `${props.additionalOffDays}일`,
+    remainingWorkDays: `${props.remainingWorkDays}일`,
+  } as const;
+
+  return (
+    <section className="mx-auto w-fit max-w-full rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
+      <div className="flex flex-wrap items-start justify-center gap-3">
+        {WORK_SUMMARY_ITEMS.map((item, index) => (
+          <div
+            key={item.label}
+            className="retro-card w-fit shrink-0 rounded-[20px] p-4 text-center sm:rounded-[24px] sm:p-5"
+            style={index < WORK_SUMMARY_ITEMS.length - 1 ? cardSpacing : undefined}
+          >
+            <p className={`retro-title text-sm leading-relaxed ${item.labelClassName}`}>
+              {item.label}
+            </p>
+            <p className={`mt-3 text-2xl font-bold tracking-tight sm:text-[2rem] ${item.valueClassName}`}>
+              {values[item.valueKey]}
+            </p>
+          </div>
+        ))}
+      </div>
+      <p className="theme-copy mt-3 text-center text-sm leading-relaxed">
+        전체 {props.totalPeriodDays}일 - 정기/격주휴무 {props.regularOffDays}일
+      </p>
+    </section>
+  );
+}
+
 function createEmptyReportForm(dateKey: string): ReportForm {
   return {
     report_date: dateKey,
@@ -657,6 +728,15 @@ export default function DashboardPage() {
           onLogout={signOut}
         />
 
+        <WorkSummaryStrip
+          adjustedPeriodDays={summary.adjustedPeriodDays}
+          totalPeriodDays={summary.totalPeriodDays}
+          regularOffDays={summary.regularOffDays}
+          workedDays={summary.workedDays}
+          additionalOffDays={summary.additionalOffDays}
+          remainingWorkDays={summary.remainingWorkDays}
+        />
+
         <section ref={quickEntryCardRef}>
           <TodayQuickCard
             selectedDate={activeQuickEntryDate}
@@ -722,12 +802,6 @@ export default function DashboardPage() {
                 avgSales={formatMoney(summary.avgSales)}
                 totalSales={formatMoney(summary.totalSales)}
                 expectedSales={formatMoney(summary.expectedSales)}
-                adjustedPeriodDays={summary.adjustedPeriodDays}
-                totalPeriodDays={summary.totalPeriodDays}
-                regularOffDays={summary.regularOffDays}
-                workedDays={summary.workedDays}
-                additionalOffDays={summary.additionalOffDays}
-                remainingWorkDays={summary.remainingWorkDays}
               />
             </>
           ) : null}
