@@ -86,13 +86,13 @@ function Card({
 
   return (
     <div
-      className={`retro-card rounded-[20px] p-4 sm:rounded-[24px] sm:p-5 ${className ?? ""}`}
+      className={`retro-card h-full min-w-0 rounded-[18px] p-3.5 sm:rounded-[24px] sm:p-5 ${className ?? ""}`}
       style={{ ...cardStyle, ...style }}
     >
-      <p className="retro-title text-center text-sm leading-relaxed [color:var(--stat-label-color)] sm:text-[15px]">
+      <p className="retro-title break-keep text-center text-[13px] leading-relaxed [color:var(--stat-label-color)] sm:text-[15px]">
         {label}
       </p>
-      <p className="mt-4 text-center text-2xl font-bold tracking-tight [color:var(--stat-value-color)] sm:text-[2rem]">
+      <p className="mt-3 text-center text-[clamp(1.5rem,5vw,2rem)] font-bold leading-none tracking-tight [color:var(--stat-value-color)] sm:mt-4">
         {value}
       </p>
       {sub ? (
@@ -113,7 +113,6 @@ type Props = {
 };
 
 export default function StatCards(props: Props) {
-  const cardSpacing = { marginRight: "16px" } as const;
   const primaryRowSpacing = { marginTop: "16px", marginBottom: "16px" } as const;
 
   const primaryStats = [
@@ -126,7 +125,7 @@ export default function StatCards(props: Props) {
 
   return (
     <div
-      className="mx-auto flex w-fit max-w-full flex-wrap items-start justify-center gap-2"
+      className="mx-auto grid w-full max-w-[34rem] grid-cols-1 gap-2.5 min-[360px]:grid-cols-2 sm:grid-cols-3 sm:gap-3 lg:max-w-none lg:grid-cols-5"
       style={primaryRowSpacing}
     >
       {primaryStats.map((card, index) => (
@@ -135,8 +134,11 @@ export default function StatCards(props: Props) {
           label={card.label}
           value={card.value}
           accent={getCardAccent(index)}
-          className="w-fit shrink-0"
-          style={index < primaryStats.length - 1 ? cardSpacing : undefined}
+          className={
+            index === primaryStats.length - 1
+              ? "min-[360px]:col-span-2 sm:col-span-1"
+              : undefined
+          }
         />
       ))}
     </div>

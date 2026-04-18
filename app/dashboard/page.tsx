@@ -62,6 +62,7 @@ const WORK_SUMMARY_ITEMS = [
 
 function WorkSummaryStrip(props: WorkSummaryStripProps) {
   const cardSpacing = { marginRight: "24px" } as const;
+  const sectionSpacing = { marginTop: "20px" } as const;
 
   const values = {
     adjustedPeriodDays: `${props.adjustedPeriodDays}일`,
@@ -71,7 +72,10 @@ function WorkSummaryStrip(props: WorkSummaryStripProps) {
   } as const;
 
   return (
-    <section className="mx-auto w-fit max-w-full rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
+    <section
+      className="mx-auto w-fit max-w-full rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4"
+      style={sectionSpacing}
+    >
       <div className="flex flex-wrap items-start justify-center gap-3">
         {WORK_SUMMARY_ITEMS.map((item, index) => (
           <div
@@ -819,7 +823,7 @@ export default function DashboardPage() {
                     이전달
                   </button>
 
-                  <p className="retro-title theme-heading text-center text-[11px] leading-relaxed sm:text-sm">
+                  <p className="retro-title theme-heading text-center text-base leading-relaxed sm:text-lg">
                     {periodMonthLabel} 업무 캘린더
                   </p>
 
