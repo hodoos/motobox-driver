@@ -104,7 +104,7 @@ type StoredAdditionalWorkItem = Omit<AdditionalWorkItemForm, "key">;
 
 const LEGACY_ADDITIONAL_WORK_MEMO_MARKER =
   /\n?\[\[MOTOBOX_ADDITIONAL_WORK:([0-9]+(?:\.[0-9]+)?)\]\]$/;
-const ADDITIONAL_WORKS_MEMO_MARKER = /\n?\[\[MOTOBOX_ADDITIONAL_WORKS:(.+)\]\]$/s;
+const ADDITIONAL_WORKS_MEMO_MARKER = /\n?\[\[MOTOBOX_ADDITIONAL_WORKS:([\s\S]+)\]\]$/;
 
 let additionalWorkKeySeed = 0;
 
