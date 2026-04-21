@@ -47,7 +47,7 @@ export function getSupabaseAdminConfigurationError() {
   const keyKind = getSupabaseAdminKeyKind();
 
   if (keyKind === "missing") {
-    return "서버 관리자 키가 설정되지 않았습니다. .env.local에 SUPABASE_SERVICE_ROLE_KEY를 추가해주세요.";
+    return "서버 관리자 키가 설정되지 않았습니다. 로컬은 .env.local, 배포는 호스팅 환경 변수에 SUPABASE_SERVICE_ROLE_KEY를 추가해주세요.";
   }
 
   if (keyKind === "publishable") {
