@@ -7,6 +7,8 @@ type Props = {
   onOpenSignup: () => void;
 };
 
+const KAKAO_INQUIRY_URL = "https://pf.kakao.com/_xeMxdjX/chat";
+
 export default function LoginCard({
   email,
   password,
@@ -77,9 +79,24 @@ export default function LoginCard({
         </div>
       </div>
 
-      <p className="theme-kicker mt-4 text-center text-[10px] sm:text-[11px]">
-        support : motoboxx@naver.com
-      </p>
+      <div
+        className="flex flex-col items-center gap-2 text-center"
+        style={{ marginTop: "2.75rem" }}
+      >
+        <a
+          href={KAKAO_INQUIRY_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="retro-button min-h-[40px] min-w-[9rem] px-4 py-2 text-[12px] font-semibold sm:text-[13px]"
+          aria-label="카카오톡 문의하기"
+        >
+          문의하기
+        </a>
+
+        <p className="theme-kicker text-[10px] sm:text-[11px]">
+          카카오톡 상담으로 연결됩니다.
+        </p>
+      </div>
     </div>
   );
 }
