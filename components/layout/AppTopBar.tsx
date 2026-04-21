@@ -372,6 +372,8 @@ export default function AppTopBar() {
   const menuSections = createMenuSections(user);
   const isDashboardPage = pathname === "/dashboard";
   const isLoggedIn = Boolean(user);
+  const logoHref = isLoggedIn ? "/dashboard" : "/";
+  const logoAriaLabel = isLoggedIn ? "대시보드로 이동" : "초기화면으로 이동";
   const showDashboardMyPageButton = isLoggedIn && isDashboardPage;
   const authButtonLabel = authPending ? "처리 중" : isLoggedIn ? "로그아웃" : "로그인";
   const themeButtonLabel =
@@ -489,7 +491,7 @@ export default function AppTopBar() {
           </div>
 
           <div className="justify-self-center">
-            <Link href="/" aria-label="초기화면으로 이동">
+            <Link href={logoHref} aria-label={logoAriaLabel}>
               <Image
                 src="/driver-report-logo.svg"
                 alt="택배판"
