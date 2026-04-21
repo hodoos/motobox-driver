@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import {
+  consumePendingToast,
+  createToastState,
+  getKoreanErrorMessage,
+  ToastState,
+} from "../../lib/toast";
 import { extractDriverProfileSeed } from "../../lib/driverSettings";
 import { formatMoney, toDateString } from "../../lib/format";
 import {
@@ -24,6 +30,7 @@ import StatCards from "../../components/dashboard/StatCards";
 import ReportModal from "../../components/dashboard/ReportModal";
 import ReportList from "../../components/dashboard/ReportList";
 import TodayQuickCard from "../../components/dashboard/TodayQuickCard";
+import ToastViewport from "../../components/ui/ToastViewport";
 
 type WorkSummaryStripProps = {
   adjustedPeriodDays: number;
@@ -336,6 +343,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [reportsLoading, setReportsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<ToastState | null>(null);
 
   const [periodAnchor, setPeriodAnchor] = useState<Date>(
     new Date(now.getFullYear(), now.getMonth(), 1)
@@ -370,6 +378,24 @@ export default function DashboardPage() {
   useEffect(() => {
     quickEntryDateRef.current = quickEntryDate;
   }, [quickEntryDate]);
+
+  useEffect(() => {
+    const pendingToast = consumePendingToast();
+
+    if (!pendingToast) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setToast(createToastState(pendingToast));
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  const showToast = (tone: ToastState["tone"], title: string, message?: string) => {
+    setToast(createToastState({ tone, title, message }));
+  };
 
   useEffect(() => {
     if (!showStatCards) return;
@@ -491,7 +517,11 @@ export default function DashboardPage() {
 
         if (error) {
           if (error.code !== "PGRST116") {
-            alert("기본설정 불러오기 실패: " + error.message);
+            showToast(
+              "error",
+              "기본설정 불러오기 실패",
+              getKoreanErrorMessage(error.message, "기본설정을 불러오지 못했습니다.")
+            );
           }
           return;
         }
@@ -542,7 +572,11 @@ export default function DashboardPage() {
         setReportsLoading(false);
 
         if (error) {
-          alert("리포트 불러오기 실패: " + error.message);
+          showToast(
+            "error",
+            "리포트 불러오기 실패",
+            getKoreanErrorMessage(error.message, "리포트를 불러오지 못했습니다.")
+          );
           return;
         }
 
@@ -577,7 +611,11 @@ export default function DashboardPage() {
     setReportsLoading(false);
 
     if (error) {
-      alert("리포트 불러오기 실패: " + error.message);
+      showToast(
+        "error",
+        "리포트 불러오기 실패",
+        getKoreanErrorMessage(error.message, "리포트를 불러오지 못했습니다.")
+      );
       return;
     }
 
@@ -689,7 +727,11 @@ export default function DashboardPage() {
         form.canceled_count !== "");
 
     if (!settings.unit_price && hasStandardWorkInput && !form.unit_price_override) {
-      alert("먼저 기본설정에서 배송 단가를 입력해주세요.");
+      showToast(
+        "error",
+        "기본 단가가 필요합니다",
+        "먼저 기본설정에서 배송 단가를 입력해주세요."
+      );
       return false;
     }
 
@@ -710,7 +752,11 @@ export default function DashboardPage() {
         .eq("report_date", form.report_date);
 
       if (error) {
-        alert("미입력 처리 실패: " + error.message);
+        showToast(
+          "error",
+          "미입력 처리 실패",
+          getKoreanErrorMessage(error.message, "미입력 처리 중 문제가 발생했습니다.")
+        );
         return false;
       }
 
@@ -750,7 +796,11 @@ export default function DashboardPage() {
       .upsert(payload, { onConflict: "user_id,report_date" });
 
     if (error) {
-      alert("저장 실패: " + error.message);
+      showToast(
+        "error",
+        "저장 실패",
+        getKoreanErrorMessage(error.message, "저장 중 문제가 발생했습니다.")
+      );
       return false;
     }
 
@@ -766,7 +816,7 @@ export default function DashboardPage() {
 
     const savedDateKey = activeQuickEntryDate;
 
-    alert("리포트 저장 완료");
+    showToast("success", "리포트 저장 완료", `${savedDateKey} 내용을 저장했습니다.`);
     await refreshReports(savedDateKey);
     setShowStatCards(false);
     setShowReportList(true);
@@ -780,7 +830,7 @@ export default function DashboardPage() {
 
     if (!ok) return;
 
-    alert("저장 완료");
+    showToast("success", "저장 완료", `${reportForm.report_date} 내용을 반영했습니다.`);
     setIsReportModalOpen(false);
     await refreshReports(activeQuickEntryDate);
   };
@@ -789,7 +839,11 @@ export default function DashboardPage() {
     const { error } = await supabase.auth.signOut();
 
     if (error) {
-      alert(error.message);
+      showToast(
+        "error",
+        "로그아웃 실패",
+        getKoreanErrorMessage(error.message, "로그아웃 중 문제가 발생했습니다.")
+      );
       return;
     }
 
@@ -902,6 +956,7 @@ export default function DashboardPage() {
 
   return (
     <main className="retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-3 py-4 text-[var(--text)] sm:px-4 sm:py-6">
+      <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
       <div className="mx-auto flex w-full max-w-[34rem] flex-col gap-3 sm:gap-4 sm:max-w-2xl lg:max-w-4xl">
         <DashboardHeader
           driverName={settings.driver_name}

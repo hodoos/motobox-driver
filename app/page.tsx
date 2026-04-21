@@ -4,11 +4,19 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 import {
+  consumePendingToast,
+  createToastState,
+  getKoreanErrorMessage,
+  queuePendingToast,
+  ToastState,
+} from "../lib/toast";
+import {
   ensureDriverSettingsRow,
   extractDriverProfileSeed,
 } from "../lib/driverSettings";
 import LoginCard from "../components/auth/LoginCard";
 import SignupModal from "../components/auth/SignupModal";
+import ToastViewport from "../components/ui/ToastViewport";
 
 export default function Home() {
   const router = useRouter();
@@ -24,6 +32,7 @@ export default function Home() {
   const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState<ToastState | null>(null);
 
   useEffect(() => {
     const getUser = async () => {
@@ -41,6 +50,20 @@ export default function Home() {
     getUser();
   }, [router]);
 
+  useEffect(() => {
+    const pendingToast = consumePendingToast();
+
+    if (!pendingToast) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setToast(createToastState(pendingToast));
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
   const resetSignupForm = () => {
     setSignupDriverName("");
     setSignupEmail("");
@@ -48,6 +71,10 @@ export default function Home() {
     setSignupPassword("");
     setSignupPasswordConfirm("");
     setIsSignupModalOpen(false);
+  };
+
+  const showToast = (tone: ToastState["tone"], title: string, message?: string) => {
+    setToast(createToastState({ tone, title, message }));
   };
 
   const signUp = async () => {
@@ -62,12 +89,20 @@ export default function Home() {
       !signupPasswordConfirm ||
       !phoneNumber
     ) {
-      alert("이름, 이메일, 비밀번호, 비밀번호 확인, 휴대폰번호를 모두 입력해주세요.");
+      showToast(
+        "error",
+        "회원가입 정보를 확인해주세요",
+        "이름, 이메일, 비밀번호, 비밀번호 확인, 휴대폰번호를 모두 입력해주세요."
+      );
       return;
     }
 
     if (signupPassword !== signupPasswordConfirm) {
-      alert("비밀번호와 비밀번호 확인이 일치하지 않습니다.");
+      showToast(
+        "error",
+        "비밀번호가 일치하지 않습니다",
+        "비밀번호와 비밀번호 확인을 다시 입력해주세요."
+      );
       return;
     }
 
@@ -83,7 +118,11 @@ export default function Home() {
     });
 
     if (error) {
-      alert(error.message);
+      showToast(
+        "error",
+        "회원가입 실패",
+        getKoreanErrorMessage(error.message, "회원가입 중 문제가 발생했습니다.")
+      );
       return;
     }
 
@@ -94,16 +133,31 @@ export default function Home() {
       });
 
       if (settingsError) {
-        alert("회원 추가 정보 저장 실패: " + settingsError.message);
+        queuePendingToast({
+          tone: "error",
+          title: "회원가입은 완료됐지만 추가 정보를 저장하지 못했습니다",
+          message: getKoreanErrorMessage(
+            settingsError.message,
+            "추가 정보를 저장하지 못했습니다. 설정 화면에서 다시 확인해주세요."
+          ),
+        });
+      } else {
+        queuePendingToast({
+          tone: "success",
+          title: "회원가입 완료",
+          message: "대시보드로 이동합니다.",
+        });
       }
 
+      resetSignupForm();
       router.replace("/dashboard");
+      return;
     }
 
-    alert(
-      data.session
-        ? "회원가입 완료"
-        : "회원가입 완료. 이메일 인증 후 로그인해주세요."
+    showToast(
+      "success",
+      "회원가입 완료",
+      data.session ? "대시보드로 이동합니다." : "이메일 인증 후 로그인해주세요."
     );
     resetSignupForm();
   };
@@ -115,7 +169,11 @@ export default function Home() {
     });
 
     if (error) {
-      alert(error.message);
+      showToast(
+        "error",
+        "로그인 실패",
+        getKoreanErrorMessage(error.message, "로그인 정보를 다시 확인해주세요.")
+      );
       return;
     }
 
@@ -126,13 +184,27 @@ export default function Home() {
       );
 
       if (settingsError) {
-        alert("회원 추가 정보 불러오기 실패: " + settingsError.message);
+        queuePendingToast({
+          tone: "error",
+          title: "로그인은 완료됐지만 사용자 정보를 불러오지 못했습니다",
+          message: getKoreanErrorMessage(
+            settingsError.message,
+            "사용자 추가 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요."
+          ),
+        });
+      } else {
+        queuePendingToast({
+          tone: "success",
+          title: "로그인 성공",
+          message: "대시보드로 이동합니다.",
+        });
       }
 
       router.replace("/dashboard");
+      return;
     }
 
-    alert("로그인 성공");
+    showToast("success", "로그인 성공", "대시보드로 이동합니다.");
   };
 
   if (loading) {
@@ -149,6 +221,7 @@ export default function Home() {
 
   return (
     <main className="retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-3 py-4 text-[var(--text)] sm:px-4 sm:py-6">
+      <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
       <div className="relative mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-[28rem] items-center justify-center sm:min-h-[calc(100vh-3rem)]">
         <LoginCard
           email={email}

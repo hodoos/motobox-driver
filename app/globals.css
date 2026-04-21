@@ -149,6 +149,66 @@ textarea {
   box-shadow: var(--shadow);
 }
 
+@keyframes retro-toast-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.retro-toast {
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(18, 18, 22, 0.98), rgba(11, 11, 14, 0.98));
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px);
+  animation: retro-toast-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.retro-toast-success {
+  border-color: rgba(148, 234, 198, 0.34);
+  background: linear-gradient(180deg, rgba(18, 39, 30, 0.96), rgba(9, 17, 14, 0.98));
+}
+
+.retro-toast-error {
+  border-color: rgba(255, 151, 151, 0.34);
+  background: linear-gradient(180deg, rgba(42, 24, 24, 0.96), rgba(18, 10, 10, 0.98));
+}
+
+.retro-toast-info {
+  border-color: rgba(173, 210, 255, 0.34);
+  background: linear-gradient(180deg, rgba(21, 31, 48, 0.96), rgba(9, 12, 20, 0.98));
+}
+
+.retro-toast__badge {
+  display: inline-flex;
+  min-width: 3.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  padding: 0.6rem 0.7rem;
+}
+
+.retro-toast-success .retro-toast__badge {
+  color: rgba(228, 255, 241, 0.96);
+  background: rgba(148, 234, 198, 0.12);
+}
+
+.retro-toast-error .retro-toast__badge {
+  color: rgba(255, 232, 232, 0.96);
+  background: rgba(255, 151, 151, 0.12);
+}
+
+.retro-toast-info .retro-toast__badge {
+  color: rgba(238, 246, 255, 0.96);
+  background: rgba(173, 210, 255, 0.12);
+}
+
 .retro-button {
   display: inline-flex;
   align-items: center;

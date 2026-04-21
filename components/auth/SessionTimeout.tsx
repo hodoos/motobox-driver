@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
+import {
+  createToastState,
+  getKoreanErrorMessage,
+  queuePendingToast,
+  ToastState,
+} from "../../lib/toast";
+import ToastViewport from "../ui/ToastViewport";
 
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const SESSION_STARTED_AT_KEY = "motobox.session.startedAt";
@@ -31,6 +38,11 @@ export default function SessionTimeout() {
   const router = useRouter();
   const timeoutIdRef = useRef<number | null>(null);
   const isAutoSigningOutRef = useRef(false);
+  const [toast, setToast] = useState<ToastState | null>(null);
+
+  const showToast = (tone: ToastState["tone"], title: string, message?: string) => {
+    setToast(createToastState({ tone, title, message }));
+  };
 
   useEffect(() => {
     const clearLogoutTimer = () => {
@@ -53,11 +65,19 @@ export default function SessionTimeout() {
 
       if (error) {
         isAutoSigningOutRef.current = false;
-        alert("세션 만료 처리 실패: " + error.message);
+        showToast(
+          "error",
+          "세션 만료 처리 실패",
+          getKoreanErrorMessage(error.message, "세션 종료 처리 중 문제가 발생했습니다.")
+        );
         return;
       }
 
-      alert("로그인 세션이 만료되어 자동 로그아웃되었습니다.");
+      queuePendingToast({
+        tone: "info",
+        title: "세션이 만료되었습니다",
+        message: "로그인 시간이 지나 자동 로그아웃되었습니다.",
+      });
       router.replace("/");
     };
 
@@ -137,5 +157,5 @@ export default function SessionTimeout() {
     };
   }, [router]);
 
-  return null;
+  return <ToastViewport toast={toast} onDismiss={() => setToast(null)} />;
 }

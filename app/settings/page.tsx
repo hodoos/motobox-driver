@@ -4,11 +4,18 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import {
+  createToastState,
+  getKoreanErrorMessage,
+  queuePendingToast,
+  ToastState,
+} from "../../lib/toast";
+import {
   extractDriverProfileSeed,
   isMissingDriverSettingsPhoneNumberColumn,
 } from "../../lib/driverSettings";
 import { DriverSettings, UserType } from "../../types";
 import SettingsForm from "../../components/settings/SettingsForm";
+import ToastViewport from "../../components/ui/ToastViewport";
 
 async function loadDriverSettings(userId: string) {
   return supabase.from("driver_settings").select("*").eq("user_id", userId).single();
@@ -21,6 +28,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<ToastState | null>(null);
 
   const [settings, setSettings] = useState<DriverSettings>({
     driver_name: "",
@@ -34,6 +42,10 @@ export default function SettingsPage() {
     biweekly_off_days: [],
     biweekly_anchor_date: "",
   });
+
+  const showToast = (tone: ToastState["tone"], title: string, message?: string) => {
+    setToast(createToastState({ tone, title, message }));
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -78,7 +90,11 @@ export default function SettingsPage() {
 
         if (error) {
           if (error.code !== "PGRST116") {
-            alert("기본설정 불러오기 실패: " + error.message);
+            showToast(
+              "error",
+              "기본설정 불러오기 실패",
+              getKoreanErrorMessage(error.message, "기본설정을 불러오지 못했습니다.")
+            );
           }
           return;
         }
@@ -140,7 +156,11 @@ export default function SettingsPage() {
 
     if (authError) {
       setSaving(false);
-      alert("기본설정 저장 실패: " + authError.message);
+      showToast(
+        "error",
+        "기본설정 저장 실패",
+        getKoreanErrorMessage(authError.message, "기본설정을 저장하지 못했습니다.")
+      );
       return;
     }
 
@@ -181,7 +201,11 @@ export default function SettingsPage() {
     setSaving(false);
 
     if (error) {
-      alert("기본설정 저장 실패: " + error.message);
+      showToast(
+        "error",
+        "기본설정 저장 실패",
+        getKoreanErrorMessage(error.message, "기본설정을 저장하지 못했습니다.")
+      );
       return;
     }
 
@@ -195,7 +219,11 @@ export default function SettingsPage() {
         : prev
     );
 
-    alert("기본설정 저장 완료");
+    queuePendingToast({
+      tone: "success",
+      title: "기본설정 저장 완료",
+      message: "변경한 설정이 대시보드에 반영됩니다.",
+    });
     router.push("/dashboard");
   };
 
@@ -213,6 +241,7 @@ export default function SettingsPage() {
 
   return (
     <main className="retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-3 py-4 text-[var(--text)] sm:px-4 sm:py-6">
+      <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
       <div className="mx-auto flex w-full max-w-[34rem] flex-col gap-4 sm:gap-5 sm:max-w-2xl">
         <div className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">
           <div className="space-y-3">
