@@ -61,7 +61,7 @@ export default function ReportList({
         </div>
       </div>
 
-      <div className="grid grid-cols-5 gap-1 sm:gap-1.5 md:grid-cols-6 lg:grid-cols-7">
+      <div className="grid grid-cols-4 gap-1 min-[380px]:grid-cols-5 sm:gap-1.5 md:grid-cols-6 lg:grid-cols-7">
         {dates.map((date) => {
           const dateKey = toDateString(date);
           const report = reportsMap.get(dateKey);
@@ -125,13 +125,11 @@ export default function ReportList({
                   <div className="mt-0.5 flex items-center gap-0.5 whitespace-nowrap">
                     <p
                       className="theme-heading text-[9px] font-semibold tracking-tight sm:text-[11px] md:text-sm"
-                      style={{ color: "#f8fafc" }}
                     >
                       {dateKey.slice(5)}
                     </p>
                     <p
                       className="theme-heading text-[9px] font-semibold tracking-tight sm:text-[11px] md:text-sm"
-                      style={{ color: "#f8fafc" }}
                     >
                       {getKoreanDayLabel(date.getDay())}
                     </p>

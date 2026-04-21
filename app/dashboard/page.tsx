@@ -9,6 +9,7 @@ import {
   getKoreanErrorMessage,
   ToastState,
 } from "../../lib/toast";
+import { isAdminUser } from "../../lib/admin";
 import { extractDriverProfileSeed } from "../../lib/driverSettings";
 import { formatMoney, toDateString } from "../../lib/format";
 import {
@@ -344,6 +345,7 @@ export default function DashboardPage() {
   const [reportsLoading, setReportsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [hasAdminAccess, setHasAdminAccess] = useState(false);
 
   const [periodAnchor, setPeriodAnchor] = useState<Date>(
     new Date(now.getFullYear(), now.getMonth(), 1)
@@ -490,6 +492,7 @@ export default function DashboardPage() {
       }
 
       const profileSeed = extractDriverProfileSeed(user);
+      setHasAdminAccess(isAdminUser(user));
 
       setUser({
         id: user.id,
@@ -964,6 +967,8 @@ export default function DashboardPage() {
           periodLabel={`${toDateString(settlementRange.start)} ~ ${toDateString(
             settlementRange.end
           )}`}
+          showAdminButton={hasAdminAccess}
+          onOpenAdmin={() => router.push("/admin")}
           onOpenSettings={() => router.push("/settings")}
           onLogout={signOut}
         />

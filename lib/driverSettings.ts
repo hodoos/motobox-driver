@@ -1,4 +1,5 @@
 import type { User } from "@supabase/supabase-js";
+import { recordOperatorAuditLog } from "./operatorAuditLogClient";
 import { supabase } from "./supabase";
 
 type DriverProfileSeed = {
@@ -69,10 +70,37 @@ export async function ensureDriverSettingsRow(
       .from("driver_settings")
       .insert(basePayload);
 
+    if (!fallbackInsertError) {
+      await recordOperatorAuditLog({
+        action: "driver_settings_created",
+        targetType: "driver_settings",
+        targetId: userId,
+        summary: "관리 권한 계정의 기사 기본설정 행이 생성됐습니다.",
+        details: {
+          user_id: userId,
+          driver_name: basePayload.driver_name,
+        },
+      });
+    }
+
     return {
       error: fallbackInsertError,
       created: !fallbackInsertError,
     };
+  }
+
+  if (!insertError) {
+    await recordOperatorAuditLog({
+      action: "driver_settings_created",
+      targetType: "driver_settings",
+      targetId: userId,
+      summary: "관리 권한 계정의 기사 기본설정 행이 생성됐습니다.",
+      details: {
+        user_id: userId,
+        driver_name: payloadWithPhoneNumber.driver_name,
+        phone_number: payloadWithPhoneNumber.phone_number,
+      },
+    });
   }
 
   return {

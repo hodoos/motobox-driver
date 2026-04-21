@@ -112,7 +112,7 @@ export default function TodayQuickCard({
             {/* 입력 날짜 */}
           </label>
           <div
-            className="theme-label mx-auto flex w-fit items-center justify-center gap-5 text-[16px] font-semibold"
+            className="theme-label mx-auto flex w-full max-w-[20rem] items-center justify-center gap-5 text-[16px] font-semibold"
             style={{ marginTop: "12px", marginBottom: "12px" }}
           >
             <label className="flex items-center gap-2">
@@ -134,7 +134,7 @@ export default function TodayQuickCard({
               추가 휴무
             </label>
           </div>
-          <div className="mx-auto flex w-full max-w-[20rem] items-center gap-2">
+          <div className="mx-auto flex w-full max-w-[24rem] flex-col gap-2 sm:flex-row sm:items-center">
             <div className="flex flex-1 items-center justify-between gap-2 rounded-[18px] border border-[var(--border)] bg-[var(--field-bg)] px-2 py-2.5">
               <button
                 type="button"
@@ -165,7 +165,7 @@ export default function TodayQuickCard({
               type="button"
               onClick={handleAddAdditionalWork}
               disabled={reportForm.is_day_off}
-              className="retro-button min-h-[42px] shrink-0 whitespace-nowrap px-3 py-2 text-xs font-semibold disabled:cursor-default disabled:opacity-40 sm:text-sm"
+              className="retro-button min-h-[42px] w-full shrink-0 whitespace-nowrap px-3 py-2 text-xs font-semibold disabled:cursor-default disabled:opacity-40 sm:w-auto sm:text-sm"
             >
               추가 업무
             </button>
@@ -175,7 +175,7 @@ export default function TodayQuickCard({
           </p>
         </div>
 
-        <div className="mx-auto grid max-w-[20rem] grid-cols-2 justify-items-center gap-x-4 gap-y-4">
+        <div className="mx-auto grid w-full max-w-[20rem] grid-cols-2 justify-items-center gap-x-3 gap-y-4 sm:gap-x-4">
           <div className="flex w-full max-w-[8rem] flex-col items-center space-y-2">
             <label className="theme-label block text-center text-sm font-semibold">
               단가
@@ -252,7 +252,7 @@ export default function TodayQuickCard({
                 key={item.key}
                 className="retro-card rounded-[20px] px-3 py-3 sm:rounded-[24px] sm:px-4 sm:py-4"
               >
-                <div className="grid grid-cols-[repeat(4,minmax(0,1fr))_auto] items-end gap-2">
+                <div className="grid grid-cols-2 items-end gap-2 sm:grid-cols-[repeat(4,minmax(0,1fr))_auto]">
                   <div className="space-y-1">
                     <label className="theme-label block text-center text-[11px] font-semibold">
                       단가
@@ -333,7 +333,7 @@ export default function TodayQuickCard({
                     />
                   </div>
 
-                  <div className="flex h-full items-center justify-center pb-0.5">
+                  <div className="col-span-2 flex h-full items-center justify-end pt-1 sm:col-span-1 sm:justify-center sm:pb-0.5 sm:pt-0">
                     <button
                       type="button"
                       onClick={() => handleRemoveAdditionalWork(item.key)}

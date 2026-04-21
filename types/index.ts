@@ -49,3 +49,15 @@ export type DailyReportRow = {
   is_day_off: boolean;
   unit_price_override: number | null;
 };
+
+export type AdminDriverSettingsRow = {
+  user_id: string;
+  driver_name: string | null;
+  phone_number: string | null;
+  unit_price: number | null;
+};
+
+export type AdminOverviewResponse = {
+  driverSettingsRows: AdminDriverSettingsRow[];
+  reports: DailyReportRow[];
+};

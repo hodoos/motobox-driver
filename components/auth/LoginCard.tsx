@@ -1,3 +1,5 @@
+import { KAKAO_INQUIRY_URL } from "../../lib/support";
+
 type Props = {
   email: string;
   password: string;
@@ -6,8 +8,6 @@ type Props = {
   onLogin: () => void;
   onOpenSignup: () => void;
 };
-
-const KAKAO_INQUIRY_URL = "https://pf.kakao.com/_xeMxdjX/chat";
 
 export default function LoginCard({
   email,

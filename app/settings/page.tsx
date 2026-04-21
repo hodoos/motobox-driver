@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { recordOperatorAuditLog } from "../../lib/operatorAuditLogClient";
 import { supabase } from "../../lib/supabase";
 import {
   createToastState,
@@ -13,6 +14,7 @@ import {
   extractDriverProfileSeed,
   isMissingDriverSettingsPhoneNumberColumn,
 } from "../../lib/driverSettings";
+import PageShell, { PageLoadingShell } from "../../components/layout/PageShell";
 import { DriverSettings, UserType } from "../../types";
 import SettingsForm from "../../components/settings/SettingsForm";
 import ToastViewport from "../../components/ui/ToastViewport";
@@ -164,6 +166,18 @@ export default function SettingsPage() {
       return;
     }
 
+    await recordOperatorAuditLog({
+      action: "auth_profile_updated",
+      targetType: "auth_user",
+      targetId: user.id,
+      summary: "관리 권한 계정이 자신의 프로필 정보를 수정했습니다.",
+      details: {
+        user_id: user.id,
+        driver_name: settings.driver_name.trim(),
+        phone_number: settings.phone_number.trim(),
+      },
+    });
+
     const basePayload = {
       user_id: user.id,
       driver_name: settings.driver_name.trim(),
@@ -209,6 +223,30 @@ export default function SettingsPage() {
       return;
     }
 
+    await recordOperatorAuditLog({
+      action: "driver_settings_saved",
+      targetType: "driver_settings",
+      targetId: user.id,
+      summary: "관리 권한 계정이 기본설정을 저장했습니다.",
+      details: {
+        user_id: user.id,
+        driver_name: settings.driver_name.trim(),
+        phone_number: settings.phone_number.trim(),
+        unit_price: settings.unit_price ? Number(settings.unit_price) : null,
+        settlement_start_day: Number(settings.settlement_start_day || 1),
+        settlement_start_month_offset: Number(
+          settings.settlement_start_month_offset || 0
+        ),
+        settlement_end_day: Number(settings.settlement_end_day || 31),
+        settlement_end_month_offset: Number(
+          settings.settlement_end_month_offset || 0
+        ),
+        off_days: settings.off_days,
+        biweekly_off_days: settings.biweekly_off_days,
+        biweekly_anchor_date: settings.biweekly_anchor_date || null,
+      },
+    });
+
     setUser((prev) =>
       prev
         ? {
@@ -228,28 +266,20 @@ export default function SettingsPage() {
   };
 
   if (loading || settingsLoading) {
-    return (
-      <main className="retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-3 py-4 text-[var(--text)] sm:px-4 sm:py-6">
-        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-[28rem] items-center justify-center sm:min-h-[calc(100vh-3rem)]">
-          <div className="retro-panel w-full rounded-[28px] px-6 py-5 text-center">
-            불러오는 중...
-          </div>
-        </div>
-      </main>
-    );
+    return <PageLoadingShell message="불러오는 중..." />;
   }
 
   return (
-    <main className="retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-3 py-4 text-[var(--text)] sm:px-4 sm:py-6">
+    <PageShell contentClassName="flex w-full max-w-[34rem] flex-col gap-4 sm:max-w-2xl sm:gap-5">
       <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
-      <div className="mx-auto flex w-full max-w-[34rem] flex-col gap-4 sm:gap-5 sm:max-w-2xl">
+      <div className="flex w-full flex-col gap-4 sm:gap-5">
         <div className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">
           <div className="space-y-3">
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
               <div aria-hidden="true" />
 
               <div className="text-center">
-                <h1 className="retro-title theme-heading text-xl leading-none text-[rgba(255,255,255,0.96)] sm:text-2xl md:text-[1.9rem]">
+                <h1 className="retro-title theme-heading text-xl leading-none sm:text-2xl md:text-[1.9rem]">
                   설정
                 </h1>
               </div>
@@ -279,6 +309,6 @@ export default function SettingsPage() {
           saving={saving}
         />
       </div>
-    </main>
+    </PageShell>
   );
 }

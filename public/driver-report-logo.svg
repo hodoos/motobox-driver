@@ -1,0 +1,33 @@
+<svg width="320" height="104" viewBox="0 0 620 202" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logo-white-face" x1="0" y1="36" x2="0" y2="160" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F2F4F7"/>
+    </linearGradient>
+    <linearGradient id="logo-orange-face" x1="0" y1="36" x2="0" y2="160" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF9500"/>
+      <stop offset="1" stop-color="#FF7800"/>
+    </linearGradient>
+    <linearGradient id="logo-depth" x1="0" y1="86" x2="0" y2="186" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2F3A48"/>
+      <stop offset="1" stop-color="#111B28"/>
+    </linearGradient>
+    <filter id="logo-shadow" x="0" y="0" width="620" height="202" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#030814" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#logo-shadow)" font-family="Arial Black, Malgun Gothic, Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="136" font-weight="900" letter-spacing="-10" stroke-linejoin="round" paint-order="stroke fill">
+    <g transform="translate(26 22) skewX(-9)">
+      <text x="18" y="138" fill="url(#logo-depth)" stroke="#07111B" stroke-width="24">택배판</text>
+    </g>
+
+    <g transform="translate(16 12) skewX(-9)">
+      <text x="18" y="138" fill="#223041" stroke="#07111B" stroke-width="24">택배판</text>
+    </g>
+
+    <g transform="skewX(-9)">
+      <text x="18" y="138" fill="url(#logo-white-face)" stroke="#03101C" stroke-width="22">택배<tspan fill="url(#logo-orange-face)">판</tspan></text>
+    </g>
+  </g>
+</svg>

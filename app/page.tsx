@@ -14,7 +14,9 @@ import {
   ensureDriverSettingsRow,
   extractDriverProfileSeed,
 } from "../lib/driverSettings";
+import { DEFAULT_USER_LEVEL } from "../lib/userLevel";
 import LoginCard from "../components/auth/LoginCard";
+import PageShell, { PageLoadingShell } from "../components/layout/PageShell";
 import SignupModal from "../components/auth/SignupModal";
 import ToastViewport from "../components/ui/ToastViewport";
 
@@ -113,6 +115,7 @@ export default function Home() {
         data: {
           driver_name: driverName,
           phone_number: phoneNumber,
+          user_level: DEFAULT_USER_LEVEL,
         },
       },
     });
@@ -208,21 +211,13 @@ export default function Home() {
   };
 
   if (loading) {
-    return (
-      <main className="retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-3 py-4 text-[var(--text)] sm:px-4 sm:py-6">
-        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-[28rem] items-center justify-center sm:min-h-[calc(100vh-3rem)]">
-          <div className="retro-panel w-full rounded-[28px] px-6 py-5 text-center">
-            불러오는 중...
-          </div>
-        </div>
-      </main>
-    );
+    return <PageLoadingShell message="불러오는 중..." />;
   }
 
   return (
-    <main className="retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-3 py-4 text-[var(--text)] sm:px-4 sm:py-6">
+    <PageShell contentClassName="relative flex flex-1 w-full max-w-[28rem] items-center justify-center">
       <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
-      <div className="relative mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-[28rem] items-center justify-center sm:min-h-[calc(100vh-3rem)]">
+      <div className="relative flex w-full items-center justify-center">
         <LoginCard
           email={email}
           password={password}
@@ -248,6 +243,6 @@ export default function Home() {
           onSubmit={signUp}
         />
       </div>
-    </main>
+    </PageShell>
   );
 }
