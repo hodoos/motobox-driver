@@ -26,11 +26,11 @@ import {
   ReportForm,
   UserType,
 } from "../../types";
-import DashboardHeader from "../../components/dashboard/DashboardHeader";
 import StatCards from "../../components/dashboard/StatCards";
 import ReportModal from "../../components/dashboard/ReportModal";
 import ReportList from "../../components/dashboard/ReportList";
 import TodayQuickCard from "../../components/dashboard/TodayQuickCard";
+import PageShell, { PageLoadingShell } from "../../components/layout/PageShell";
 import ToastViewport from "../../components/ui/ToastViewport";
 
 type WorkSummaryStripProps = {
@@ -70,9 +70,6 @@ const WORK_SUMMARY_ITEMS = [
 ] as const;
 
 function WorkSummaryStrip(props: WorkSummaryStripProps) {
-  const cardSpacing = { marginRight: "24px" } as const;
-  const sectionSpacing = { marginTop: "20px" } as const;
-
   const values = {
     adjustedPeriodDays: `${props.adjustedPeriodDays}일`,
     workedDays: `${props.workedDays}일`,
@@ -81,21 +78,17 @@ function WorkSummaryStrip(props: WorkSummaryStripProps) {
   } as const;
 
   return (
-    <section
-      className="mx-auto w-fit max-w-full rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4"
-      style={sectionSpacing}
-    >
-      <div className="flex flex-wrap items-start justify-center gap-3">
+    <section className="mt-1 w-full">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         {WORK_SUMMARY_ITEMS.map((item, index) => (
           <div
             key={item.label}
-            className="retro-card w-fit shrink-0 rounded-[20px] p-4 text-center sm:rounded-[24px] sm:p-5"
-            style={index < WORK_SUMMARY_ITEMS.length - 1 ? cardSpacing : undefined}
+            className="retro-card min-w-0 rounded-[20px] p-3 text-center sm:rounded-[24px] sm:p-5"
           >
             <p className={`retro-title text-sm leading-relaxed ${item.labelClassName}`}>
               {item.label}
             </p>
-            <p className={`mt-3 text-2xl font-bold tracking-tight sm:text-[2rem] ${item.valueClassName}`}>
+            <p className={`mt-2 text-xl font-bold tracking-tight sm:mt-3 sm:text-[2rem] ${item.valueClassName}`}>
               {values[item.valueKey]}
             </p>
           </div>
@@ -946,33 +939,13 @@ export default function DashboardPage() {
   }, [periodDates, reportsMap, settings]);
 
   if (loading) {
-    return (
-      <main className="retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-3 py-4 text-[var(--text)] sm:px-4 sm:py-6">
-        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-[28rem] items-center justify-center sm:min-h-[calc(100vh-3rem)]">
-          <div className="retro-panel w-full rounded-[28px] px-6 py-5 text-center">
-            불러오는 중...
-          </div>
-        </div>
-      </main>
-    );
+    return <PageLoadingShell message="불러오는 중..." />;
   }
 
   return (
-    <main className="retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-3 py-4 text-[var(--text)] sm:px-4 sm:py-6">
+    <PageShell contentClassName="flex w-full max-w-[34rem] flex-col gap-3 sm:gap-4 sm:max-w-2xl lg:max-w-4xl">
       <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
-      <div className="mx-auto flex w-full max-w-[34rem] flex-col gap-3 sm:gap-4 sm:max-w-2xl lg:max-w-4xl">
-        <DashboardHeader
-          driverName={settings.driver_name}
-          email={user?.email}
-          periodLabel={`${toDateString(settlementRange.start)} ~ ${toDateString(
-            settlementRange.end
-          )}`}
-          showAdminButton={hasAdminAccess}
-          onOpenAdmin={() => router.push("/admin")}
-          onOpenSettings={() => router.push("/settings")}
-          onLogout={signOut}
-        />
-
+      <div className="flex w-full flex-col gap-3 sm:gap-4">
         <WorkSummaryStrip
           adjustedPeriodDays={summary.adjustedPeriodDays}
           totalPeriodDays={summary.totalPeriodDays}
@@ -997,7 +970,7 @@ export default function DashboardPage() {
           />
         </section>
         <div className="rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
             <button
               onClick={toggleStatCards}
               className="retro-button-solid min-h-[48px] w-full px-4 py-3 text-sm font-semibold"
@@ -1020,10 +993,10 @@ export default function DashboardPage() {
           {showStatCards ? (
             <>
               <div className="retro-panel mb-3 rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
-                <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:flex sm:items-center sm:justify-between sm:gap-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                   <button
                     onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, -1))}
-                    className="retro-button min-h-[44px] px-4 py-2.5 text-sm font-semibold"
+                    className="retro-button min-h-[44px] w-full px-4 py-2.5 text-sm font-semibold sm:w-auto"
                   >
                     이전달
                   </button>
@@ -1034,7 +1007,7 @@ export default function DashboardPage() {
 
                   <button
                     onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, 1))}
-                    className="retro-button min-h-[44px] px-4 py-2.5 text-sm font-semibold"
+                    className="retro-button min-h-[44px] w-full px-4 py-2.5 text-sm font-semibold sm:w-auto"
                   >
                     다음달
                   </button>
@@ -1056,10 +1029,10 @@ export default function DashboardPage() {
           {showReportList ? (
             <>
               <div className="retro-panel mb-3 rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
-                <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:flex sm:items-center sm:justify-between sm:gap-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                   <button
                     onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, -1))}
-                    className="retro-button min-h-[44px] px-4 py-2.5 text-sm font-semibold"
+                    className="retro-button min-h-[44px] w-full px-4 py-2.5 text-sm font-semibold sm:w-auto"
                   >
                     이전달
                   </button>
@@ -1070,7 +1043,7 @@ export default function DashboardPage() {
 
                   <button
                     onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, 1))}
-                    className="retro-button min-h-[44px] px-4 py-2.5 text-sm font-semibold"
+                    className="retro-button min-h-[44px] w-full px-4 py-2.5 text-sm font-semibold sm:w-auto"
                   >
                     다음달
                   </button>
@@ -1108,6 +1081,6 @@ export default function DashboardPage() {
         onSave={saveModalReport}
         saving={saving}
       />
-    </main>
+    </PageShell>
   );
 }

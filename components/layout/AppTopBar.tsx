@@ -260,6 +260,7 @@ function createMenuSections(user: User | null): MenuSection[] {
     id: board.key,
     href: board.path,
     label: board.menuLabel,
+    isPlaceholder: true,
   } satisfies MenuItem));
 
   const vendorSections = isVendorUser(user)
@@ -418,7 +419,7 @@ export default function AppTopBar() {
     }
 
     if (item.isPlaceholder) {
-      showToast("info", item.label, "해당 메뉴는 구현 중입니다.");
+      showToast("info", item.label, "구현 중입니다.");
       return;
     }
 

@@ -1,96 +1,144 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import type { User } from "@supabase/supabase-js";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { extractDriverProfileSeed } from "../../lib/driverSettings";
-import { formatMoney, toDateString } from "../../lib/format";
-import { isAdminUser } from "../../lib/admin";
+import {
+  canManageUserLevelChange,
+  isAdminUser,
+  isOperatorUser,
+} from "../../lib/admin";
 import {
   createToastState,
   getKoreanErrorMessage,
   queuePendingToast,
   ToastState,
 } from "../../lib/toast";
+import { USER_LEVEL_OPTIONS, type UserLevel } from "../../lib/userLevel";
 import type {
-  AdminDriverSettingsRow,
-  AdminOverviewResponse,
-  DailyReportRow,
-  UserType,
+  AdminManagedUserRow,
+  AdminUserLevelUpdateResponse,
+  AdminUsersResponse,
+  StaffAuditLogResponse,
+  StaffAuditLogRow,
 } from "../../types";
+import PageShell, { PageLoadingShell } from "../../components/layout/PageShell";
 import ToastViewport from "../../components/ui/ToastViewport";
 
-type AdminDriverSummary = {
-  user_id: string;
-  driver_name: string;
-  phone_number: string;
-  unit_price: number | null;
-  reportCount: number;
-  totalSales: number;
-  deliveredCount: number;
-  returnedCount: number;
-  canceledCount: number;
-  lastReportDate: string | null;
+type AdminUsersRequestResult = {
+  data: AdminUsersResponse | null;
+  error: string | null;
+  status: number;
 };
 
-function createDefaultStartDate() {
-  const date = new Date();
-  date.setDate(date.getDate() - 30);
-  return toDateString(date);
-}
+type AdminUserLevelMutationRequestResult = {
+  data: AdminUserLevelUpdateResponse | null;
+  error: string | null;
+  status: number;
+};
 
-function getDriverDisplayName(
-  driver?: Partial<AdminDriverSettingsRow> | null,
-  userId?: string
-) {
+type AuditLogsRequestResult = {
+  data: StaffAuditLogResponse | null;
+  error: string | null;
+  status: number;
+};
+
+function getDriverDisplayName(driver?: Partial<AdminManagedUserRow> | null) {
   const driverName = driver?.driver_name?.trim();
 
   if (driverName) {
     return driverName;
   }
 
-  if (userId) {
-    return `기사 ${userId.slice(0, 8)}`;
-  }
-
   return "이름 미등록";
 }
 
-function getDriverPhoneNumber(driver?: Partial<AdminDriverSettingsRow> | null) {
+function getDriverPhoneNumber(driver?: Partial<AdminManagedUserRow> | null) {
   const phoneNumber = driver?.phone_number?.trim();
   return phoneNumber || "연락처 미등록";
 }
 
-function getReportStatusLabel(report: DailyReportRow) {
-  return report.is_day_off ? "추가휴무" : "근무";
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("ko-KR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
-type AdminOverviewRequestResult = {
-  data: AdminOverviewResponse | null;
-  error: string | null;
-  status: number;
-};
+function getAuditPersonDisplayName(name?: string | null, email?: string | null, userId?: string | null) {
+  const trimmedName = name?.trim();
 
-async function loadAdminOverview(
-  accessToken: string,
-  startDate: string,
-  endDate: string
-): Promise<AdminOverviewRequestResult> {
+  if (trimmedName) {
+    return trimmedName;
+  }
+
+  const trimmedEmail = email?.trim();
+
+  if (trimmedEmail) {
+    return trimmedEmail.split("@")[0] || trimmedEmail;
+  }
+
+  return userId?.trim() || "이름 없음";
+}
+
+function sortManagedUsers(rows: AdminManagedUserRow[]) {
+  return [...rows].sort((left, right) => {
+    const leftName = left.driver_name || left.email || left.user_id;
+    const rightName = right.driver_name || right.email || right.user_id;
+    const nameComparison = leftName.localeCompare(rightName, "ko");
+
+    if (nameComparison !== 0) {
+      return nameComparison;
+    }
+
+    return left.user_id.localeCompare(right.user_id);
+  });
+}
+
+function buildUserLevelDrafts(rows: AdminManagedUserRow[]) {
+  return rows.reduce<Record<string, UserLevel>>((drafts, row) => {
+    drafts[row.user_id] = row.current_user_level;
+    return drafts;
+  }, {});
+}
+
+function getAvailableUserLevels(actor: User | null, row: AdminManagedUserRow) {
+  const availableLevels = USER_LEVEL_OPTIONS.filter((level) =>
+    canManageUserLevelChange(actor, row.current_user_level, level)
+  );
+
+  if (availableLevels.includes(row.current_user_level)) {
+    return availableLevels;
+  }
+
+  return [
+    row.current_user_level,
+    ...availableLevels.filter((level) => level !== row.current_user_level),
+  ];
+}
+
+async function getSupabaseAccessToken() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  return session?.access_token ?? null;
+}
+
+async function loadAdminUsers(accessToken: string): Promise<AdminUsersRequestResult> {
   try {
-    const searchParams = new URLSearchParams({
-      startDate,
-      endDate,
-    });
-    const response = await fetch(`/api/admin/overview?${searchParams.toString()}`, {
+    const response = await fetch("/api/admin/users", {
       method: "GET",
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
       cache: "no-store",
     });
-    const payload = (await response
-      .json()
-      .catch(() => null)) as (AdminOverviewResponse & { error?: string }) | { error?: string } | null;
+    const payload = (await response.json().catch(() => null)) as
+      | (AdminUsersResponse & { error?: string })
+      | { error?: string }
+      | null;
 
     if (!response.ok) {
       return {
@@ -98,13 +146,13 @@ async function loadAdminOverview(
         error:
           payload && "error" in payload && typeof payload.error === "string"
             ? payload.error
-            : "관리자 데이터를 불러오지 못했습니다.",
+            : "관리자 사용자 목록을 불러오지 못했습니다.",
         status: response.status,
       };
     }
 
     return {
-      data: payload as AdminOverviewResponse,
+      data: payload as AdminUsersResponse,
       error: null,
       status: response.status,
     };
@@ -113,7 +161,99 @@ async function loadAdminOverview(
       data: null,
       error: getKoreanErrorMessage(
         error instanceof Error ? error.message : undefined,
-        "관리자 데이터를 불러오지 못했습니다."
+        "관리자 사용자 목록을 불러오지 못했습니다."
+      ),
+      status: 0,
+    };
+  }
+}
+
+async function updateAdminUserLevel(
+  accessToken: string,
+  targetUserId: string,
+  nextUserLevel: UserLevel
+): Promise<AdminUserLevelMutationRequestResult> {
+  try {
+    const response = await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        targetUserId,
+        nextUserLevel,
+      }),
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | (AdminUserLevelUpdateResponse & { error?: string })
+      | { error?: string }
+      | null;
+
+    if (!response.ok) {
+      return {
+        data: null,
+        error:
+          payload && "error" in payload && typeof payload.error === "string"
+            ? payload.error
+            : "사용자 등급을 변경하지 못했습니다.",
+        status: response.status,
+      };
+    }
+
+    return {
+      data: payload as AdminUserLevelUpdateResponse,
+      error: null,
+      status: response.status,
+    };
+  } catch (error) {
+    return {
+      data: null,
+      error: getKoreanErrorMessage(
+        error instanceof Error ? error.message : undefined,
+        "사용자 등급을 변경하지 못했습니다."
+      ),
+      status: 0,
+    };
+  }
+}
+
+async function loadAuditLogs(accessToken: string): Promise<AuditLogsRequestResult> {
+  try {
+    const response = await fetch("/api/operator-audit-logs", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | (StaffAuditLogResponse & { error?: string })
+      | { error?: string }
+      | null;
+
+    if (!response.ok) {
+      return {
+        data: null,
+        error:
+          payload && "error" in payload && typeof payload.error === "string"
+            ? payload.error
+            : "수정 기록 로그를 불러오지 못했습니다.",
+        status: response.status,
+      };
+    }
+
+    return {
+      data: payload as StaffAuditLogResponse,
+      error: null,
+      status: response.status,
+    };
+  } catch (error) {
+    return {
+      data: null,
+      error: getKoreanErrorMessage(
+        error instanceof Error ? error.message : undefined,
+        "수정 기록 로그를 불러오지 못했습니다."
       ),
       status: 0,
     };
@@ -122,23 +262,30 @@ async function loadAdminOverview(
 
 export default function AdminPage() {
   const router = useRouter();
-  const [user, setUser] = useState<UserType | null>(null);
+  const [authUser, setAuthUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [dataLoading, setDataLoading] = useState(false);
+  const [managedUsersLoading, setManagedUsersLoading] = useState(false);
+  const [auditLogsLoading, setAuditLogsLoading] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
-  const [dataError, setDataError] = useState<string | null>(null);
-  const [driverSettingsRows, setDriverSettingsRows] = useState<AdminDriverSettingsRow[]>([]);
-  const [reports, setReports] = useState<DailyReportRow[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
-  const [draftStartDate, setDraftStartDate] = useState(createDefaultStartDate());
-  const [draftEndDate, setDraftEndDate] = useState(toDateString(new Date()));
-  const [appliedStartDate, setAppliedStartDate] = useState(createDefaultStartDate());
-  const [appliedEndDate, setAppliedEndDate] = useState(toDateString(new Date()));
+  const [managedUsersError, setManagedUsersError] = useState<string | null>(null);
+  const [auditLogsError, setAuditLogsError] = useState<string | null>(null);
+  const [managedUsers, setManagedUsers] = useState<AdminManagedUserRow[]>([]);
+  const [auditLogs, setAuditLogs] = useState<StaffAuditLogRow[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [userLevelDrafts, setUserLevelDrafts] = useState<Record<string, UserLevel>>({});
+  const [savingUserId, setSavingUserId] = useState<string | null>(null);
+
+  const isOperatorView = isOperatorUser(authUser);
 
   const showToast = (tone: ToastState["tone"], title: string, message?: string) => {
     setToast(createToastState({ tone, title, message }));
+  };
+
+  const resetManagedUserDraft = (managedUser: AdminManagedUserRow) => {
+    setUserLevelDrafts((prev) => ({
+      ...prev,
+      [managedUser.user_id]: managedUser.current_user_level,
+    }));
   };
 
   useEffect(() => {
@@ -167,14 +314,7 @@ export default function AdminPage() {
         return;
       }
 
-      const profileSeed = extractDriverProfileSeed(user);
-
-      setUser({
-        id: user.id,
-        email: user.email,
-        driver_name: profileSeed.driverName,
-        phone_number: profileSeed.phoneNumber,
-      });
+      setAuthUser(user);
       setLoading(false);
     };
 
@@ -182,582 +322,413 @@ export default function AdminPage() {
   }, [router]);
 
   useEffect(() => {
-    if (!user) {
+    if (!authUser) {
       return;
     }
 
     let isDisposed = false;
 
-    const loadAdminData = async () => {
-      setDataLoading(true);
-      setDataError(null);
+    const loadAdminSupportData = async () => {
+      setManagedUsersLoading(true);
+      setManagedUsersError(null);
+      setAuditLogsError(null);
 
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
+      if (isOperatorView) {
+        setAuditLogsLoading(true);
+      } else {
+        setAuditLogs([]);
+        setAuditLogsLoading(false);
+      }
+
+      const accessToken = await getSupabaseAccessToken();
 
       if (isDisposed) {
         return;
       }
 
-      if (sessionError || !session?.access_token) {
+      if (!accessToken) {
         const fallbackMessage = "관리자 세션을 확인할 수 없습니다. 다시 로그인해주세요.";
 
-        setDataLoading(false);
-        setDriverSettingsRows([]);
-        setReports([]);
-        setDataError(fallbackMessage);
+        setManagedUsersLoading(false);
+        setManagedUsers([]);
+        setManagedUsersError(fallbackMessage);
+        setAuditLogsLoading(false);
+        setAuditLogs([]);
         showToast("error", "관리자 데이터 불러오기 실패", fallbackMessage);
         return;
       }
 
-      const overviewResult = await loadAdminOverview(
-        session.access_token,
-        appliedStartDate,
-        appliedEndDate
-      );
+      const [usersResult, logsResult] = await Promise.all([
+        loadAdminUsers(accessToken),
+        isOperatorView
+          ? loadAuditLogs(accessToken)
+          : Promise.resolve<AuditLogsRequestResult>({
+              data: null,
+              error: null,
+              status: 200,
+            }),
+      ]);
 
       if (isDisposed) {
         return;
       }
 
-      if (overviewResult.status === 401) {
-        setDataLoading(false);
+      if (usersResult.status === 401) {
+        setManagedUsersLoading(false);
         queuePendingToast({
           tone: "error",
           title: "로그인이 필요합니다",
-          message: overviewResult.error || "다시 로그인한 뒤 관리자 페이지를 이용해주세요.",
+          message: usersResult.error || "다시 로그인한 뒤 관리자 페이지를 이용해주세요.",
         });
         router.replace("/");
         return;
       }
 
-      if (overviewResult.status === 403) {
-        setDataLoading(false);
+      if (usersResult.status === 403) {
+        setManagedUsersLoading(false);
         queuePendingToast({
           tone: "error",
           title: "관리자 권한이 없습니다",
           message:
-            overviewResult.error || "권한이 있는 계정만 관리자 페이지에 접근할 수 있습니다.",
+            usersResult.error || "권한이 있는 계정만 관리자 페이지에 접근할 수 있습니다.",
         });
         router.replace("/dashboard");
         return;
       }
 
-      setDataLoading(false);
+      setManagedUsersLoading(false);
 
-      if (overviewResult.data) {
-        setDriverSettingsRows(overviewResult.data.driverSettingsRows ?? []);
-        setReports(overviewResult.data.reports ?? []);
+      if (usersResult.data) {
+        const nextUsers = sortManagedUsers(usersResult.data.users ?? []);
+        setManagedUsers(nextUsers);
+        setUserLevelDrafts(buildUserLevelDrafts(nextUsers));
       }
 
-      if (overviewResult.error) {
-        setDriverSettingsRows([]);
-        setReports([]);
-        setDataError(overviewResult.error);
-        showToast("error", "관리자 데이터 불러오기 실패", overviewResult.error);
+      if (usersResult.error) {
+        setManagedUsers([]);
+        setManagedUsersError(usersResult.error);
+        showToast("error", "사용자 목록 불러오기 실패", usersResult.error);
+      }
+
+      if (isOperatorView) {
+        setAuditLogsLoading(false);
+
+        if (logsResult.data) {
+          setAuditLogs(logsResult.data.logs ?? []);
+        }
+
+        if (logsResult.error) {
+          setAuditLogs([]);
+          setAuditLogsError(logsResult.error);
+          showToast("error", "수정 로그 불러오기 실패", logsResult.error);
+        }
       }
     };
 
-    void loadAdminData();
+    void loadAdminSupportData();
 
     return () => {
       isDisposed = true;
     };
-  }, [user, appliedStartDate, appliedEndDate, refreshKey, router]);
+  }, [authUser, isOperatorView, refreshKey, router]);
 
-  const driverMap = useMemo(() => {
-    const map = new Map<string, AdminDriverSettingsRow>();
-
-    driverSettingsRows.forEach((row) => {
-      map.set(row.user_id, row);
-    });
-
-    return map;
-  }, [driverSettingsRows]);
-
-  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
-
-  const filteredReports = useMemo(() => {
-    return reports.filter((report) => {
-      if (selectedDriverId && report.user_id !== selectedDriverId) {
-        return false;
-      }
-
-      if (!normalizedSearchTerm) {
-        return true;
-      }
-
-      const driver = driverMap.get(report.user_id);
-
-      return [
-        getDriverDisplayName(driver, report.user_id),
-        getDriverPhoneNumber(driver),
-        report.user_id,
-        report.report_date,
-      ].some((value) => value.toLowerCase().includes(normalizedSearchTerm));
-    });
-  }, [reports, selectedDriverId, normalizedSearchTerm, driverMap]);
-
-  const driverSummaries = useMemo(() => {
-    const summaryMap = new Map<string, AdminDriverSummary>();
-
-    const ensureSummary = (userId: string) => {
-      if (!summaryMap.has(userId)) {
-        const driver = driverMap.get(userId);
-
-        summaryMap.set(userId, {
-          user_id: userId,
-          driver_name: getDriverDisplayName(driver, userId),
-          phone_number: getDriverPhoneNumber(driver),
-          unit_price: driver?.unit_price ?? null,
-          reportCount: 0,
-          totalSales: 0,
-          deliveredCount: 0,
-          returnedCount: 0,
-          canceledCount: 0,
-          lastReportDate: null,
-        });
-      }
-
-      return summaryMap.get(userId)!;
-    };
-
-    driverSettingsRows.forEach((row) => {
-      ensureSummary(row.user_id);
-    });
-
-    filteredReports.forEach((report) => {
-      const summary = ensureSummary(report.user_id);
-
-      summary.reportCount += 1;
-      summary.totalSales += report.daily_sales || 0;
-      summary.deliveredCount += report.delivered_count || 0;
-      summary.returnedCount += report.returned_count || 0;
-      summary.canceledCount += report.canceled_count || 0;
-
-      if (!summary.lastReportDate || report.report_date > summary.lastReportDate) {
-        summary.lastReportDate = report.report_date;
-      }
-    });
-
-    return Array.from(summaryMap.values())
-      .filter((summary) => {
-        if (!normalizedSearchTerm) {
-          return true;
-        }
-
-        return [summary.driver_name, summary.phone_number, summary.user_id].some((value) =>
-          value.toLowerCase().includes(normalizedSearchTerm)
-        );
-      })
-      .sort((left, right) => {
-        if (right.totalSales !== left.totalSales) {
-          return right.totalSales - left.totalSales;
-        }
-
-        return (right.lastReportDate || "").localeCompare(left.lastReportDate || "");
-      });
-  }, [driverMap, driverSettingsRows, filteredReports, normalizedSearchTerm]);
-
-  const selectedDriverSummary = useMemo(() => {
-    if (!selectedDriverId) {
-      return null;
-    }
-
-    return driverSummaries.find((summary) => summary.user_id === selectedDriverId) ?? null;
-  }, [driverSummaries, selectedDriverId]);
-
-  const summary = useMemo(() => {
-    const totalSales = filteredReports.reduce((sum, report) => sum + (report.daily_sales || 0), 0);
-    const deliveredCount = filteredReports.reduce(
-      (sum, report) => sum + (report.delivered_count || 0),
-      0
-    );
-    const additionalOffCount = filteredReports.filter((report) => report.is_day_off).length;
-
-    return {
-      driverCount: driverSummaries.length,
-      activeDriverCount: driverSummaries.filter((summary) => summary.reportCount > 0).length,
-      reportCount: filteredReports.length,
-      totalSales,
-      deliveredCount,
-      additionalOffCount,
-    };
-  }, [driverSummaries, filteredReports]);
-
-  const visibleReports = useMemo(() => filteredReports.slice(0, 24), [filteredReports]);
-
-  const applyDateRange = () => {
-    if (draftStartDate > draftEndDate) {
-      showToast(
-        "error",
-        "조회 기간을 확인해주세요",
-        "조회 시작일이 종료일보다 늦을 수 없습니다."
-      );
+  const handleManagedUserDraftChange = (targetUserId: string, nextLevel: string) => {
+    if (!USER_LEVEL_OPTIONS.some((level) => level === nextLevel)) {
       return;
     }
 
-    setAppliedStartDate(draftStartDate);
-    setAppliedEndDate(draftEndDate);
+    setUserLevelDrafts((prev) => ({
+      ...prev,
+      [targetUserId]: nextLevel as UserLevel,
+    }));
   };
 
-  const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
+  const saveManagedUserLevel = async (
+    managedUser: AdminManagedUserRow,
+    nextUserLevelOverride?: UserLevel
+  ) => {
+    const nextUserLevel =
+      nextUserLevelOverride ??
+      userLevelDrafts[managedUser.user_id] ??
+      managedUser.current_user_level;
 
-    if (error) {
+    if (nextUserLevel === managedUser.current_user_level) {
+      return;
+    }
+
+    if (!canManageUserLevelChange(authUser, managedUser.current_user_level, nextUserLevel)) {
+      resetManagedUserDraft(managedUser);
       showToast(
         "error",
-        "로그아웃 실패",
-        getKoreanErrorMessage(error.message, "로그아웃 중 문제가 발생했습니다.")
+        "등급 변경 권한이 없습니다",
+        "현재 계정은 이 사용자 등급을 변경할 수 없습니다."
       );
       return;
     }
 
-    queuePendingToast({
-      tone: "info",
-      title: "로그아웃 완료",
-      message: "관리자 페이지에서 로그아웃했습니다.",
-    });
-    router.replace("/");
+    const accessToken = await getSupabaseAccessToken();
+
+    if (!accessToken) {
+      resetManagedUserDraft(managedUser);
+      queuePendingToast({
+        tone: "error",
+        title: "로그인이 필요합니다",
+        message: "다시 로그인한 뒤 사용자 등급을 변경해주세요.",
+      });
+      router.replace("/");
+      return;
+    }
+
+    setSavingUserId(managedUser.user_id);
+    const updateResult = await updateAdminUserLevel(
+      accessToken,
+      managedUser.user_id,
+      nextUserLevel
+    );
+    setSavingUserId(null);
+
+    if (updateResult.status === 401) {
+      resetManagedUserDraft(managedUser);
+      queuePendingToast({
+        tone: "error",
+        title: "로그인이 필요합니다",
+        message: updateResult.error || "다시 로그인한 뒤 관리자 페이지를 이용해주세요.",
+      });
+      router.replace("/");
+      return;
+    }
+
+    if (updateResult.status === 403) {
+      resetManagedUserDraft(managedUser);
+      showToast("error", "등급 변경 권한이 없습니다", updateResult.error || undefined);
+      return;
+    }
+
+    if (!updateResult.data?.user) {
+      resetManagedUserDraft(managedUser);
+      showToast(
+        "error",
+        "사용자 등급 변경 실패",
+        updateResult.error || "사용자 등급을 변경하지 못했습니다."
+      );
+      return;
+    }
+
+    const updatedUser = updateResult.data.user;
+
+    setManagedUsers((prev) =>
+      sortManagedUsers(
+        prev.map((row) => (row.user_id === updatedUser.user_id ? updatedUser : row))
+      )
+    );
+    setUserLevelDrafts((prev) => ({
+      ...prev,
+      [updatedUser.user_id]: updatedUser.current_user_level,
+    }));
+    setRefreshKey((value) => value + 1);
+    showToast(
+      "success",
+      "사용자 등급을 변경했습니다",
+      `${getDriverDisplayName(updatedUser)} 계정이 ${updatedUser.current_user_level}로 변경됐습니다.`
+    );
+  };
+
+  const handleManagedUserLevelSelection = async (
+    managedUser: AdminManagedUserRow,
+    nextLevel: string
+  ) => {
+    if (!USER_LEVEL_OPTIONS.some((level) => level === nextLevel)) {
+      return;
+    }
+
+    handleManagedUserDraftChange(managedUser.user_id, nextLevel);
+    await saveManagedUserLevel(managedUser, nextLevel as UserLevel);
   };
 
   if (loading) {
-    return (
-      <main className="retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-3 py-4 text-[var(--text)] sm:px-4 sm:py-6">
-        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-[28rem] items-center justify-center sm:min-h-[calc(100vh-3rem)]">
-          <div className="retro-panel w-full rounded-[28px] px-6 py-5 text-center">
-            관리자 페이지 확인 중...
-          </div>
-        </div>
-      </main>
-    );
+    return <PageLoadingShell message="관리자 페이지 확인 중..." />;
   }
 
   return (
-    <main className="retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-3 py-4 text-[var(--text)] sm:px-4 sm:py-6">
+    <PageShell contentClassName="flex w-full max-w-[34rem] flex-col gap-4 sm:max-w-2xl lg:max-w-5xl">
       <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
 
-      <div className="mx-auto flex w-full max-w-[34rem] flex-col gap-4 sm:max-w-2xl lg:max-w-5xl">
+      <div className="flex w-full flex-col gap-4">
         <section className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <p className="theme-kicker text-[11px] sm:text-xs">ADMIN ONLY</p>
-              <h1 className="retro-title theme-heading mt-2 text-xl sm:text-2xl">
-                관리자 페이지
-              </h1>
-              <p className="theme-copy mt-3 text-sm leading-relaxed">
-                기사 현황과 최근 리포트를 조회하고, 운영 상태를 빠르게 확인할 수 있습니다.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => router.push("/dashboard")}
-                className="retro-button min-h-[40px] px-4 py-2 text-sm font-semibold"
-              >
-                대시보드
-              </button>
-              <button
-                type="button"
-                onClick={signOut}
-                className="retro-button-solid min-h-[40px] px-4 py-2 text-sm font-semibold"
-              >
-                로그아웃
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(3,minmax(0,1fr))_auto_auto]">
-            <div className="space-y-2">
-              <label className="theme-label block text-sm font-semibold">조회 시작일</label>
-              <input
-                type="date"
-                value={draftStartDate}
-                onChange={(event) => setDraftStartDate(event.target.value)}
-                className="px-4 py-3 text-center"
-                style={{ width: "100%" }}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="theme-label block text-sm font-semibold">조회 종료일</label>
-              <input
-                type="date"
-                value={draftEndDate}
-                onChange={(event) => setDraftEndDate(event.target.value)}
-                className="px-4 py-3 text-center"
-                style={{ width: "100%" }}
-              />
-            </div>
-
-            <div className="space-y-2 xl:col-span-1">
-              <label className="theme-label block text-sm font-semibold">기사 검색</label>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="이름, 연락처, 사용자 ID"
-                className="px-4 py-3 text-left"
-                style={{ width: "100%" }}
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={applyDateRange}
-              className="retro-button min-h-[46px] px-4 py-3 text-sm font-semibold xl:self-end"
-            >
-              기간 적용
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setRefreshKey((value) => value + 1)}
-              className="retro-button min-h-[46px] px-4 py-3 text-sm font-semibold xl:self-end"
-            >
-              새로고침
-            </button>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs sm:text-sm">
-            <span className="theme-chip-subtle px-3 py-1.5">
-              조회 기간: {appliedStartDate} ~ {appliedEndDate}
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <span className="theme-chip-subtle px-3 py-1.5 text-xs sm:text-sm">
+              관리 대상 {managedUsers.length}명
             </span>
-            <span className="theme-chip-subtle px-3 py-1.5">
-              접속 관리자: {user?.driver_name || user?.email || "관리자"}
-            </span>
-            {selectedDriverSummary ? (
-              <button
-                type="button"
-                onClick={() => setSelectedDriverId(null)}
-                className="retro-button min-h-[34px] px-3 py-1.5 text-xs font-semibold"
-              >
-                선택 기사 해제
-              </button>
-            ) : null}
           </div>
 
-          {dataError ? (
+          {managedUsersError ? (
             <div className="theme-note-box mt-4 rounded-[20px] px-4 py-3 text-sm leading-relaxed">
-              {dataError}
+              {managedUsersError}
             </div>
           ) : null}
-        </section>
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <article className="retro-card rounded-[22px] px-4 py-4 sm:px-5 sm:py-5">
-            <p className="theme-kicker text-[11px] sm:text-xs">기사 수</p>
-            <p className="retro-title theme-heading mt-2 text-2xl">{summary.driverCount}명</p>
-            <p className="theme-copy mt-3 text-sm leading-relaxed">
-              조회 조건에 포함된 기사 수입니다.
-            </p>
-          </article>
+          {managedUsersLoading ? (
+            <div className="theme-note-box mt-4 rounded-[20px] px-4 py-4 text-sm text-center">
+              관리자 사용자 목록을 불러오는 중...
+            </div>
+          ) : managedUsers.length === 0 ? (
+            <div className="theme-note-box mt-4 rounded-[20px] px-4 py-4 text-sm text-center">
+              표시할 사용자가 없습니다.
+            </div>
+          ) : (
+            <>
+              <div className="admin-sheet-wrap admin-driver-table mt-4">
+                <table className="admin-sheet-table admin-sheet-table--linear min-w-full w-max text-sm">
+                  <thead>
+                    <tr>
+                      <th>이름</th>
+                      <th>이메일</th>
+                      <th>연락처</th>
+                      <th>마지막 로그인</th>
+                      <th className="w-[1%] whitespace-nowrap">변경 등급</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {managedUsers.map((managedUser) => {
+                      const draftLevel =
+                        userLevelDrafts[managedUser.user_id] ?? managedUser.current_user_level;
+                      const availableLevels = getAvailableUserLevels(authUser, managedUser);
+                      const canEditAnyLevel = USER_LEVEL_OPTIONS.some((level) =>
+                        canManageUserLevelChange(authUser, managedUser.current_user_level, level)
+                      );
+                      const lastSignInLabel = managedUser.last_sign_in_at
+                        ? formatDateTime(managedUser.last_sign_in_at)
+                        : "기록 없음";
 
-          <article className="retro-card rounded-[22px] px-4 py-4 sm:px-5 sm:py-5">
-            <p className="theme-kicker text-[11px] sm:text-xs">활성 기사</p>
-            <p className="retro-title theme-heading mt-2 text-2xl">
-              {summary.activeDriverCount}명
-            </p>
-            <p className="theme-copy mt-3 text-sm leading-relaxed">
-              선택 기간 내 리포트가 있는 기사 수입니다.
-            </p>
-          </article>
-
-          <article className="retro-card rounded-[22px] px-4 py-4 sm:px-5 sm:py-5">
-            <p className="theme-kicker text-[11px] sm:text-xs">리포트 / 추가휴무</p>
-            <p className="retro-title theme-heading mt-2 text-2xl">
-              {summary.reportCount} / {summary.additionalOffCount}
-            </p>
-            <p className="theme-copy mt-3 text-sm leading-relaxed">
-              저장된 리포트 수와 추가휴무 처리 건수입니다.
-            </p>
-          </article>
-
-          <article className="retro-card rounded-[22px] px-4 py-4 sm:px-5 sm:py-5">
-            <p className="theme-kicker text-[11px] sm:text-xs">배송 / 매출</p>
-            <p className="retro-title theme-heading mt-2 text-2xl">
-              {summary.deliveredCount.toLocaleString()}건
-            </p>
-            <p className="theme-copy mt-3 text-sm leading-relaxed">
-              누적 매출 {formatMoney(summary.totalSales)}
-            </p>
-          </article>
-        </section>
-
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <div className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="theme-kicker text-[11px] sm:text-xs">기사 목록</p>
-                <h2 className="retro-title theme-heading mt-2 text-lg sm:text-xl">
-                  기사별 운영 현황
-                </h2>
+                      return (
+                        <tr
+                          key={managedUser.user_id}
+                          className="align-top"
+                        >
+                          <td>
+                            <p className="theme-heading font-semibold">
+                              {getDriverDisplayName(managedUser)}
+                            </p>
+                          </td>
+                          <td>
+                            {managedUser.email || "이메일 미등록"}
+                          </td>
+                          <td>
+                            {getDriverPhoneNumber(managedUser)}
+                          </td>
+                          <td className="whitespace-nowrap">
+                            {lastSignInLabel}
+                          </td>
+                          <td className="w-[1%] whitespace-nowrap">
+                            <select
+                              value={draftLevel}
+                              disabled={!canEditAnyLevel || savingUserId === managedUser.user_id}
+                              onChange={(event) =>
+                                void handleManagedUserLevelSelection(
+                                  managedUser,
+                                  event.target.value
+                                )
+                              }
+                              className="admin-sheet-select text-left"
+                            >
+                              {availableLevels.map((level) => (
+                                <option
+                                  key={`${managedUser.user_id}-desktop-${level}`}
+                                  value={level}
+                                >
+                                  {level}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-              <span className="theme-chip-subtle px-3 py-1.5 text-xs sm:text-sm">
-                {driverSummaries.length}명
-              </span>
-            </div>
+            </>
+          )}
+        </section>
 
-            <div className="mt-4 space-y-3">
-              {dataLoading ? (
-                <div className="theme-note-box rounded-[20px] px-4 py-4 text-sm text-center">
-                  관리자 데이터를 불러오는 중...
-                </div>
-              ) : driverSummaries.length === 0 ? (
-                <div className="theme-note-box rounded-[20px] px-4 py-4 text-sm text-center">
-                  조회된 기사 정보가 없습니다.
-                </div>
-              ) : (
-                driverSummaries.map((summaryItem) => {
-                  const isSelected = selectedDriverId === summaryItem.user_id;
-
-                  return (
-                    <button
-                      key={summaryItem.user_id}
-                      type="button"
-                      onClick={() =>
-                        setSelectedDriverId((current) =>
-                          current === summaryItem.user_id ? null : summaryItem.user_id
-                        )
-                      }
-                      className="retro-card block w-full rounded-[22px] px-4 py-4 text-left transition"
-                      style={{
-                        borderColor: isSelected
-                          ? "rgba(255,255,255,0.28)"
-                          : "rgba(255,255,255,0.12)",
-                        background: isSelected
-                          ? "linear-gradient(180deg, rgba(40, 40, 46, 0.98), rgba(18, 18, 21, 0.98))"
-                          : undefined,
-                      }}
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="retro-title theme-heading text-base sm:text-lg">
-                            {summaryItem.driver_name}
-                          </p>
-                          <p className="theme-copy mt-2 text-sm leading-relaxed">
-                            {summaryItem.phone_number}
-                          </p>
-                          <p className="theme-copy mt-1 text-xs leading-relaxed">
-                            사용자 ID: {summaryItem.user_id}
-                          </p>
-                        </div>
-
-                        <span className="theme-chip-subtle px-3 py-1.5 text-xs sm:text-sm">
-                          {summaryItem.reportCount}건
-                        </span>
-                      </div>
-
-                      <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-                        <div className="theme-note-box rounded-[16px] px-3 py-2 text-center">
-                          배송 {summaryItem.deliveredCount.toLocaleString()}
-                        </div>
-                        <div className="theme-note-box rounded-[16px] px-3 py-2 text-center">
-                          반품 {summaryItem.returnedCount.toLocaleString()}
-                        </div>
-                        <div className="theme-note-box rounded-[16px] px-3 py-2 text-center">
-                          취소 {summaryItem.canceledCount.toLocaleString()}
-                        </div>
-                        <div className="theme-note-box rounded-[16px] px-3 py-2 text-center">
-                          단가 {summaryItem.unit_price ? formatMoney(summaryItem.unit_price) : "미설정"}
-                        </div>
-                      </div>
-
-                      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm">
-                        <span className="theme-copy">
-                          최근 리포트: {summaryItem.lastReportDate || "없음"}
-                        </span>
-                        <span className="theme-heading font-semibold">
-                          {formatMoney(summaryItem.totalSales)}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          <div className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">
+        {isOperatorView ? (
+          <section className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="theme-kicker text-[11px] sm:text-xs">최근 리포트</p>
-                <h2 className="retro-title theme-heading mt-2 text-lg sm:text-xl">
-                  {selectedDriverSummary
-                    ? `${selectedDriverSummary.driver_name} 기사 리포트`
-                    : "전체 기사 리포트"}
-                </h2>
-              </div>
-
+              <h2 className="retro-title theme-heading text-lg sm:text-xl">최근 수정 기록</h2>
               <span className="theme-chip-subtle px-3 py-1.5 text-xs sm:text-sm">
-                최대 24건 표시
+                {auditLogs.length}건
               </span>
             </div>
 
+            {auditLogsError ? (
+              <div className="theme-note-box mt-4 rounded-[20px] px-4 py-3 text-sm leading-relaxed">
+                {auditLogsError}
+              </div>
+            ) : null}
+
             <div className="mt-4 space-y-3">
-              {dataLoading ? (
+              {auditLogsLoading ? (
                 <div className="theme-note-box rounded-[20px] px-4 py-4 text-sm text-center">
-                  리포트를 불러오는 중...
+                  수정 기록 로그를 불러오는 중...
                 </div>
-              ) : visibleReports.length === 0 ? (
+              ) : auditLogs.length === 0 ? (
                 <div className="theme-note-box rounded-[20px] px-4 py-4 text-sm text-center">
-                  조회 조건에 맞는 리포트가 없습니다.
+                  표시할 수정 기록 로그가 없습니다.
                 </div>
               ) : (
-                visibleReports.map((report) => {
-                  const driver = driverMap.get(report.user_id);
+                <>
+                <div className="admin-sheet-wrap admin-audit-table">
+                  <table className="admin-sheet-table admin-sheet-table--linear min-w-full w-max text-sm">
+                    <thead>
+                      <tr>
+                        <th>날짜</th>
+                        <th>작업자</th>
+                        <th>대상자</th>
+                        <th>수정내용</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {auditLogs.map((log) => {
+                        const actorDisplayName = getAuditPersonDisplayName(
+                          log.actor_name,
+                          log.actor_email,
+                          log.actor_user_id
+                        );
+                        const targetDisplayName = getAuditPersonDisplayName(
+                          log.target_name,
+                          null,
+                          log.target_id
+                        );
 
-                  return (
-                    <article
-                      key={`${report.user_id}-${report.report_date}`}
-                      className="retro-card rounded-[22px] px-4 py-4 sm:px-5 sm:py-5"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="retro-title theme-heading text-base sm:text-lg">
-                            {getDriverDisplayName(driver, report.user_id)}
-                          </p>
-                          <p className="theme-copy mt-2 text-sm leading-relaxed">
-                            {report.report_date}
-                          </p>
-                        </div>
-
-                        <span className="theme-chip-strong px-3 py-1.5 text-xs sm:text-sm">
-                          {getReportStatusLabel(report)}
-                        </span>
-                      </div>
-
-                      <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-                        <div className="theme-note-box rounded-[16px] px-3 py-2 text-center">
-                          배송 {report.delivered_count.toLocaleString()}
-                        </div>
-                        <div className="theme-note-box rounded-[16px] px-3 py-2 text-center">
-                          반품 {report.returned_count.toLocaleString()}
-                        </div>
-                        <div className="theme-note-box rounded-[16px] px-3 py-2 text-center">
-                          취소 {report.canceled_count.toLocaleString()}
-                        </div>
-                        <div className="theme-note-box rounded-[16px] px-3 py-2 text-center">
-                          매출 {formatMoney(report.daily_sales || 0)}
-                        </div>
-                      </div>
-
-                      {report.memo?.trim() ? (
-                        <p className="theme-copy mt-4 text-sm leading-relaxed">
-                          특이사항: {report.memo.trim()}
-                        </p>
-                      ) : null}
-                    </article>
-                  );
-                })
+                        return (
+                          <tr
+                            key={log.id}
+                            className="align-top"
+                          >
+                            <td className="whitespace-nowrap">
+                              {formatDateTime(log.created_at)}
+                            </td>
+                            <td className="whitespace-nowrap">
+                              {actorDisplayName}
+                            </td>
+                            <td className="whitespace-nowrap">
+                              {targetDisplayName}
+                            </td>
+                            <td>
+                              {log.summary_short || log.summary || log.action}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                </>
               )}
             </div>
-          </div>
-        </section>
+          </section>
+        ) : null}
       </div>
-    </main>
+    </PageShell>
   );
 }

@@ -62,6 +62,27 @@ export type AdminOverviewResponse = {
   reports: DailyReportRow[];
 };
 
+export type AdminUserLevel = "기사Lv" | "벤더Lv" | "Lv3-제휴" | "관리자Lv" | "운영자Lv";
+
+export type AdminManagedUserRow = {
+  user_id: string;
+  email: string | null;
+  driver_name: string | null;
+  phone_number: string | null;
+  last_sign_in_at: string | null;
+  unit_price: number | null;
+  current_user_level: AdminUserLevel;
+  is_legacy_admin: boolean;
+};
+
+export type AdminUsersResponse = {
+  users: AdminManagedUserRow[];
+};
+
+export type AdminUserLevelUpdateResponse = {
+  user: AdminManagedUserRow;
+};
+
 export type CommunityPostStorageMode = "database" | "mixed" | "file-fallback";
 
 export type CommunityPostRow = {

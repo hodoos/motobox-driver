@@ -657,3 +657,89 @@ textarea {
     font-size: 14px;
   }
 }
+
+.admin-sheet-wrap {
+  overflow-x: auto;
+  border-radius: 0;
+  border: 1px solid var(--border-strong);
+  background: var(--field-bg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.admin-sheet-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.admin-sheet-table--linear {
+  width: max-content;
+  min-width: 100%;
+}
+
+.admin-sheet-table th,
+.admin-sheet-table td {
+  padding: 3px 6px;
+  text-align: left;
+  vertical-align: top;
+  border-right: 1px solid var(--border);
+  line-height: 1.2;
+}
+
+.admin-sheet-table th:last-child,
+.admin-sheet-table td:last-child {
+  border-right: 0;
+}
+
+.admin-sheet-table thead th {
+  background: var(--surface-strong);
+  color: var(--text-strong);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.admin-sheet-table tbody td {
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.admin-sheet-table tbody tr:nth-child(even) td {
+  background: var(--surface-muted);
+}
+
+.admin-sheet-table tbody tr:hover td {
+  background: var(--surface-strong);
+}
+
+.admin-sheet-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-sheet-table--linear th,
+.admin-sheet-table--linear td {
+  white-space: nowrap;
+}
+
+.admin-sheet-select {
+  display: inline-block !important;
+  width: auto !important;
+  min-width: 5.9rem;
+  max-width: none;
+  margin-inline: 0;
+  padding: 0.2rem 1.5rem 0.2rem 0.35rem;
+  border-radius: 0;
+  font-size: 13px;
+  line-height: 1.2;
+  box-shadow: none;
+}
+
+.admin-driver-table {
+  display: block;
+}
+
+.admin-audit-table {
+  display: block;
+}

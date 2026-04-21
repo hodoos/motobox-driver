@@ -73,6 +73,12 @@ export function isOperatorUser(
   return hasMinimumUserLevel(user, "운영자Lv");
 }
 
+export function getAdminDisplayLevel(
+  user?: Pick<User, "app_metadata" | "user_metadata"> | null
+) {
+  return isOperatorUser(user) ? "운영자Lv" : "관리자Lv";
+}
+
 export function canManageUserLevelChange(
   actor: Pick<User, "app_metadata" | "user_metadata"> | null | undefined,
   currentTargetLevel: UserLevel,
