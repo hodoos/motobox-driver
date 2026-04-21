@@ -1,7 +1,7 @@
 "use client";
 
 import type { User } from "@supabase/supabase-js";
-import { useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ensureDriverSettingsRow, extractDriverProfileSeed } from "../../../lib/driverSettings";
 import { PageLoadingShell } from "../../../components/layout/PageShell";
@@ -45,7 +45,7 @@ function getHashParams() {
   return new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
 }
 
-export default function AuthConfirmPage() {
+function AuthConfirmContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const hasProcessedRef = useRef(false);
@@ -186,4 +186,12 @@ export default function AuthConfirmPage() {
   }, [router, searchParams]);
 
   return <PageLoadingShell message="이메일 인증을 확인하는 중..." />;
+}
+
+export default function AuthConfirmPage() {
+  return (
+    <Suspense fallback={<PageLoadingShell message="이메일 인증을 확인하는 중..." />}>
+      <AuthConfirmContent />
+    </Suspense>
+  );
 }
