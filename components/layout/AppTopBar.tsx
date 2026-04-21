@@ -246,7 +246,7 @@ function createMenuSections(user: User | null): MenuSection[] {
   }
 
   const basicItems: MenuItem[] = [
-    { id: "dashboard", href: "/dashboard", label: "대시보드" },
+    { id: "dashboard", href: "/dashboard", label: "홈", dashboardSectionId: "home" },
     { id: "my-page", href: "/settings", label: "마이페이지" },
   ];
 
@@ -305,7 +305,7 @@ function createMenuSections(user: User | null): MenuSection[] {
       items: [
         {
           id: "today-quick-card",
-          label: "TodayQuickCard",
+          label: "업무 작성",
           dashboardSectionId: "today-quick-card",
         },
         {

@@ -13,6 +13,12 @@ import { isAdminUser } from "../../lib/admin";
 import { extractDriverProfileSeed } from "../../lib/driverSettings";
 import { formatMoney, toDateString } from "../../lib/format";
 import {
+  DASHBOARD_SECTION_EVENT,
+  DASHBOARD_SECTION_STORAGE_KEY,
+  isDashboardSectionId,
+  type DashboardSectionId,
+} from "../../lib/dashboardNavigation";
+import {
   eachDateBetween,
   getSettlementRange,
   shiftSettlementAnchor,
@@ -330,6 +336,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const now = new Date();
   const todayString = toDateString(now);
+  const [dashboardSection, setDashboardSection] = useState<DashboardSectionId>("home");
   const [showReportList, setShowReportList] = useState(false);
   const [showStatCards, setShowStatCards] = useState(false);
 
@@ -393,7 +400,65 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    if (!showStatCards) return;
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const applyDashboardSection = (nextSection: DashboardSectionId) => {
+      setDashboardSection(nextSection);
+      setShowStatCards(false);
+      setShowReportList(false);
+      setReportListScrollDate(null);
+    };
+
+    const storedSection = window.sessionStorage.getItem(DASHBOARD_SECTION_STORAGE_KEY);
+
+    if (isDashboardSectionId(storedSection)) {
+      applyDashboardSection(storedSection);
+      window.sessionStorage.removeItem(DASHBOARD_SECTION_STORAGE_KEY);
+    }
+
+    const handleDashboardSectionEvent = (event: Event) => {
+      const detail = event instanceof CustomEvent ? event.detail : null;
+
+      if (!isDashboardSectionId(detail)) {
+        return;
+      }
+
+      applyDashboardSection(detail);
+    };
+
+    window.addEventListener(DASHBOARD_SECTION_EVENT, handleDashboardSectionEvent);
+
+    return () => {
+      window.removeEventListener(DASHBOARD_SECTION_EVENT, handleDashboardSectionEvent);
+    };
+  }, []);
+
+  const isHomeDashboardSection = dashboardSection === "home";
+  const showSummaryStrip = isHomeDashboardSection;
+  const showQuickEntrySection =
+    isHomeDashboardSection || dashboardSection === "today-quick-card";
+  const showDashboardActionButtons = isHomeDashboardSection;
+  const showStatsSection = dashboardSection === "stats" || (isHomeDashboardSection && showStatCards);
+  const showCalendarSection =
+    dashboardSection === "work-calendar" || (isHomeDashboardSection && showReportList);
+
+  useEffect(() => {
+    if (dashboardSection !== "today-quick-card") return;
+
+    const animationFrameId = window.requestAnimationFrame(() => {
+      quickEntryCardRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(animationFrameId);
+  }, [dashboardSection]);
+
+  useEffect(() => {
+    if (!showStatsSection) return;
 
     const animationFrameId = window.requestAnimationFrame(() => {
       statCardsSectionRef.current?.scrollIntoView({
@@ -403,10 +468,10 @@ export default function DashboardPage() {
     });
 
     return () => window.cancelAnimationFrame(animationFrameId);
-  }, [showStatCards]);
+  }, [showStatsSection]);
 
   useEffect(() => {
-    if (!showReportList || reportListScrollDate) return;
+    if (!showCalendarSection || reportListScrollDate) return;
 
     const animationFrameId = window.requestAnimationFrame(() => {
       reportListSectionRef.current?.scrollIntoView({
@@ -416,10 +481,10 @@ export default function DashboardPage() {
     });
 
     return () => window.cancelAnimationFrame(animationFrameId);
-  }, [showReportList, reportListScrollDate]);
+  }, [showCalendarSection, reportListScrollDate]);
 
   useEffect(() => {
-    if (!showReportList || !reportListScrollDate || reportsLoading) return;
+    if (!showCalendarSection || !reportListScrollDate || reportsLoading) return;
 
     const animationFrameId = window.requestAnimationFrame(() => {
       const targetCard = document.querySelector<HTMLElement>(
@@ -439,7 +504,7 @@ export default function DashboardPage() {
     });
 
     return () => window.cancelAnimationFrame(animationFrameId);
-  }, [showReportList, reportListScrollDate, reportsLoading, reports]);
+  }, [showCalendarSection, reportListScrollDate, reportsLoading, reports]);
 
   const defaultUnitPrice = Number(settings.unit_price || 0);
 
@@ -946,51 +1011,57 @@ export default function DashboardPage() {
     <PageShell contentClassName="flex w-full max-w-[34rem] flex-col gap-3 sm:gap-4 sm:max-w-2xl lg:max-w-4xl">
       <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
       <div className="flex w-full flex-col gap-3 sm:gap-4">
-        <WorkSummaryStrip
-          adjustedPeriodDays={summary.adjustedPeriodDays}
-          totalPeriodDays={summary.totalPeriodDays}
-          regularOffDays={summary.regularOffDays}
-          workedDays={summary.workedDays}
-          additionalOffDays={summary.additionalOffDays}
-          remainingWorkDays={summary.remainingWorkDays}
-        />
-
-        <section ref={quickEntryCardRef}>
-          <TodayQuickCard
-            selectedDate={activeQuickEntryDate}
-            minDate={settlementStartKey}
-            maxDate={settlementEndKey}
-            onDateChange={handleQuickEntryDateChange}
-            reportForm={reportForm}
-            setReportForm={setReportForm}
-            defaultUnitPrice={defaultUnitPrice}
-            handleReportChange={handleReportChange}
-            onSave={saveTodayQuick}
-            saving={saving}
+        {showSummaryStrip ? (
+          <WorkSummaryStrip
+            adjustedPeriodDays={summary.adjustedPeriodDays}
+            totalPeriodDays={summary.totalPeriodDays}
+            regularOffDays={summary.regularOffDays}
+            workedDays={summary.workedDays}
+            additionalOffDays={summary.additionalOffDays}
+            remainingWorkDays={summary.remainingWorkDays}
           />
-        </section>
-        <div className="rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
-            <button
-              onClick={toggleStatCards}
-              className="retro-button-solid min-h-[48px] w-full px-4 py-3 text-sm font-semibold"
-              style={{ marginTop: "12px", marginBottom: "12px" }}
-            >
-              {showStatCards ? "통계 닫기" : "통계 보기"}
-            </button>
+        ) : null}
 
-            <button
-              onClick={toggleReportList}
-              className="retro-button-solid min-h-[48px] w-full px-4 py-3 text-sm font-semibold"
-              style={{ marginTop: "12px", marginBottom: "12px" }}
-            >
-              {showReportList ? "업무 캘린더 닫기" : "업무 캘린더"}
-            </button>
+        {showQuickEntrySection ? (
+          <section ref={quickEntryCardRef}>
+            <TodayQuickCard
+              selectedDate={activeQuickEntryDate}
+              minDate={settlementStartKey}
+              maxDate={settlementEndKey}
+              onDateChange={handleQuickEntryDateChange}
+              reportForm={reportForm}
+              setReportForm={setReportForm}
+              defaultUnitPrice={defaultUnitPrice}
+              handleReportChange={handleReportChange}
+              onSave={saveTodayQuick}
+              saving={saving}
+            />
+          </section>
+        ) : null}
+        {showDashboardActionButtons ? (
+          <div className="rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+              <button
+                onClick={toggleStatCards}
+                className="retro-button-solid min-h-[48px] w-full px-4 py-3 text-sm font-semibold"
+                style={{ marginTop: "12px", marginBottom: "12px" }}
+              >
+                {showStatCards ? "통계 닫기" : "통계 보기"}
+              </button>
+
+              <button
+                onClick={toggleReportList}
+                className="retro-button-solid min-h-[48px] w-full px-4 py-3 text-sm font-semibold"
+                style={{ marginTop: "12px", marginBottom: "12px" }}
+              >
+                {showReportList ? "업무 캘린더 닫기" : "업무 캘린더"}
+              </button>
+            </div>
           </div>
-        </div>
+        ) : null}
 
         <section ref={statCardsSectionRef}>
-          {showStatCards ? (
+          {showStatsSection ? (
             <>
               <div className="retro-panel mb-3 rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
@@ -1026,7 +1097,7 @@ export default function DashboardPage() {
         </section>
 
         <section ref={reportListSectionRef}>
-          {showReportList ? (
+          {showCalendarSection ? (
             <>
               <div className="retro-panel mb-3 rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
