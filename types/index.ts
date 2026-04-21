@@ -61,3 +61,50 @@ export type AdminOverviewResponse = {
   driverSettingsRows: AdminDriverSettingsRow[];
   reports: DailyReportRow[];
 };
+
+export type CommunityPostStorageMode = "database" | "mixed" | "file-fallback";
+
+export type CommunityPostRow = {
+  id: string;
+  board_key: "jobs" | "free-talk" | "notice" | "tips" | "affiliate";
+  title: string;
+  body: string;
+  author_user_id: string;
+  author_email: string | null;
+  author_name: string | null;
+  author_level: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CommunityPostsResponse = {
+  board_key: CommunityPostRow["board_key"];
+  posts: CommunityPostRow[];
+  storage: CommunityPostStorageMode;
+};
+
+export type CommunityPostMutationResponse = {
+  post: CommunityPostRow;
+  storage: Exclude<CommunityPostStorageMode, "mixed">;
+};
+
+export type StaffAuditLogRow = {
+  id: string;
+  actor_user_id: string;
+  actor_email: string | null;
+  actor_level: string;
+  action: string;
+  target_type: string;
+  target_id: string | null;
+  source: string | null;
+  summary: string;
+  details: Record<string, unknown>;
+  created_at: string;
+  actor_name?: string;
+  target_name?: string;
+  summary_short?: string;
+};
+
+export type StaffAuditLogResponse = {
+  logs: StaffAuditLogRow[];
+};

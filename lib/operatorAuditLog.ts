@@ -1,4 +1,4 @@
-import type { User } from "@supabase/supabase-js";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { isAdminUser, isOperatorUser } from "./admin";
 import { getUserLevel } from "./userLevel";
 import type { StaffAuditLogRow } from "../types";
@@ -12,15 +12,7 @@ export type OperatorAuditLogInput = {
   source?: string | null;
 };
 
-type InsertError = {
-  message?: string;
-} | null;
-
-type OperatorAuditInsertClient = {
-  from: (table: string) => {
-    insert: (values: Record<string, unknown>) => Promise<{ error: InsertError }>;
-  };
-};
+type OperatorAuditInsertClient = Pick<SupabaseClient, "from">;
 
 function normalizeText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";

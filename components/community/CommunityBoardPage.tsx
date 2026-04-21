@@ -73,6 +73,43 @@ function getStorageLabel(storage: CommunityPostStorageMode | null) {
   return "불러오는 중";
 }
 
+function getResponseErrorMessage(responseBody: unknown) {
+  if (
+    responseBody &&
+    typeof responseBody === "object" &&
+    "error" in responseBody &&
+    typeof responseBody.error === "string"
+  ) {
+    return responseBody.error;
+  }
+
+  return undefined;
+}
+
+function isCommunityPostsResponse(responseBody: unknown): responseBody is CommunityPostsResponse {
+  return Boolean(
+    responseBody &&
+      typeof responseBody === "object" &&
+      "posts" in responseBody &&
+      Array.isArray(responseBody.posts) &&
+      "storage" in responseBody
+  );
+}
+
+function isCommunityPostMutationResponse(
+  responseBody: unknown
+): responseBody is CommunityPostMutationResponse {
+  return Boolean(
+    responseBody &&
+      typeof responseBody === "object" &&
+      "post" in responseBody &&
+      responseBody.post &&
+      typeof responseBody.post === "object" &&
+      "id" in responseBody.post &&
+      typeof responseBody.post.id === "string"
+  );
+}
+
 async function getSupabaseAccessToken() {
   const {
     data: { session },
@@ -175,18 +212,22 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
     }
 
     const { response, responseBody } = await requestBoardPosts(board.key, accessToken);
+  const postsResponse = isCommunityPostsResponse(responseBody) ? responseBody : null;
 
     if (!response.ok) {
       showToast(
         "error",
         "게시글을 불러오지 못했습니다",
-        getKoreanErrorMessage(responseBody?.error, "게시글을 불러오지 못했습니다.")
+        getKoreanErrorMessage(
+          getResponseErrorMessage(responseBody),
+          "게시글을 불러오지 못했습니다."
+        )
       );
       return;
     }
 
-    applyPosts(responseBody?.posts ?? [], preferredPostId);
-    setStorage(responseBody?.storage ?? null);
+    applyPosts(postsResponse?.posts ?? [], preferredPostId);
+    setStorage(postsResponse?.storage ?? null);
   };
 
   useEffect(() => {
@@ -250,17 +291,21 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
       }
 
       const { response, responseBody } = await requestBoardPosts(board.key, accessToken);
+      const postsResponse = isCommunityPostsResponse(responseBody) ? responseBody : null;
 
       if (response.ok) {
         if (!isDisposed) {
-          applyPosts(responseBody?.posts ?? []);
-          setStorage(responseBody?.storage ?? null);
+          applyPosts(postsResponse?.posts ?? []);
+          setStorage(postsResponse?.storage ?? null);
         }
       } else if (!isDisposed) {
         showToast(
           "error",
           "게시글을 불러오지 못했습니다",
-          getKoreanErrorMessage(responseBody?.error, "게시글을 불러오지 못했습니다.")
+          getKoreanErrorMessage(
+            getResponseErrorMessage(responseBody),
+            "게시글을 불러오지 못했습니다."
+          )
         );
       }
 
@@ -356,6 +401,9 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
       | CommunityPostMutationResponse
       | { error?: string }
       | null;
+    const mutationResponse = isCommunityPostMutationResponse(responseBody)
+      ? responseBody
+      : null;
 
     setSubmitting(false);
 
@@ -363,14 +411,17 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
       showToast(
         "error",
         isEditMode ? "게시글 수정 실패" : "게시글 등록 실패",
-        getKoreanErrorMessage(responseBody?.error, "게시글 저장 중 문제가 발생했습니다.")
+        getKoreanErrorMessage(
+          getResponseErrorMessage(responseBody),
+          "게시글 저장 중 문제가 발생했습니다."
+        )
       );
       return;
     }
 
     setEditorMode(null);
     setFormState(EMPTY_POST_FORM);
-    await loadPosts(responseBody?.post.id ?? null);
+    await loadPosts(mutationResponse?.post.id ?? null);
     showToast(
       "success",
       isEditMode ? "게시글을 수정했습니다" : "게시글을 등록했습니다"
@@ -420,7 +471,10 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
       showToast(
         "error",
         "게시글 삭제 실패",
-        getKoreanErrorMessage(responseBody?.error, "게시글을 삭제하지 못했습니다.")
+        getKoreanErrorMessage(
+          getResponseErrorMessage(responseBody),
+          "게시글을 삭제하지 못했습니다."
+        )
       );
       return;
     }
