@@ -7,11 +7,15 @@ type Props = {
   phoneNumber: string;
   password: string;
   passwordConfirm: string;
+  signupType: "driver" | "vendor";
+  isCoupangChecked: boolean;
   setDriverName: (value: string) => void;
   setEmail: (value: string) => void;
   setPhoneNumber: (value: string) => void;
   setPassword: (value: string) => void;
   setPasswordConfirm: (value: string) => void;
+  setSignupType: (value: "driver" | "vendor") => void;
+  setIsCoupangChecked: (value: boolean) => void;
   onClose: () => void;
   onSubmit: () => void;
 };
@@ -23,11 +27,15 @@ export default function SignupModal({
   phoneNumber,
   password,
   passwordConfirm,
+  signupType,
+  isCoupangChecked,
   setDriverName,
   setEmail,
   setPhoneNumber,
   setPassword,
   setPasswordConfirm,
+  setSignupType,
+  setIsCoupangChecked,
   onClose,
   onSubmit,
 }: Props) {
@@ -93,6 +101,38 @@ export default function SignupModal({
               autoComplete="new-password"
               className="block h-12 w-full px-4 py-3 text-left text-base sm:text-center"
             />
+            <div className="space-y-3 rounded-[20px] border border-[rgba(255,255,255,0.12)] px-4 py-4 text-left">
+              <p className="theme-label text-sm font-semibold">가입 유형</p>
+              <div className="flex flex-col gap-2 sm:items-center">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input
+                    type="checkbox"
+                    checked={signupType === "driver"}
+                    onChange={() => setSignupType("driver")}
+                  />
+                  <span>기사</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input
+                    type="checkbox"
+                    checked={signupType === "vendor"}
+                    onChange={() => setSignupType("vendor")}
+                  />
+                  <span>벤더</span>
+                </label>
+              </div>
+            </div>
+            <div className="space-y-3 rounded-[20px] border border-[rgba(255,255,255,0.12)] px-4 py-4 text-left">
+              <p className="theme-label text-sm font-semibold">추가 정보</p>
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={isCoupangChecked}
+                  onChange={(e) => setIsCoupangChecked(e.target.checked)}
+                />
+                <span>쿠팡</span>
+              </label>
+            </div>
           </div>
         </div>
 

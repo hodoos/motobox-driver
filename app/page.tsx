@@ -20,6 +20,16 @@ import PageShell, { PageLoadingShell } from "../components/layout/PageShell";
 import SignupModal from "../components/auth/SignupModal";
 import ToastViewport from "../components/ui/ToastViewport";
 
+type SignupType = "driver" | "vendor";
+
+function getSignupEmailRedirectUrl() {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+
+  return `${window.location.origin}/auth/confirm`;
+}
+
 export default function Home() {
   const router = useRouter();
 
@@ -31,6 +41,8 @@ export default function Home() {
   const [signupPhoneNumber, setSignupPhoneNumber] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [signupPasswordConfirm, setSignupPasswordConfirm] = useState("");
+  const [signupType, setSignupType] = useState<SignupType>("driver");
+  const [signupIsCoupang, setSignupIsCoupang] = useState(true);
   const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -72,11 +84,44 @@ export default function Home() {
     setSignupPhoneNumber("");
     setSignupPassword("");
     setSignupPasswordConfirm("");
+    setSignupType("driver");
+    setSignupIsCoupang(true);
     setIsSignupModalOpen(false);
   };
 
   const showToast = (tone: ToastState["tone"], title: string, message?: string) => {
     setToast(createToastState({ tone, title, message }));
+  };
+
+  const openSignupModal = () => {
+    setSignupType("driver");
+    setSignupIsCoupang(true);
+    setIsSignupModalOpen(true);
+  };
+
+  const handleSignupTypeChange = (nextType: SignupType) => {
+    setSignupType(nextType);
+
+    if (nextType === "vendor") {
+      showToast(
+        "info",
+        "벤더 회원 안내",
+        "벤더 회원은 문의하기 버튼을 눌러 문의주세요"
+      );
+    }
+  };
+
+  const handleSignupCoupangCheckedChange = (nextChecked: boolean) => {
+    if (!nextChecked) {
+      showToast(
+        "info",
+        "추가 정보 선택 필요",
+        "추가 정보는 최소 1개 이상 선택해야 합니다."
+      );
+      return;
+    }
+
+    setSignupIsCoupang(true);
   };
 
   const signUp = async () => {
@@ -108,14 +153,26 @@ export default function Home() {
       return;
     }
 
+    if (!signupIsCoupang) {
+      showToast(
+        "error",
+        "추가 정보를 확인해주세요",
+        "추가 정보는 최소 1개 이상 선택해야 합니다."
+      );
+      return;
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password: signupPassword,
       options: {
+        emailRedirectTo: getSignupEmailRedirectUrl(),
         data: {
           driver_name: driverName,
           phone_number: phoneNumber,
           user_level: DEFAULT_USER_LEVEL,
+          signup_type: signupType,
+          is_coupang: signupIsCoupang,
         },
       },
     });
@@ -159,8 +216,10 @@ export default function Home() {
 
     showToast(
       "success",
-      "회원가입 완료",
-      data.session ? "대시보드로 이동합니다." : "이메일 인증 후 로그인해주세요."
+      data.session ? "회원가입 완료" : "인증 메일을 보냈습니다",
+      data.session
+        ? "대시보드로 이동합니다."
+        : "이메일의 인증 링크를 누르면 대시보드로 이동합니다."
     );
     resetSignupForm();
   };
@@ -224,7 +283,7 @@ export default function Home() {
           setEmail={setEmail}
           setPassword={setPassword}
           onLogin={signIn}
-          onOpenSignup={() => setIsSignupModalOpen(true)}
+          onOpenSignup={openSignupModal}
         />
 
         <SignupModal
@@ -234,11 +293,15 @@ export default function Home() {
           phoneNumber={signupPhoneNumber}
           password={signupPassword}
           passwordConfirm={signupPasswordConfirm}
+          signupType={signupType}
+          isCoupangChecked={signupIsCoupang}
           setDriverName={setSignupDriverName}
           setEmail={setSignupEmail}
           setPhoneNumber={setSignupPhoneNumber}
           setPassword={setSignupPassword}
           setPasswordConfirm={setSignupPasswordConfirm}
+          setSignupType={handleSignupTypeChange}
+          setIsCoupangChecked={handleSignupCoupangCheckedChange}
           onClose={() => setIsSignupModalOpen(false)}
           onSubmit={signUp}
         />

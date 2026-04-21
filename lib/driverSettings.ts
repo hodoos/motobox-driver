@@ -37,9 +37,11 @@ export async function ensureDriverSettingsRow(
     .from("driver_settings")
     .select("user_id")
     .eq("user_id", userId)
-    .maybeSingle();
+    .limit(1);
 
-  if (error || data) {
+  const existingRow = Array.isArray(data) ? data[0] ?? null : null;
+
+  if (error || existingRow) {
     return { error, created: false };
   }
 

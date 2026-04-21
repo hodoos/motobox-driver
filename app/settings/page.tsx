@@ -20,7 +20,16 @@ import SettingsForm from "../../components/settings/SettingsForm";
 import ToastViewport from "../../components/ui/ToastViewport";
 
 async function loadDriverSettings(userId: string) {
-  return supabase.from("driver_settings").select("*").eq("user_id", userId).single();
+  const { data, error } = await supabase
+    .from("driver_settings")
+    .select("*")
+    .eq("user_id", userId)
+    .limit(1);
+
+  return {
+    data: Array.isArray(data) ? data[0] ?? null : null,
+    error,
+  };
 }
 
 export default function SettingsPage() {
@@ -91,13 +100,15 @@ export default function SettingsPage() {
         setSettingsLoading(false);
 
         if (error) {
-          if (error.code !== "PGRST116") {
-            showToast(
-              "error",
-              "기본설정 불러오기 실패",
-              getKoreanErrorMessage(error.message, "기본설정을 불러오지 못했습니다.")
-            );
-          }
+          showToast(
+            "error",
+            "기본설정 불러오기 실패",
+            getKoreanErrorMessage(error.message, "기본설정을 불러오지 못했습니다.")
+          );
+          return;
+        }
+
+        if (!data) {
           return;
         }
 
