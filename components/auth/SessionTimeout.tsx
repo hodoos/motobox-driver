@@ -5,6 +5,15 @@ import { useRouter } from "next/navigation";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
 import {
+  DEFAULT_SESSION_TIMEOUT_MINUTES,
+  readCachedSessionTimeoutMinutes,
+  SESSION_TIMEOUT_CACHE_KEY,
+  SESSION_TIMEOUT_SETTINGS_EVENT,
+  toSessionTimeoutMilliseconds,
+  parseSessionTimeoutMinutes,
+  writeCachedSessionTimeoutMinutes,
+} from "../../lib/sessionTimeoutConfig";
+import {
   createToastState,
   getKoreanErrorMessage,
   queuePendingToast,
@@ -12,8 +21,11 @@ import {
 } from "../../lib/toast";
 import ToastViewport from "../ui/ToastViewport";
 
-const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const SESSION_STARTED_AT_KEY = "motobox.session.startedAt";
+
+type SessionTimeoutSettingsResponse = {
+  timeout_minutes?: unknown;
+};
 
 function readSessionStartedAt() {
   const storedValue = window.localStorage.getItem(SESSION_STARTED_AT_KEY);
@@ -38,6 +50,11 @@ export default function SessionTimeout() {
   const router = useRouter();
   const timeoutIdRef = useRef<number | null>(null);
   const isAutoSigningOutRef = useRef(false);
+  const sessionTimeoutMsRef = useRef(
+    toSessionTimeoutMilliseconds(
+      readCachedSessionTimeoutMinutes() ?? DEFAULT_SESSION_TIMEOUT_MINUTES
+    )
+  );
   const [toast, setToast] = useState<ToastState | null>(null);
 
   const showToast = (tone: ToastState["tone"], title: string, message?: string) => {
@@ -84,7 +101,10 @@ export default function SessionTimeout() {
     const scheduleSessionTimeout = (startedAt: number) => {
       clearLogoutTimer();
 
-      const remainingTime = Math.max(SESSION_TIMEOUT_MS - (Date.now() - startedAt), 0);
+      const remainingTime = Math.max(
+        sessionTimeoutMsRef.current - (Date.now() - startedAt),
+        0
+      );
 
       if (remainingTime <= 0) {
         void expireSession();
@@ -96,7 +116,53 @@ export default function SessionTimeout() {
       }, remainingTime);
     };
 
-    const syncSessionTimeout = (
+    const applySessionTimeoutMinutes = (timeoutMinutes: number, persist = false) => {
+      sessionTimeoutMsRef.current = toSessionTimeoutMilliseconds(timeoutMinutes);
+
+      if (persist) {
+        writeCachedSessionTimeoutMinutes(timeoutMinutes);
+      }
+    };
+
+    const syncCachedSessionTimeout = () => {
+      const cachedTimeoutMinutes = readCachedSessionTimeoutMinutes();
+
+      if (cachedTimeoutMinutes !== null) {
+        applySessionTimeoutMinutes(cachedTimeoutMinutes);
+      }
+    };
+
+    const refreshSessionTimeoutSettings = async (accessToken: string, startedAt: number) => {
+      try {
+        const response = await fetch("/api/session-timeout", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json().catch(() => null)) as
+          | SessionTimeoutSettingsResponse
+          | null;
+        const timeoutMinutes = parseSessionTimeoutMinutes(payload?.timeout_minutes);
+
+        if (timeoutMinutes === null) {
+          return;
+        }
+
+        applySessionTimeoutMinutes(timeoutMinutes, true);
+        scheduleSessionTimeout(startedAt);
+      } catch {
+        return;
+      }
+    };
+
+    const syncSessionTimeout = async (
       event: AuthChangeEvent | "initial",
       session: Session | null
     ) => {
@@ -113,11 +179,28 @@ export default function SessionTimeout() {
         event === "SIGNED_IN" || !storedStartedAt ? Date.now() : storedStartedAt;
 
       writeSessionStartedAt(nextStartedAt);
+      syncCachedSessionTimeout();
       isAutoSigningOutRef.current = false;
       scheduleSessionTimeout(nextStartedAt);
+
+      if (session.access_token) {
+        await refreshSessionTimeoutSettings(session.access_token, nextStartedAt);
+      }
     };
 
     const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === SESSION_TIMEOUT_CACHE_KEY) {
+        syncCachedSessionTimeout();
+
+        const startedAt = readSessionStartedAt();
+
+        if (startedAt) {
+          scheduleSessionTimeout(startedAt);
+        }
+
+        return;
+      }
+
       if (event.key !== SESSION_STARTED_AT_KEY) {
         return;
       }
@@ -132,12 +215,22 @@ export default function SessionTimeout() {
       scheduleSessionTimeout(startedAt);
     };
 
+    const handleSessionTimeoutSettingsChange = () => {
+      syncCachedSessionTimeout();
+
+      const startedAt = readSessionStartedAt();
+
+      if (startedAt) {
+        scheduleSessionTimeout(startedAt);
+      }
+    };
+
     const initializeSessionTimeout = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
-      syncSessionTimeout("initial", session);
+      await syncSessionTimeout("initial", session);
     };
 
     void initializeSessionTimeout();
@@ -145,14 +238,22 @@ export default function SessionTimeout() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      syncSessionTimeout(event, session);
+      void syncSessionTimeout(event, session);
     });
 
     window.addEventListener("storage", handleStorageChange);
+    window.addEventListener(
+      SESSION_TIMEOUT_SETTINGS_EVENT,
+      handleSessionTimeoutSettingsChange
+    );
 
     return () => {
       clearLogoutTimer();
       window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener(
+        SESSION_TIMEOUT_SETTINGS_EVENT,
+        handleSessionTimeoutSettingsChange
+      );
       subscription.unsubscribe();
     };
   }, [router]);

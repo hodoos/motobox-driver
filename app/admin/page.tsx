@@ -3,12 +3,22 @@
 import type { User } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { recordOperatorAuditLog } from "../../lib/operatorAuditLogClient";
 import { supabase } from "../../lib/supabase";
 import {
   canManageUserLevelChange,
   isAdminUser,
   isOperatorUser,
 } from "../../lib/admin";
+import {
+  DEFAULT_SESSION_TIMEOUT_MINUTES,
+  formatSessionTimeoutMinutes,
+  getSessionTimeoutValidationMessage,
+  MAX_SESSION_TIMEOUT_MINUTES,
+  MIN_SESSION_TIMEOUT_MINUTES,
+  parseSessionTimeoutMinutes,
+  writeCachedSessionTimeoutMinutes,
+} from "../../lib/sessionTimeoutConfig";
 import {
   createToastState,
   getKoreanErrorMessage,
@@ -40,6 +50,17 @@ type AdminUserLevelMutationRequestResult = {
 
 type AuditLogsRequestResult = {
   data: StaffAuditLogResponse | null;
+  error: string | null;
+  status: number;
+};
+
+type SessionTimeoutSettingsResponse = {
+  timeout_minutes: number;
+  updated_at: string | null;
+};
+
+type SessionTimeoutSettingsRequestResult = {
+  data: SessionTimeoutSettingsResponse | null;
   error: string | null;
   status: number;
 };
@@ -290,17 +311,116 @@ async function loadAuditLogs(accessToken: string): Promise<AuditLogsRequestResul
   }
 }
 
+async function loadSessionTimeoutSettings(
+  accessToken: string
+): Promise<SessionTimeoutSettingsRequestResult> {
+  try {
+    const response = await fetch("/api/session-timeout", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | (SessionTimeoutSettingsResponse & { error?: string })
+      | { error?: string }
+      | null;
+
+    if (!response.ok) {
+      return {
+        data: null,
+        error:
+          payload && "error" in payload && typeof payload.error === "string"
+            ? payload.error
+            : "세션 타임아웃 설정을 불러오지 못했습니다.",
+        status: response.status,
+      };
+    }
+
+    return {
+      data: payload as SessionTimeoutSettingsResponse,
+      error: null,
+      status: response.status,
+    };
+  } catch (error) {
+    return {
+      data: null,
+      error: getKoreanErrorMessage(
+        error instanceof Error ? error.message : undefined,
+        "세션 타임아웃 설정을 불러오지 못했습니다."
+      ),
+      status: 0,
+    };
+  }
+}
+
+async function updateSessionTimeoutSettings(
+  accessToken: string,
+  timeoutMinutes: number
+): Promise<SessionTimeoutSettingsRequestResult> {
+  try {
+    const response = await fetch("/api/session-timeout", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ timeoutMinutes }),
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | (SessionTimeoutSettingsResponse & { error?: string })
+      | { error?: string }
+      | null;
+
+    if (!response.ok) {
+      return {
+        data: null,
+        error:
+          payload && "error" in payload && typeof payload.error === "string"
+            ? payload.error
+            : "세션 타임아웃 설정을 저장하지 못했습니다.",
+        status: response.status,
+      };
+    }
+
+    return {
+      data: payload as SessionTimeoutSettingsResponse,
+      error: null,
+      status: response.status,
+    };
+  } catch (error) {
+    return {
+      data: null,
+      error: getKoreanErrorMessage(
+        error instanceof Error ? error.message : undefined,
+        "세션 타임아웃 설정을 저장하지 못했습니다."
+      ),
+      status: 0,
+    };
+  }
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [managedUsersLoading, setManagedUsersLoading] = useState(false);
   const [auditLogsLoading, setAuditLogsLoading] = useState(false);
+  const [sessionTimeoutLoading, setSessionTimeoutLoading] = useState(false);
+  const [sessionTimeoutSaving, setSessionTimeoutSaving] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [managedUsersError, setManagedUsersError] = useState<string | null>(null);
   const [auditLogsError, setAuditLogsError] = useState<string | null>(null);
+  const [sessionTimeoutError, setSessionTimeoutError] = useState<string | null>(null);
   const [managedUsers, setManagedUsers] = useState<AdminManagedUserRow[]>([]);
   const [auditLogs, setAuditLogs] = useState<StaffAuditLogRow[]>([]);
+  const [currentSessionTimeoutMinutes, setCurrentSessionTimeoutMinutes] = useState(
+    DEFAULT_SESSION_TIMEOUT_MINUTES
+  );
+  const [sessionTimeoutMinutesInput, setSessionTimeoutMinutesInput] = useState(
+    String(DEFAULT_SESSION_TIMEOUT_MINUTES)
+  );
   const [refreshKey, setRefreshKey] = useState(0);
   const [userLevelDrafts, setUserLevelDrafts] = useState<Record<string, UserLevel>>({});
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
@@ -362,6 +482,8 @@ export default function AdminPage() {
       setManagedUsersLoading(true);
       setManagedUsersError(null);
       setAuditLogsError(null);
+      setSessionTimeoutLoading(true);
+      setSessionTimeoutError(null);
 
       if (isOperatorView) {
         setAuditLogsLoading(true);
@@ -384,11 +506,13 @@ export default function AdminPage() {
         setManagedUsersError(fallbackMessage);
         setAuditLogsLoading(false);
         setAuditLogs([]);
+        setSessionTimeoutLoading(false);
+        setSessionTimeoutError(fallbackMessage);
         showToast("error", "관리자 데이터 불러오기 실패", fallbackMessage);
         return;
       }
 
-      const [usersResult, logsResult] = await Promise.all([
+      const [usersResult, logsResult, sessionTimeoutResult] = await Promise.all([
         loadAdminUsers(accessToken),
         isOperatorView
           ? loadAuditLogs(accessToken)
@@ -397,6 +521,7 @@ export default function AdminPage() {
               error: null,
               status: 200,
             }),
+        loadSessionTimeoutSettings(accessToken),
       ]);
 
       if (isDisposed) {
@@ -427,6 +552,7 @@ export default function AdminPage() {
       }
 
       setManagedUsersLoading(false);
+      setSessionTimeoutLoading(false);
 
       if (usersResult.data) {
         const nextUsers = sortManagedUsers(usersResult.data.users ?? []);
@@ -438,6 +564,18 @@ export default function AdminPage() {
         setManagedUsers([]);
         setManagedUsersError(usersResult.error);
         showToast("error", "사용자 목록 불러오기 실패", usersResult.error);
+      }
+
+      if (sessionTimeoutResult.data) {
+        setCurrentSessionTimeoutMinutes(sessionTimeoutResult.data.timeout_minutes);
+        setSessionTimeoutMinutesInput(
+          String(sessionTimeoutResult.data.timeout_minutes)
+        );
+      }
+
+      if (sessionTimeoutResult.error) {
+        setSessionTimeoutError(sessionTimeoutResult.error);
+        showToast("error", "세션 타임아웃 설정 불러오기 실패", sessionTimeoutResult.error);
       }
 
       if (isOperatorView) {
@@ -575,6 +713,96 @@ export default function AdminPage() {
     await saveManagedUserLevel(managedUser, nextLevel as UserLevel);
   };
 
+  const handleSessionTimeoutSave = async () => {
+    const validationMessage = getSessionTimeoutValidationMessage(
+      sessionTimeoutMinutesInput
+    );
+
+    if (validationMessage) {
+      showToast("error", "세션 타임아웃 시간을 확인해주세요", validationMessage);
+      return;
+    }
+
+    const timeoutMinutes = parseSessionTimeoutMinutes(sessionTimeoutMinutesInput);
+
+    if (timeoutMinutes === null) {
+      showToast(
+        "error",
+        "세션 타임아웃 시간을 확인해주세요",
+        "세션 타임아웃 시간이 올바르지 않습니다."
+      );
+      return;
+    }
+
+    const accessToken = await getSupabaseAccessToken();
+
+    if (!accessToken) {
+      queuePendingToast({
+        tone: "error",
+        title: "로그인이 필요합니다",
+        message: "다시 로그인한 뒤 세션 타임아웃 시간을 저장해주세요.",
+      });
+      router.replace("/");
+      return;
+    }
+
+    setSessionTimeoutSaving(true);
+    const updateResult = await updateSessionTimeoutSettings(accessToken, timeoutMinutes);
+    setSessionTimeoutSaving(false);
+
+    if (updateResult.status === 401) {
+      queuePendingToast({
+        tone: "error",
+        title: "로그인이 필요합니다",
+        message: updateResult.error || "다시 로그인한 뒤 관리자 페이지를 이용해주세요.",
+      });
+      router.replace("/");
+      return;
+    }
+
+    if (updateResult.status === 403) {
+      showToast(
+        "error",
+        "세션 타임아웃 설정 권한이 없습니다",
+        updateResult.error || undefined
+      );
+      return;
+    }
+
+    if (!updateResult.data) {
+      showToast(
+        "error",
+        "세션 타임아웃 설정 저장 실패",
+        updateResult.error || "세션 타임아웃 시간을 저장하지 못했습니다."
+      );
+      return;
+    }
+
+    setSessionTimeoutError(null);
+    setCurrentSessionTimeoutMinutes(updateResult.data.timeout_minutes);
+    setSessionTimeoutMinutesInput(String(updateResult.data.timeout_minutes));
+    writeCachedSessionTimeoutMinutes(updateResult.data.timeout_minutes);
+
+    await recordOperatorAuditLog({
+      action: "session_timeout_updated",
+      targetType: "system",
+      targetId: "session-timeout",
+      source: "/admin",
+      summary: "관리 권한 계정이 세션 타임아웃 시간을 변경했습니다.",
+      details: {
+        timeout_minutes: updateResult.data.timeout_minutes,
+      },
+    });
+
+    showToast(
+      "success",
+      "세션 타임아웃 시간을 저장했습니다",
+      `현재 자동 로그아웃 기준은 ${formatSessionTimeoutMinutes(
+        updateResult.data.timeout_minutes
+      )}입니다.`
+    );
+  };
+
   if (loading) {
     return <PageLoadingShell message="관리자 페이지 확인 중..." />;
   }
@@ -584,6 +812,70 @@ export default function AdminPage() {
       <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
 
       <div className="flex w-full flex-col gap-4">
+        <section className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">
+          <div className="flex flex-col items-center justify-center gap-2 text-center">
+            <h2 className="retro-title theme-heading text-lg sm:text-xl">
+              SESSION TIMEOUT
+            </h2>
+            <p className="theme-copy text-sm leading-relaxed">
+              모든 로그인 세션의 자동 로그아웃 기준 시간을 관리자 페이지에서 조정합니다.
+            </p>
+          </div>
+
+          {sessionTimeoutError ? (
+            <div className="theme-note-box mt-4 rounded-[20px] px-4 py-3 text-sm leading-relaxed">
+              {sessionTimeoutError}
+            </div>
+          ) : null}
+
+          {sessionTimeoutLoading ? (
+            <div className="theme-note-box mt-4 rounded-[20px] px-4 py-4 text-sm text-center">
+              세션 타임아웃 설정을 불러오는 중...
+            </div>
+          ) : (
+            <div className="mt-4 flex flex-col gap-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <label className="flex-1">
+                  <span className="theme-heading mb-2 block text-sm font-semibold">
+                    세션 타임아웃 시간 (분)
+                  </span>
+                  <input
+                    type="number"
+                    min={MIN_SESSION_TIMEOUT_MINUTES}
+                    max={MAX_SESSION_TIMEOUT_MINUTES}
+                    step={1}
+                    inputMode="numeric"
+                    value={sessionTimeoutMinutesInput}
+                    onChange={(event) =>
+                      setSessionTimeoutMinutesInput(event.target.value)
+                    }
+                    disabled={sessionTimeoutSaving}
+                    className="w-full px-4 py-3 text-center sm:text-left"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => void handleSessionTimeoutSave()}
+                  disabled={sessionTimeoutSaving}
+                  className="retro-button-solid min-h-[48px] px-5 py-3 text-sm font-semibold disabled:opacity-60 sm:min-w-[9rem]"
+                >
+                  {sessionTimeoutSaving ? "저장 중..." : "저장"}
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <p className="theme-copy">
+                  현재 적용값: {formatSessionTimeoutMinutes(currentSessionTimeoutMinutes)} ({currentSessionTimeoutMinutes}분)
+                </p>
+                <p className="theme-copy text-xs">
+                  입력 범위: {MIN_SESSION_TIMEOUT_MINUTES}분 ~ {MAX_SESSION_TIMEOUT_MINUTES}분
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
+
         <section className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">
           <div className="flex flex-wrap items-center justify-center gap-3 text-center">
             <span
