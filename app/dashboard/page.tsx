@@ -1,6 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import type { CollisionDetection, DragEndEvent } from "@dnd-kit/core";
+import type { User } from "@supabase/supabase-js";
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  pointerWithin,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import {
@@ -10,7 +30,7 @@ import {
   ToastState,
 } from "../../lib/toast";
 import { extractDriverProfileSeed } from "../../lib/driverSettings";
-import { formatMoney, toDateString } from "../../lib/format";
+import { formatMoney, getKoreanDayLabel, toDateString } from "../../lib/format";
 import {
   DASHBOARD_SECTION_EVENT,
   DASHBOARD_SECTION_STORAGE_KEY,
@@ -47,26 +67,63 @@ type WorkSummaryStripProps = {
   remainingWorkDays: number;
 };
 
+type DailySalesListItem = {
+  dateLabel: string;
+  quantityLabel: string;
+  salesLabel: string;
+};
+
+type DashboardHomeMetricCardData = {
+  label: string;
+  value: string;
+  sub?: string;
+  labelClassName?: string;
+  valueClassName?: string;
+};
+
+const DASHBOARD_HOME_WORK_SUMMARY_ITEM_IDS = [
+  "work-summary-adjusted-period-days",
+  "work-summary-worked-days",
+  "work-summary-additional-off-days",
+  "work-summary-remaining-work-days",
+  "work-summary-period-overview",
+] as const;
+
+const DASHBOARD_HOME_SALES_STAT_ITEM_IDS = [
+  "sales-stat-total-quantity",
+  "sales-stat-total-sales",
+  "sales-stat-avg-qty",
+  "sales-stat-expected-sales",
+  "sales-stat-avg-sales",
+] as const;
+
+const WORK_SUMMARY_OVERVIEW_ITEM_ID = "work-summary-period-overview";
+const LEGACY_STATS_HOME_LAYOUT_ID = "stats";
+
 const WORK_SUMMARY_ITEMS = [
   {
+    id: "work-summary-adjusted-period-days",
     label: "이달 근무",
     valueKey: "adjustedPeriodDays",
     labelClassName: "text-[rgba(255,203,128,0.96)]",
     valueClassName: "text-[rgba(255,245,228,0.98)]",
   },
   {
+    id: "work-summary-worked-days",
     label: "정상 근무",
     valueKey: "workedDays",
     labelClassName: "text-[rgba(199,229,160,0.96)]",
     valueClassName: "text-[rgba(246,252,235,0.98)]",
   },
   {
+    id: "work-summary-additional-off-days",
     label: "추가 휴무",
     valueKey: "additionalOffDays",
     labelClassName: "text-[rgba(148,234,198,0.96)]",
     valueClassName: "text-[rgba(236,253,246,0.98)]",
   },
   {
+    id: "work-summary-remaining-work-days",
     label: "남은 근무",
     valueKey: "remainingWorkDays",
     labelClassName: "text-[rgba(173,210,255,0.96)]",
@@ -103,6 +160,217 @@ function WorkSummaryStrip(props: WorkSummaryStripProps) {
         전체 {props.totalPeriodDays}일 - 정기/격주휴무 {props.regularOffDays}일
       </p>
     </section>
+  );
+}
+
+function formatDashboardDateLabel(date: Date) {
+  return `${date.getMonth() + 1}월 ${date.getDate()}일 (${getKoreanDayLabel(date.getDay())})`;
+}
+
+const DASHBOARD_HOME_LAYOUT_SECTION_IDS = [
+  "work-calendar",
+  "daily-sales-list",
+  "today-quick-card",
+  ...DASHBOARD_HOME_WORK_SUMMARY_ITEM_IDS,
+  ...DASHBOARD_HOME_SALES_STAT_ITEM_IDS,
+] as const;
+
+type DashboardHomeLayoutSectionId =
+  (typeof DASHBOARD_HOME_LAYOUT_SECTION_IDS)[number];
+
+type DashboardHomeLayoutItem = {
+  id: DashboardHomeLayoutSectionId;
+  visible: boolean;
+};
+
+const DASHBOARD_HOME_LAYOUT_LABELS: Record<DashboardHomeLayoutSectionId, string> = {
+  "today-quick-card": "일일 리포트 작성",
+  "work-summary-adjusted-period-days": "근무 통계 - 이달 근무",
+  "work-summary-worked-days": "근무 통계 - 정상 근무",
+  "work-summary-additional-off-days": "근무 통계 - 추가 휴무",
+  "work-summary-remaining-work-days": "근무 통계 - 남은 근무",
+  "work-summary-period-overview": "근무 통계 - 전체 기간 요약",
+  "sales-stat-total-quantity": "매출 통계 - 누적 건 수",
+  "sales-stat-total-sales": "매출 통계 - 누적 매출",
+  "sales-stat-avg-qty": "매출 통계 - 평균 수량",
+  "sales-stat-expected-sales": "매출 통계 - 예상 매출",
+  "sales-stat-avg-sales": "매출 통계 - 평균 매출",
+  "daily-sales-list": "일별 총 매출",
+  "work-calendar": "업무 캘린더",
+};
+
+const DEFAULT_DASHBOARD_HOME_LAYOUT: DashboardHomeLayoutItem[] = [
+  { id: "work-calendar", visible: false },
+  { id: "daily-sales-list", visible: false },
+  { id: "today-quick-card", visible: true },
+  ...DASHBOARD_HOME_WORK_SUMMARY_ITEM_IDS.map((id) => ({ id, visible: false })),
+  ...DASHBOARD_HOME_SALES_STAT_ITEM_IDS.map((id) => ({ id, visible: false })),
+];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isDashboardHomeLayoutSectionId(
+  value: unknown
+): value is DashboardHomeLayoutSectionId {
+  return DASHBOARD_HOME_LAYOUT_SECTION_IDS.some((id) => id === value);
+}
+
+function isDashboardHomeMetricCardId(value: DashboardHomeLayoutSectionId) {
+  return (
+    value !== "today-quick-card" &&
+    value !== "daily-sales-list" &&
+    value !== "work-calendar"
+  );
+}
+
+const dashboardHomeLayoutCollisionDetection: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+
+  if (pointerCollisions.length > 0) {
+    return pointerCollisions;
+  }
+
+  return closestCenter(args);
+};
+
+function expandDashboardHomeLayoutSectionIds(value: unknown): DashboardHomeLayoutSectionId[] {
+  if (value === LEGACY_STATS_HOME_LAYOUT_ID) {
+    return [...DASHBOARD_HOME_SALES_STAT_ITEM_IDS];
+  }
+
+  return isDashboardHomeLayoutSectionId(value) ? [value] : [];
+}
+
+function normalizeDashboardHomeLayout(value: unknown) {
+  const storedItems = Array.isArray(value) ? value : [];
+  const storedOrder: DashboardHomeLayoutSectionId[] = [];
+  const storedVisibility = new Map<DashboardHomeLayoutSectionId, boolean>();
+
+  storedItems.forEach((item) => {
+    if (!isRecord(item)) {
+      return;
+    }
+
+    const expandedIds = expandDashboardHomeLayoutSectionIds(item.id);
+
+    if (expandedIds.length === 0) {
+      return;
+    }
+
+    expandedIds.forEach((id) => {
+      if (!storedOrder.includes(id)) {
+        storedOrder.push(id);
+      }
+
+      storedVisibility.set(id, item.visible !== false);
+    });
+  });
+
+  DASHBOARD_HOME_LAYOUT_SECTION_IDS.forEach((id) => {
+    if (!storedOrder.includes(id)) {
+      storedOrder.push(id);
+    }
+  });
+
+  return storedOrder.map((id) => ({
+    id,
+    visible:
+      storedVisibility.get(id) ??
+      DEFAULT_DASHBOARD_HOME_LAYOUT.find((item) => item.id === id)?.visible ??
+      true,
+  }));
+}
+
+function readDashboardHomeLayout(user?: Pick<User, "user_metadata"> | null) {
+  return normalizeDashboardHomeLayout(user?.user_metadata?.dashboard_home_layout);
+}
+
+type DashboardHomeLayoutEditorItemProps = {
+  item: DashboardHomeLayoutItem;
+  label: string;
+  onToggleVisible: () => void;
+};
+
+function DashboardHomeLayoutEditorItem({
+  item,
+  label,
+  onToggleVisible,
+}: DashboardHomeLayoutEditorItemProps) {
+  return (
+    <label className="theme-note-box flex min-h-[38px] cursor-pointer items-center gap-2.5 rounded-[16px] px-3 py-2.5">
+      <input
+        type="checkbox"
+        checked={item.visible}
+        onChange={onToggleVisible}
+        className="h-4 w-4 shrink-0 cursor-pointer accent-[rgb(244,176,75)]"
+      />
+      <span className="theme-heading break-keep text-sm font-semibold leading-snug">
+        {label}
+      </span>
+    </label>
+  );
+}
+
+type DashboardHomeSortableSectionProps = {
+  itemId: DashboardHomeLayoutSectionId;
+  label: string;
+  dragLocked: boolean;
+  compact: boolean;
+  renderSection: (dragHandle: ReactNode) => ReactNode;
+};
+
+function DashboardHomeSortableSection({
+  itemId,
+  label,
+  dragLocked,
+  compact,
+  renderSection,
+}: DashboardHomeSortableSectionProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: itemId, disabled: dragLocked });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+      className={`${compact ? "w-[6.8rem] max-w-full flex-none min-[380px]:w-[7rem] sm:w-[7.2rem]" : "w-full basis-full"}${
+        isDragging ? " opacity-85" : ""
+      }`}
+    >
+      {renderSection(
+        <button
+          ref={setActivatorNodeRef}
+          type="button"
+          aria-label={`${label} 홈 카드 드래그`}
+          disabled={dragLocked}
+          className="retro-button flex h-11 w-11 shrink-0 items-center justify-center rounded-[16px] px-0 py-0 text-base active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-45 [touch-action:none]"
+          {...attributes}
+          {...listeners}
+        >
+          <span className="sr-only">{label} 홈 카드 드래그</span>
+          <span aria-hidden="true" className="grid grid-cols-2 gap-[5px]">
+            {Array.from({ length: 6 }).map((_, dotIndex) => (
+              <span
+                key={`${itemId}-home-drag-dot-${dotIndex}`}
+                className="h-[5px] w-[5px] rounded-full bg-[rgba(255,255,255,0.82)] sm:h-[6px] sm:w-[6px]"
+              />
+            ))}
+          </span>
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -424,15 +692,53 @@ export default function DashboardPage() {
   const router = useRouter();
   const now = new Date();
   const todayString = toDateString(now);
+  const dashboardHomeLayoutSensors = useSensors(
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 6,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 180,
+        tolerance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
   const [dashboardSection, setDashboardSection] = useState<DashboardSectionId>("home");
-  const [showReportList, setShowReportList] = useState(false);
-  const [showStatCards, setShowStatCards] = useState(false);
 
   const [user, setUser] = useState<UserType | null>(null);
   const [loading, setLoading] = useState(true);
   const [reportsLoading, setReportsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [dashboardHomeLayout, setDashboardHomeLayout] = useState<
+    DashboardHomeLayoutItem[]
+  >(DEFAULT_DASHBOARD_HOME_LAYOUT);
+  const [dashboardHomeLayoutDraft, setDashboardHomeLayoutDraft] = useState<
+    DashboardHomeLayoutItem[]
+  >(DEFAULT_DASHBOARD_HOME_LAYOUT);
+  const [dashboardHomeLayoutEditorOpen, setDashboardHomeLayoutEditorOpen] =
+    useState(false);
+  const [dashboardHomeLayoutDragLocked, setDashboardHomeLayoutDragLocked] =
+    useState(false);
+  const [dashboardHomeLayoutSaving, setDashboardHomeLayoutSaving] = useState(false);
+  const [dashboardHomeLayoutAutoSavePending, setDashboardHomeLayoutAutoSavePending] =
+    useState(false);
+  const dashboardHomeLayoutDraftRef = useRef<DashboardHomeLayoutItem[]>(
+    DEFAULT_DASHBOARD_HOME_LAYOUT
+  );
+  const dashboardHomeLayoutPersistedRef = useRef<DashboardHomeLayoutItem[]>(
+    DEFAULT_DASHBOARD_HOME_LAYOUT
+  );
+  const dashboardHomeLayoutPendingLayoutRef = useRef<DashboardHomeLayoutItem[] | null>(
+    null
+  );
+  const dashboardHomeLayoutAutoSaveTimeoutRef = useRef<number | null>(null);
+  const dashboardHomeLayoutSaveInFlightRef = useRef(false);
 
   const [periodAnchor, setPeriodAnchor] = useState<Date>(
     new Date(now.getFullYear(), now.getMonth(), 1)
@@ -460,13 +766,31 @@ export default function DashboardPage() {
   );
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const quickEntryDateRef = useRef(quickEntryDate);
+  const workSummarySectionRef = useRef<HTMLElement | null>(null);
   const quickEntryCardRef = useRef<HTMLElement | null>(null);
   const statCardsSectionRef = useRef<HTMLElement | null>(null);
+  const dailySalesListSectionRef = useRef<HTMLElement | null>(null);
   const reportListSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     quickEntryDateRef.current = quickEntryDate;
   }, [quickEntryDate]);
+
+  useEffect(() => {
+    dashboardHomeLayoutDraftRef.current = dashboardHomeLayoutDraft;
+  }, [dashboardHomeLayoutDraft]);
+
+  useEffect(() => {
+    dashboardHomeLayoutPersistedRef.current = dashboardHomeLayout;
+  }, [dashboardHomeLayout]);
+
+  useEffect(() => {
+    return () => {
+      if (dashboardHomeLayoutAutoSaveTimeoutRef.current !== null) {
+        window.clearTimeout(dashboardHomeLayoutAutoSaveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const pendingToast = consumePendingToast();
@@ -493,8 +817,6 @@ export default function DashboardPage() {
 
     const applyDashboardSection = (nextSection: DashboardSectionId) => {
       setDashboardSection(nextSection);
-      setShowStatCards(false);
-      setShowReportList(false);
       setReportListScrollDate(null);
     };
 
@@ -523,13 +845,45 @@ export default function DashboardPage() {
   }, []);
 
   const isHomeDashboardSection = dashboardSection === "home";
-  const showSummaryStrip = isHomeDashboardSection;
+  const visibleDashboardHomeLayout = dashboardHomeLayout.filter((item) => item.visible);
+  const visibleDashboardHomeLayoutDraft = dashboardHomeLayoutDraft.filter(
+    (item) => item.visible
+  );
+  const activeHomeDashboardLayout = visibleDashboardHomeLayoutDraft;
+  const activeHomeDashboardLayoutIds = activeHomeDashboardLayout.map((item) => item.id);
+  const isQuickEntryVisibleOnHome = visibleDashboardHomeLayout.some(
+    (item) => item.id === "today-quick-card"
+  );
+  const isDailySalesListVisibleOnHome = visibleDashboardHomeLayout.some(
+    (item) => item.id === "daily-sales-list"
+  );
+  const isCalendarVisibleOnHome = visibleDashboardHomeLayout.some(
+    (item) => item.id === "work-calendar"
+  );
+  const showSummaryStrip = dashboardSection === "work-summary";
   const showQuickEntrySection =
-    isHomeDashboardSection || dashboardSection === "today-quick-card";
-  const showDashboardActionButtons = isHomeDashboardSection;
-  const showStatsSection = dashboardSection === "stats" || (isHomeDashboardSection && showStatCards);
+    dashboardSection === "today-quick-card" ||
+    (isHomeDashboardSection && isQuickEntryVisibleOnHome);
+  const showStatsSection = dashboardSection === "stats";
+  const showDailySalesListSection =
+    dashboardSection === "daily-sales-list" ||
+    (isHomeDashboardSection && isDailySalesListVisibleOnHome);
   const showCalendarSection =
-    dashboardSection === "work-calendar" || (isHomeDashboardSection && showReportList);
+    dashboardSection === "work-calendar" ||
+    (isHomeDashboardSection && isCalendarVisibleOnHome);
+
+  useEffect(() => {
+    if (dashboardSection !== "work-summary") return;
+
+    const animationFrameId = window.requestAnimationFrame(() => {
+      workSummarySectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(animationFrameId);
+  }, [dashboardSection]);
 
   useEffect(() => {
     if (dashboardSection !== "today-quick-card") return;
@@ -545,7 +899,7 @@ export default function DashboardPage() {
   }, [dashboardSection]);
 
   useEffect(() => {
-    if (!showStatsSection) return;
+    if (dashboardSection !== "stats") return;
 
     const animationFrameId = window.requestAnimationFrame(() => {
       statCardsSectionRef.current?.scrollIntoView({
@@ -555,10 +909,23 @@ export default function DashboardPage() {
     });
 
     return () => window.cancelAnimationFrame(animationFrameId);
-  }, [showStatsSection]);
+  }, [dashboardSection]);
 
   useEffect(() => {
-    if (!showCalendarSection || reportListScrollDate) return;
+    if (dashboardSection !== "daily-sales-list") return;
+
+    const animationFrameId = window.requestAnimationFrame(() => {
+      dailySalesListSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(animationFrameId);
+  }, [dashboardSection]);
+
+  useEffect(() => {
+    if (dashboardSection !== "work-calendar" || reportListScrollDate) return;
 
     const animationFrameId = window.requestAnimationFrame(() => {
       reportListSectionRef.current?.scrollIntoView({
@@ -568,7 +935,7 @@ export default function DashboardPage() {
     });
 
     return () => window.cancelAnimationFrame(animationFrameId);
-  }, [showCalendarSection, reportListScrollDate]);
+  }, [dashboardSection, reportListScrollDate]);
 
   useEffect(() => {
     if (!showCalendarSection || !reportListScrollDate || reportsLoading) return;
@@ -618,6 +985,7 @@ export default function DashboardPage() {
   const settlementStartKey = toDateString(settlementRange.start);
   const settlementEndKey = toDateString(settlementRange.end);
   const periodMonthLabel = `${periodAnchor.getFullYear()}년 ${periodAnchor.getMonth() + 1}월`;
+  const todayCalendarLabel = formatDashboardDateLabel(now);
   const activeQuickEntryDate = getDateWithinRange(
     quickEntryDate,
     settlementStartKey,
@@ -637,12 +1005,15 @@ export default function DashboardPage() {
       }
 
       const profileSeed = extractDriverProfileSeed(user);
+      const nextDashboardHomeLayout = readDashboardHomeLayout(user);
       setUser({
         id: user.id,
         email: user.email,
         driver_name: profileSeed.driverName,
         phone_number: profileSeed.phoneNumber,
       });
+      setDashboardHomeLayout(nextDashboardHomeLayout);
+      setDashboardHomeLayoutDraft(nextDashboardHomeLayout);
 
       setSettings((prev) => ({
         ...prev,
@@ -813,12 +1184,8 @@ export default function DashboardPage() {
       todayString
     );
 
-    setQuickEntryDate(nextQuickEntryDate);
     setSelectedDate(nextQuickEntryDate);
-    quickEntryCardRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    setIsReportModalOpen(true);
 
     const existing = reportsMap.get(nextQuickEntryDate);
 
@@ -980,9 +1347,12 @@ export default function DashboardPage() {
 
     showToast("success", "리포트 저장 완료", `${savedDateKey} 내용을 저장했습니다.`);
     await refreshReports(savedDateKey);
-    setShowStatCards(false);
-    setShowReportList(true);
-    setReportListScrollDate(savedDateKey);
+
+    if (dashboardSection === "work-calendar" || isCalendarVisibleOnHome) {
+      setReportListScrollDate(savedDateKey);
+    } else {
+      setReportListScrollDate(null);
+    }
   };
 
   const saveModalReport = async () => {
@@ -992,29 +1362,184 @@ export default function DashboardPage() {
 
     if (!ok) return;
 
+    const savedDateKey = reportForm.report_date;
+
     showToast("success", "저장 완료", `${reportForm.report_date} 내용을 반영했습니다.`);
     setIsReportModalOpen(false);
     await refreshReports(activeQuickEntryDate);
-  };
 
-  const toggleStatCards = () => {
-    const nextShowStatCards = !showStatCards;
-
-    setShowStatCards(nextShowStatCards);
-
-    if (nextShowStatCards) {
-      setShowReportList(false);
+    if (dashboardSection === "work-calendar" || isCalendarVisibleOnHome) {
+      setReportListScrollDate(savedDateKey);
     }
   };
 
-  const toggleReportList = () => {
-    const nextShowReportList = !showReportList;
-
-    setShowReportList(nextShowReportList);
-
-    if (nextShowReportList) {
-      setShowStatCards(false);
+  const clearDashboardHomeLayoutAutoSaveTimer = () => {
+    if (dashboardHomeLayoutAutoSaveTimeoutRef.current !== null) {
+      window.clearTimeout(dashboardHomeLayoutAutoSaveTimeoutRef.current);
+      dashboardHomeLayoutAutoSaveTimeoutRef.current = null;
     }
+  };
+
+  const persistDashboardHomeLayout = async () => {
+    if (dashboardHomeLayoutSaveInFlightRef.current) {
+      return;
+    }
+
+    dashboardHomeLayoutSaveInFlightRef.current = true;
+    setDashboardHomeLayoutSaving(true);
+
+    while (dashboardHomeLayoutPendingLayoutRef.current) {
+      const nextLayout = normalizeDashboardHomeLayout(
+        dashboardHomeLayoutPendingLayoutRef.current
+      );
+      dashboardHomeLayoutPendingLayoutRef.current = null;
+
+      const {
+        data: { user: currentUser },
+        error: readUserError,
+      } = await supabase.auth.getUser();
+
+      if (readUserError || !currentUser) {
+        const persistedLayout = dashboardHomeLayoutPersistedRef.current;
+
+        dashboardHomeLayoutSaveInFlightRef.current = false;
+        setDashboardHomeLayoutSaving(false);
+        setDashboardHomeLayoutAutoSavePending(false);
+        dashboardHomeLayoutDraftRef.current = persistedLayout;
+        setDashboardHomeLayoutDraft(persistedLayout);
+        showToast(
+          "error",
+          "홈 구성 저장 실패",
+          getKoreanErrorMessage(
+            readUserError?.message,
+            "세션을 확인한 뒤 다시 시도해주세요."
+          )
+        );
+        return;
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          ...(currentUser.user_metadata ?? {}),
+          dashboard_home_layout: nextLayout,
+        },
+      });
+
+      if (error) {
+        const persistedLayout = dashboardHomeLayoutPersistedRef.current;
+
+        dashboardHomeLayoutSaveInFlightRef.current = false;
+        setDashboardHomeLayoutSaving(false);
+        setDashboardHomeLayoutAutoSavePending(false);
+        dashboardHomeLayoutDraftRef.current = persistedLayout;
+        setDashboardHomeLayoutDraft(persistedLayout);
+        showToast(
+          "error",
+          "홈 구성 저장 실패",
+          getKoreanErrorMessage(error.message, "홈 구성을 저장하지 못했습니다.")
+        );
+        return;
+      }
+
+  dashboardHomeLayoutPersistedRef.current = nextLayout;
+  dashboardHomeLayoutDraftRef.current = nextLayout;
+      setDashboardHomeLayout(nextLayout);
+      setDashboardHomeLayoutDraft(nextLayout);
+
+      if (!nextLayout.some((item) => item.id === "work-calendar" && item.visible)) {
+        setReportListScrollDate(null);
+      }
+    }
+
+    dashboardHomeLayoutSaveInFlightRef.current = false;
+    setDashboardHomeLayoutSaving(false);
+    setDashboardHomeLayoutAutoSavePending(false);
+  };
+
+  const scheduleDashboardHomeLayoutAutoSave = (
+    nextLayout: DashboardHomeLayoutItem[]
+  ) => {
+    const normalizedNextLayout = normalizeDashboardHomeLayout(nextLayout);
+
+    dashboardHomeLayoutDraftRef.current = normalizedNextLayout;
+    setDashboardHomeLayoutDraft(normalizedNextLayout);
+    dashboardHomeLayoutPendingLayoutRef.current = normalizedNextLayout;
+    setDashboardHomeLayoutAutoSavePending(true);
+
+    clearDashboardHomeLayoutAutoSaveTimer();
+
+    dashboardHomeLayoutAutoSaveTimeoutRef.current = window.setTimeout(() => {
+      clearDashboardHomeLayoutAutoSaveTimer();
+      void persistDashboardHomeLayout();
+    }, 180);
+  };
+
+  const handleDashboardHomeLayoutVisibilityToggle = (
+    sectionId: DashboardHomeLayoutSectionId
+  ) => {
+    const nextLayout = dashboardHomeLayoutDraftRef.current.map((item) =>
+      item.id === sectionId ? { ...item, visible: !item.visible } : item
+    );
+
+    scheduleDashboardHomeLayoutAutoSave(nextLayout);
+  };
+
+  const reorderVisibleDashboardHomeLayout = (
+    layout: DashboardHomeLayoutItem[],
+    activeId: DashboardHomeLayoutSectionId,
+    overId: DashboardHomeLayoutSectionId
+  ) => {
+    const visibleItems = layout.filter((item) => item.visible);
+    const activeVisibleIndex = visibleItems.findIndex((item) => item.id === activeId);
+    const overVisibleIndex = visibleItems.findIndex((item) => item.id === overId);
+
+    if (
+      activeVisibleIndex < 0 ||
+      overVisibleIndex < 0 ||
+      activeVisibleIndex === overVisibleIndex
+    ) {
+      return layout;
+    }
+
+    const reorderedVisibleItems = arrayMove(
+      visibleItems,
+      activeVisibleIndex,
+      overVisibleIndex
+    );
+
+    let reorderedVisibleIndex = 0;
+
+    return layout.map((item) => {
+      if (!item.visible) {
+        return item;
+      }
+
+      const nextItem = reorderedVisibleItems[reorderedVisibleIndex];
+      reorderedVisibleIndex += 1;
+      return nextItem;
+    });
+  };
+
+  const handleDashboardHomeLayoutDragEnd = ({ active, over }: DragEndEvent) => {
+    if (dashboardHomeLayoutDragLocked) {
+      return;
+    }
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const nextLayout = reorderVisibleDashboardHomeLayout(
+      dashboardHomeLayoutDraftRef.current,
+      active.id as DashboardHomeLayoutSectionId,
+      over.id as DashboardHomeLayoutSectionId
+    );
+
+    if (nextLayout === dashboardHomeLayoutDraftRef.current) {
+      return;
+    }
+
+    scheduleDashboardHomeLayoutAutoSave(nextLayout);
   };
 
   const summary = useMemo(() => {
@@ -1077,6 +1602,23 @@ export default function DashboardPage() {
       0
     );
     const expectedSales = totalSales + avgSales * remainingWorkDays;
+    const dailySalesList: DailySalesListItem[] = periodData
+      .filter((item) => item.isWorked && item.report)
+      .map((item) => {
+        const parsedMemo = parseStoredMemo(item.report?.memo);
+        const quantity = getBillableQuantity(
+          item.report?.delivered_count || 0,
+          item.report?.returned_count || 0,
+          item.report?.canceled_count || 0,
+          parsedMemo.includeCanceledInSales
+        );
+
+        return {
+          dateLabel: formatDashboardDateLabel(item.date),
+          quantityLabel: `${quantity}건`,
+          salesLabel: formatMoney(item.report?.daily_sales || 0),
+        };
+      });
 
     return {
       totalQuantity,
@@ -1090,6 +1632,7 @@ export default function DashboardPage() {
       workedDays,
       additionalOffDays,
       remainingWorkDays,
+      dailySalesList,
     };
   }, [periodDates, reportsMap, settings]);
 
@@ -1097,138 +1640,465 @@ export default function DashboardPage() {
     return <PageLoadingShell message="불러오는 중..." />;
   }
 
+  const dashboardHomeMetricCards: Partial<
+    Record<DashboardHomeLayoutSectionId, DashboardHomeMetricCardData>
+  > = {
+    "work-summary-adjusted-period-days": {
+      label: "이달 근무",
+      value: `${summary.adjustedPeriodDays}일`,
+      labelClassName: WORK_SUMMARY_ITEMS[0].labelClassName,
+      valueClassName: WORK_SUMMARY_ITEMS[0].valueClassName,
+    },
+    "work-summary-worked-days": {
+      label: "정상 근무",
+      value: `${summary.workedDays}일`,
+      labelClassName: WORK_SUMMARY_ITEMS[1].labelClassName,
+      valueClassName: WORK_SUMMARY_ITEMS[1].valueClassName,
+    },
+    "work-summary-additional-off-days": {
+      label: "추가 휴무",
+      value: `${summary.additionalOffDays}일`,
+      labelClassName: WORK_SUMMARY_ITEMS[2].labelClassName,
+      valueClassName: WORK_SUMMARY_ITEMS[2].valueClassName,
+    },
+    "work-summary-remaining-work-days": {
+      label: "남은 근무",
+      value: `${summary.remainingWorkDays}일`,
+      labelClassName: WORK_SUMMARY_ITEMS[3].labelClassName,
+      valueClassName: WORK_SUMMARY_ITEMS[3].valueClassName,
+    },
+    [WORK_SUMMARY_OVERVIEW_ITEM_ID]: {
+      label: "전체 기간 요약",
+      value: `전체 ${summary.totalPeriodDays}일`,
+      sub: `정기/격주휴무 ${summary.regularOffDays}일`,
+    },
+    "sales-stat-total-quantity": {
+      label: "누적 건 수",
+      value: `${summary.totalQuantity}건`,
+    },
+    "sales-stat-total-sales": {
+      label: "누적 매출",
+      value: formatMoney(summary.totalSales),
+    },
+    "sales-stat-avg-qty": {
+      label: "평균 수량",
+      value: `${summary.avgQty}건`,
+    },
+    "sales-stat-expected-sales": {
+      label: "예상 매출",
+      value: formatMoney(summary.expectedSales),
+    },
+    "sales-stat-avg-sales": {
+      label: "평균 매출",
+      value: formatMoney(summary.avgSales),
+    },
+  };
+
+  const renderQuickEntrySection = (key: string, dragHandle?: ReactNode) => (
+    <section key={key} ref={quickEntryCardRef} className="relative">
+      {dragHandle ? (
+        <div
+          className="pointer-events-none z-10"
+          style={{
+            position: "absolute",
+            top: "0.75rem",
+            right: "3.25rem",
+            bottom: "auto",
+            left: "auto",
+          }}
+        >
+          <div className="pointer-events-auto">{dragHandle}</div>
+        </div>
+      ) : null}
+
+      <TodayQuickCard
+        selectedDate={activeQuickEntryDate}
+        minDate={settlementStartKey}
+        maxDate={settlementEndKey}
+        onDateChange={handleQuickEntryDateChange}
+        reportForm={reportForm}
+        setReportForm={setReportForm}
+        defaultUnitPrice={defaultUnitPrice}
+        handleReportChange={handleReportChange}
+        onSave={saveTodayQuick}
+        saving={saving}
+      />
+    </section>
+  );
+
+  const renderStatsSection = (key: string) => (
+    <section key={key} ref={statCardsSectionRef}>
+      <div className="retro-panel mb-3 rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <button
+            onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, -1))}
+            className="retro-button min-h-[44px] w-full px-4 py-2.5 text-sm font-semibold sm:w-auto"
+          >
+            이전달
+          </button>
+
+          <p className="retro-title theme-heading text-center text-base leading-relaxed sm:text-lg">
+            {periodMonthLabel} 매출 통계
+          </p>
+
+          <button
+            onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, 1))}
+            className="retro-button min-h-[44px] w-full px-4 py-2.5 text-sm font-semibold sm:w-auto"
+          >
+            다음달
+          </button>
+        </div>
+      </div>
+
+      <StatCards
+        totalQuantity={summary.totalQuantity}
+        avgQty={summary.avgQty}
+        avgSales={formatMoney(summary.avgSales)}
+        totalSales={formatMoney(summary.totalSales)}
+        expectedSales={formatMoney(summary.expectedSales)}
+      />
+    </section>
+  );
+
+  const renderDashboardHomeMetricCardSection = (
+    key: string,
+    sectionId: DashboardHomeLayoutSectionId,
+    dragHandle?: ReactNode
+  ) => {
+    const metricCard = dashboardHomeMetricCards[sectionId];
+
+    if (!metricCard) {
+      return null;
+    }
+
+    return (
+      <section key={key} className="w-full max-w-full">
+        <div className="theme-note-box relative flex aspect-square w-full flex-col rounded-[17px] px-2 py-2 sm:px-2.5 sm:py-2.5">
+          {dragHandle ? (
+            <div
+              className="z-10 scale-[0.72] origin-top-right sm:scale-[0.8]"
+              style={{
+                position: "absolute",
+                top: "0.25rem",
+                right: "0.25rem",
+                bottom: "auto",
+                left: "auto",
+              }}
+            >
+              {dragHandle}
+            </div>
+          ) : null}
+
+          <div className="flex h-full flex-col items-center justify-between gap-1 text-center">
+            <p
+              className={`retro-title text-xs ${
+                metricCard.labelClassName ?? "theme-heading"
+              } w-full px-5 text-[10px] leading-snug sm:text-[11px]`}
+            >
+              {metricCard.label}
+            </p>
+
+            <div className="w-full space-y-0.5 text-center">
+              <p
+                className={`text-[clamp(0.88rem,3.7vw,1.1rem)] font-bold leading-[1.05] tracking-tight ${
+                  metricCard.valueClassName ?? "theme-heading"
+                }`}
+              >
+                {metricCard.value}
+              </p>
+              {metricCard.sub ? (
+                <p className="theme-copy text-[8px] leading-snug sm:text-[9px]">
+                  {metricCard.sub}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  };
+
+  const renderDailySalesListSection = (key: string, dragHandle?: ReactNode) => (
+    <section key={key} ref={dailySalesListSectionRef} className="relative">
+      {dragHandle ? (
+        <div
+          className="pointer-events-none z-10"
+          style={{
+            position: "absolute",
+            top: "0.75rem",
+            right: "0.75rem",
+            bottom: "auto",
+            left: "auto",
+          }}
+        >
+          <div className="pointer-events-auto">{dragHandle}</div>
+        </div>
+      ) : null}
+
+      <div className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-5 sm:py-5">
+        <div className="flex items-start gap-3 pr-12 sm:pr-14">
+          <div className="space-y-1">
+            <p className="retro-title theme-heading text-base sm:text-lg">
+              일별 총 매출
+            </p>
+            <p className="theme-copy text-sm leading-relaxed">
+              업무 캘린더에 저장된 날짜별 총 매출을 세로로 나열했습니다.
+            </p>
+          </div>
+        </div>
+
+        {summary.dailySalesList.length > 0 ? (
+          <div className="mt-4 space-y-2">
+            {summary.dailySalesList.map((item) => (
+              <div
+                key={item.dateLabel}
+                className="theme-note-box flex items-center justify-between gap-3 rounded-[20px] px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="theme-copy text-sm leading-relaxed sm:text-base">
+                    {item.dateLabel}
+                  </p>
+                </div>
+                <p className="theme-copy shrink-0 text-sm leading-relaxed sm:text-base">
+                  {item.quantityLabel}
+                </p>
+                <p className="theme-heading shrink-0 text-base font-semibold sm:text-lg">
+                  {item.salesLabel}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="theme-note-box mt-4 rounded-[20px] px-4 py-4 text-sm leading-relaxed">
+            아직 저장된 일별 매출 데이터가 없습니다.
+          </div>
+        )}
+      </div>
+    </section>
+  );
+
+  const renderCalendarSection = (key: string, dragHandle?: ReactNode) => (
+    <section key={key} ref={reportListSectionRef} className="relative">
+      {dragHandle ? (
+        <div
+          className="pointer-events-none z-10"
+          style={{
+            position: "absolute",
+            top: "0.75rem",
+            right: "3.25rem",
+            bottom: "auto",
+            left: "auto",
+          }}
+        >
+          <div className="pointer-events-auto">{dragHandle}</div>
+        </div>
+      ) : null}
+
+      <div className="retro-panel mb-3 rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
+        <div className="flex items-center gap-2 pr-12 sm:gap-3 sm:pr-14">
+          <button
+            type="button"
+            onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, -1))}
+            aria-label="이전달 보기"
+            className="retro-button flex h-11 w-11 shrink-0 items-center justify-center rounded-[16px] px-0 py-0 text-lg font-semibold"
+          >
+            <span aria-hidden="true">&lt;</span>
+          </button>
+
+          <div className="min-w-0 flex-1 text-center">
+            <p className="retro-title theme-heading text-base leading-none sm:text-lg">
+              {periodMonthLabel}
+            </p>
+            <p className="theme-copy mt-1 text-[11px] leading-none sm:text-xs">
+              오늘 {todayCalendarLabel}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, 1))}
+            aria-label="다음달 보기"
+            className="retro-button flex h-11 w-11 shrink-0 items-center justify-center rounded-[16px] px-0 py-0 text-lg font-semibold"
+          >
+            <span aria-hidden="true">&gt;</span>
+          </button>
+        </div>
+      </div>
+
+      {reportsLoading ? (
+        <div className="retro-panel rounded-[24px] p-8 text-center sm:rounded-[28px] sm:p-10">
+          달력 불러오는 중...
+        </div>
+      ) : (
+        <ReportList
+          dates={periodDates}
+          reportsMap={reportsMap}
+          weeklyOffDays={settings.off_days}
+          biweeklyOffDays={settings.biweekly_off_days}
+          biweeklyAnchorDate={settings.biweekly_anchor_date}
+          onDateClick={openReportModal}
+          todayString={todayString}
+        />
+      )}
+    </section>
+  );
+
+  const renderHomeDashboardSection = (
+    item: DashboardHomeLayoutItem,
+    dragHandle?: ReactNode
+  ) => {
+    const metricCardSection = renderDashboardHomeMetricCardSection(
+      `home-${item.id}`,
+      item.id,
+      dragHandle
+    );
+
+    if (metricCardSection) {
+      return metricCardSection;
+    }
+
+    switch (item.id) {
+      case "today-quick-card":
+        return renderQuickEntrySection(`home-${item.id}`, dragHandle);
+      case "daily-sales-list":
+        return renderDailySalesListSection(`home-${item.id}`, dragHandle);
+      case "work-calendar":
+        return renderCalendarSection(`home-${item.id}`, dragHandle);
+      default:
+        return null;
+    }
+  };
+
   return (
     <PageShell contentClassName="flex w-full max-w-[34rem] flex-col gap-3 sm:gap-4 sm:max-w-2xl lg:max-w-4xl">
       <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
       <div className="flex w-full flex-col gap-3 sm:gap-4">
         {showSummaryStrip ? (
-          <WorkSummaryStrip
-            adjustedPeriodDays={summary.adjustedPeriodDays}
-            totalPeriodDays={summary.totalPeriodDays}
-            regularOffDays={summary.regularOffDays}
-            workedDays={summary.workedDays}
-            additionalOffDays={summary.additionalOffDays}
-            remainingWorkDays={summary.remainingWorkDays}
-          />
-        ) : null}
+          <section ref={workSummarySectionRef} className="w-full">
+            <div className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-5 sm:py-5">
+              <div className="space-y-1">
+                <p className="retro-title theme-heading text-base sm:text-lg">근무 통계</p>
+                <p className="theme-copy text-sm leading-relaxed">
+                  이달 근무, 정상 근무, 추가 휴무, 남은 근무 현황을 한 번에 확인합니다.
+                </p>
+              </div>
 
-        {showQuickEntrySection ? (
-          <section ref={quickEntryCardRef}>
-            <TodayQuickCard
-              selectedDate={activeQuickEntryDate}
-              minDate={settlementStartKey}
-              maxDate={settlementEndKey}
-              onDateChange={handleQuickEntryDateChange}
-              reportForm={reportForm}
-              setReportForm={setReportForm}
-              defaultUnitPrice={defaultUnitPrice}
-              handleReportChange={handleReportChange}
-              onSave={saveTodayQuick}
-              saving={saving}
-            />
+              <WorkSummaryStrip
+                adjustedPeriodDays={summary.adjustedPeriodDays}
+                totalPeriodDays={summary.totalPeriodDays}
+                regularOffDays={summary.regularOffDays}
+                workedDays={summary.workedDays}
+                additionalOffDays={summary.additionalOffDays}
+                remainingWorkDays={summary.remainingWorkDays}
+              />
+            </div>
           </section>
         ) : null}
-        {showDashboardActionButtons ? (
-          <div className="rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
-              <button
-                onClick={toggleStatCards}
-                className="retro-button-solid min-h-[48px] w-full px-4 py-3 text-sm font-semibold"
-                style={{ marginTop: "12px", marginBottom: "12px" }}
-              >
-                {showStatCards ? "통계 닫기" : "통계 보기"}
-              </button>
 
-              <button
-                onClick={toggleReportList}
-                className="retro-button-solid min-h-[48px] w-full px-4 py-3 text-sm font-semibold"
-                style={{ marginTop: "12px", marginBottom: "12px" }}
-              >
-                {showReportList ? "업무 캘린더 닫기" : "업무 캘린더"}
-              </button>
+        {isHomeDashboardSection ? (
+          <section className="retro-panel rounded-[22px] px-3 py-3 sm:rounded-[24px] sm:px-4 sm:py-3">
+            <div className="grid min-h-[34px] grid-cols-[1fr_auto_1fr] items-center gap-3">
+              <div aria-hidden="true" />
+
+              <div className="flex min-w-0 items-center justify-center gap-2.5 text-center">
+                <p className="retro-title theme-heading text-sm sm:text-base">
+                  홈 화면 편집
+                </p>
+                {dashboardHomeLayoutSaving || dashboardHomeLayoutAutoSavePending ? (
+                  <span className="theme-copy text-xs leading-none">저장 중</span>
+                ) : null}
+              </div>
+
+              <div className="flex shrink-0 items-center justify-self-end gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDashboardHomeLayoutDragLocked((currentValue) => !currentValue)
+                  }
+                  className="retro-button min-h-[34px] px-3 py-1.5 text-xs font-semibold"
+                >
+                  {dashboardHomeLayoutDragLocked
+                    ? "잠금 해제"
+                    : "드래그 잠금"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDashboardHomeLayoutEditorOpen((currentValue) => !currentValue)
+                  }
+                  className="retro-button flex min-h-[34px] min-w-[56px] items-center justify-center rounded-[12px] px-2.5 py-1.5 text-xs font-semibold"
+                  aria-expanded={dashboardHomeLayoutEditorOpen}
+                >
+                  {dashboardHomeLayoutEditorOpen ? "닫기" : "열기"}
+                </button>
+              </div>
             </div>
-          </div>
+
+            {dashboardHomeLayoutEditorOpen ? (
+              <div className="mt-2.5 space-y-2.5">
+                <div className="max-h-[14rem] overflow-y-auto pr-1">
+                  <div className="grid gap-1.5 sm:grid-cols-2">
+                    {dashboardHomeLayoutDraft.map((item) => (
+                      <DashboardHomeLayoutEditorItem
+                        key={item.id}
+                        item={item}
+                        label={DASHBOARD_HOME_LAYOUT_LABELS[item.id]}
+                        onToggleVisible={() => handleDashboardHomeLayoutVisibilityToggle(item.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </section>
         ) : null}
 
-        <section ref={statCardsSectionRef}>
-          {showStatsSection ? (
-            <>
-              <div className="retro-panel mb-3 rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                  <button
-                    onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, -1))}
-                    className="retro-button min-h-[44px] w-full px-4 py-2.5 text-sm font-semibold sm:w-auto"
-                  >
-                    이전달
-                  </button>
-
-                  <p className="retro-title theme-heading text-center text-base leading-relaxed sm:text-lg">
-                    {periodMonthLabel} 통계
-                  </p>
-
-                  <button
-                    onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, 1))}
-                    className="retro-button min-h-[44px] w-full px-4 py-2.5 text-sm font-semibold sm:w-auto"
-                  >
-                    다음달
-                  </button>
+        {isHomeDashboardSection ? (
+          activeHomeDashboardLayout.length > 0 ? (
+            <DndContext
+              sensors={dashboardHomeLayoutSensors}
+              collisionDetection={dashboardHomeLayoutCollisionDetection}
+              onDragEnd={handleDashboardHomeLayoutDragEnd}
+            >
+              <SortableContext
+                items={activeHomeDashboardLayoutIds}
+                strategy={rectSortingStrategy}
+              >
+                <div className="flex flex-wrap items-start gap-3 sm:gap-4">
+                  {activeHomeDashboardLayout.map((item) => (
+                    <DashboardHomeSortableSection
+                      key={item.id}
+                      itemId={item.id}
+                      label={DASHBOARD_HOME_LAYOUT_LABELS[item.id]}
+                      dragLocked={dashboardHomeLayoutDragLocked}
+                      compact={isDashboardHomeMetricCardId(item.id)}
+                      renderSection={(dragHandle) =>
+                        renderHomeDashboardSection(item, dragHandle)
+                      }
+                    />
+                  ))}
                 </div>
-              </div>
+              </SortableContext>
+            </DndContext>
+          ) : (
+            <div className="theme-note-box rounded-[20px] px-4 py-4 text-sm leading-relaxed">
+              현재 홈에 표시되는 기능이 없습니다. 편집에서 원하는 기능을 다시 켜주세요.
+            </div>
+          )
+        ) : null}
 
-              <StatCards
-                totalQuantity={summary.totalQuantity}
-                avgQty={summary.avgQty}
-                avgSales={formatMoney(summary.avgSales)}
-                totalSales={formatMoney(summary.totalSales)}
-                expectedSales={formatMoney(summary.expectedSales)}
-              />
-            </>
-          ) : null}
-        </section>
-
-        <section ref={reportListSectionRef}>
-          {showCalendarSection ? (
-            <>
-              <div className="retro-panel mb-3 rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-4 sm:py-4">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                  <button
-                    onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, -1))}
-                    className="retro-button min-h-[44px] w-full px-4 py-2.5 text-sm font-semibold sm:w-auto"
-                  >
-                    이전달
-                  </button>
-
-                  <p className="retro-title theme-heading text-center text-base leading-relaxed sm:text-lg">
-                    {periodMonthLabel} 업무 캘린더
-                  </p>
-
-                  <button
-                    onClick={() => setPeriodAnchor(shiftSettlementAnchor(periodAnchor, 1))}
-                    className="retro-button min-h-[44px] w-full px-4 py-2.5 text-sm font-semibold sm:w-auto"
-                  >
-                    다음달
-                  </button>
-                </div>
-              </div>
-
-              {reportsLoading ? (
-                <div className="retro-panel rounded-[24px] p-8 text-center sm:rounded-[28px] sm:p-10">
-                  달력 불러오는 중...
-                </div>
-              ) : (
-                <ReportList
-                  dates={periodDates}
-                  reportsMap={reportsMap}
-                  weeklyOffDays={settings.off_days}
-                  biweeklyOffDays={settings.biweekly_off_days}
-                  biweeklyAnchorDate={settings.biweekly_anchor_date}
-                  onDateClick={openReportModal}
-                  todayString={todayString}
-                />
-              )}
-            </>
-          ) : null}
-        </section>
+        {!isHomeDashboardSection && showQuickEntrySection
+          ? renderQuickEntrySection("standalone-today-quick-card")
+          : null}
+        {!isHomeDashboardSection && showStatsSection
+          ? renderStatsSection("standalone-stats")
+          : null}
+        {!isHomeDashboardSection && showDailySalesListSection
+          ? renderDailySalesListSection("standalone-daily-sales-list")
+          : null}
+        {!isHomeDashboardSection && showCalendarSection
+          ? renderCalendarSection("standalone-work-calendar")
+          : null}
       </div>
 
       <ReportModal

@@ -1,7 +1,6 @@
 "use client";
 
 import type { User } from "@supabase/supabase-js";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -42,6 +41,146 @@ type MenuSection = {
 type ThemeMode = "dark" | "light";
 
 const THEME_STORAGE_KEY = "motobox:theme";
+
+function LogoWordmark({ mode }: { mode: ThemeMode }) {
+  const palette =
+    mode === "light"
+      ? {
+          mainTop: "#342717",
+          mainBottom: "#1F170D",
+          accentTop: "#E68A14",
+          accentBottom: "#CB6406",
+          depthTop: "#E7D6BE",
+          depthBottom: "#C8AF89",
+          baseFace: "#8A6C48",
+          backStroke: "#F8F1E4",
+          frontStroke: "#FFF9F1",
+          shadowColor: "#8D6737",
+          shadowOpacity: 0.18,
+        }
+      : {
+          mainTop: "#FFFFFF",
+          mainBottom: "#F6F8FB",
+          accentTop: "#FF9500",
+          accentBottom: "#FF7800",
+          depthTop: "#7088A2",
+          depthBottom: "#223245",
+          baseFace: "#4A6784",
+          backStroke: "#08131E",
+          frontStroke: "#07131F",
+          shadowColor: "#09121C",
+          shadowOpacity: 0.24,
+        };
+
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 620 202"
+      className="block h-auto w-[172px]"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <linearGradient
+          id="logo-wordmark-main-face"
+          x1="0"
+          y1="36"
+          x2="0"
+          y2="160"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor={palette.mainTop} />
+          <stop offset="1" stopColor={palette.mainBottom} />
+        </linearGradient>
+        <linearGradient
+          id="logo-wordmark-accent-face"
+          x1="0"
+          y1="36"
+          x2="0"
+          y2="160"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor={palette.accentTop} />
+          <stop offset="1" stopColor={palette.accentBottom} />
+        </linearGradient>
+        <linearGradient
+          id="logo-wordmark-depth-face"
+          x1="0"
+          y1="86"
+          x2="0"
+          y2="186"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor={palette.depthTop} />
+          <stop offset="1" stopColor={palette.depthBottom} />
+        </linearGradient>
+        <filter
+          id="logo-wordmark-shadow"
+          x="0"
+          y="0"
+          width="620"
+          height="202"
+          filterUnits="userSpaceOnUse"
+          colorInterpolationFilters="sRGB"
+        >
+          <feDropShadow
+            dx="0"
+            dy="4"
+            stdDeviation="4"
+            floodColor={palette.shadowColor}
+            floodOpacity={palette.shadowOpacity}
+          />
+        </filter>
+      </defs>
+
+      <g
+        filter="url(#logo-wordmark-shadow)"
+        fontFamily="Arial Black, Malgun Gothic, Apple SD Gothic Neo, Noto Sans KR, sans-serif"
+        fontSize="136"
+        fontWeight="900"
+        letterSpacing="-10"
+        strokeLinejoin="round"
+        paintOrder="stroke fill"
+      >
+        <g transform="translate(26 22) skewX(-9)">
+          <text
+            x="18"
+            y="138"
+            fill="url(#logo-wordmark-depth-face)"
+            stroke={palette.backStroke}
+            strokeWidth="24"
+          >
+            택배판
+          </text>
+        </g>
+
+        <g transform="translate(16 12) skewX(-9)">
+          <text
+            x="18"
+            y="138"
+            fill={palette.baseFace}
+            stroke={palette.backStroke}
+            strokeWidth="24"
+          >
+            택배판
+          </text>
+        </g>
+
+        <g transform="skewX(-9)">
+          <text
+            x="18"
+            y="138"
+            fill="url(#logo-wordmark-main-face)"
+            stroke={palette.frontStroke}
+            strokeWidth="22"
+          >
+            택배<tspan fill="url(#logo-wordmark-accent-face)">판</tspan>
+          </text>
+        </g>
+      </g>
+    </svg>
+  );
+}
 
 function MenuIcon() {
   return (
@@ -309,13 +448,23 @@ function createMenuSections(user: User | null): MenuSection[] {
           dashboardSectionId: "today-quick-card",
         },
         {
+          id: "work-summary",
+          label: "근무 통계",
+          dashboardSectionId: "work-summary",
+        },
+        {
           id: "stats",
-          label: "통계",
+          label: "매출 통계",
           dashboardSectionId: "stats",
         },
         {
+          id: "daily-sales-list",
+          label: "일별 매출 리스트 형",
+          dashboardSectionId: "daily-sales-list",
+        },
+        {
           id: "work-calendar",
-          label: "업무 캘린더",
+          label: "일별 매출 캘린더 형",
           dashboardSectionId: "work-calendar",
         },
       ],
@@ -334,11 +483,10 @@ export default function AppTopBar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [menuPathname, setMenuPathname] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [authPending, setAuthPending] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => readStoredTheme());
   const [toast, setToast] = useState<ToastState | null>(null);
-  const menuOpen = menuPathname === pathname;
 
   useEffect(() => {
     let isDisposed = false;
@@ -398,8 +546,6 @@ export default function AppTopBar() {
   };
 
   const handleMenuItemSelect = (item: MenuItem) => {
-    setMenuPathname(null);
-
     if (item.dashboardSectionId) {
       if (typeof window !== "undefined") {
         if (pathname === "/dashboard") {
@@ -468,10 +614,8 @@ export default function AppTopBar() {
         <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
 
         {menuOpen ? (
-          <button
-            type="button"
-            aria-label="메뉴 닫기"
-            onClick={() => setMenuPathname(null)}
+          <div
+            aria-hidden="true"
             className="fixed inset-0 z-40 bg-[rgba(4,4,6,0.52)] backdrop-blur-[2px]"
           />
         ) : null}
@@ -481,9 +625,7 @@ export default function AppTopBar() {
             <div className="relative justify-self-start">
               <button
                 type="button"
-                onClick={() =>
-                  setMenuPathname((current) => (current === pathname ? null : pathname))
-                }
+                onClick={() => setMenuOpen((current) => !current)}
                 aria-label="메뉴 열기"
                 aria-expanded={menuOpen}
                 aria-controls="global-page-menu"
@@ -496,14 +638,7 @@ export default function AppTopBar() {
 
             <div className="justify-self-center">
               <Link href={logoHref} aria-label={logoAriaLabel}>
-                <Image
-                  src="/driver-report-logo.svg"
-                  alt="택배판"
-                  width={172}
-                  height={56}
-                  priority
-                  className="block"
-                />
+                <LogoWordmark mode={themeMode} />
               </Link>
             </div>
 
@@ -587,7 +722,6 @@ export default function AppTopBar() {
                     href={KAKAO_INQUIRY_URL}
                     target="_blank"
                     rel="noreferrer"
-                    onClick={() => setMenuPathname(null)}
                     className="retro-button flex min-h-[40px] w-full items-center justify-center px-4 py-2 text-[12px] font-semibold sm:text-[13px]"
                     aria-label="카카오톡 문의하기"
                   >

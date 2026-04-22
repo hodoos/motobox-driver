@@ -49,19 +49,8 @@ export default function ReportList({
   todayString,
 }: Props) {
   return (
-    <div className="retro-panel rounded-[24px] p-3 sm:rounded-[28px] sm:p-5">
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <p className="retro-title theme-heading text-xs leading-relaxed sm:text-sm">
-            날짜를 눌러 바로 수정
-          </p>
-          <p className="theme-copy text-xs leading-relaxed sm:text-sm">
-            {/* 모바일에서는 날짜 카드가 5칸 기준으로 촘촘하게 정리됩니다. */}
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-4 gap-1 min-[380px]:grid-cols-5 sm:gap-1.5 md:grid-cols-6 lg:grid-cols-7">
+    <div className="retro-panel rounded-[22px] p-2.5 sm:rounded-[26px] sm:p-4">
+      <div className="grid grid-cols-4 gap-1 min-[380px]:grid-cols-5 sm:gap-1 md:grid-cols-6 lg:grid-cols-7">
         {dates.map((date) => {
           const dateKey = toDateString(date);
           const report = reportsMap.get(dateKey);
@@ -83,24 +72,24 @@ export default function ReportList({
 
           const statusLabel = getReportDayStatusLabel(dayStatus);
           let statusClass =
-            "retro-badge px-1 py-0.5 text-[8px] leading-tight text-[var(--text-muted)] sm:px-1.5 sm:text-[9px] md:px-2 md:text-[10px]";
+            "retro-badge px-1 py-0.5 text-[9px] leading-tight text-[var(--text-muted)] sm:px-1.5 sm:text-[10px] md:px-2 md:text-[11px]";
           let statusStyle: CSSProperties | undefined;
           let cardStyle: CSSProperties | undefined;
 
           if (dayStatus === "additional-off") {
-            statusClass = "retro-badge px-1 py-0.5 text-[8px] font-semibold leading-tight sm:px-1.5 sm:text-[9px] md:px-2 md:text-[10px]";
+            statusClass = "retro-badge px-1 py-0.5 text-[9px] font-semibold leading-tight sm:px-1.5 sm:text-[10px] md:px-2 md:text-[11px]";
             statusStyle = offStatusStyle;
             cardStyle = offCardStyle;
           } else if (dayStatus === "weekly-off") {
-            statusClass = "retro-badge px-1 py-0.5 text-[8px] font-semibold leading-tight sm:px-1.5 sm:text-[9px] md:px-2 md:text-[10px]";
+            statusClass = "retro-badge px-1 py-0.5 text-[9px] font-semibold leading-tight sm:px-1.5 sm:text-[10px] md:px-2 md:text-[11px]";
             statusStyle = offStatusStyle;
             cardStyle = offCardStyle;
           } else if (dayStatus === "biweekly-off") {
-            statusClass = "retro-badge px-1 py-0.5 text-[8px] font-semibold leading-tight sm:px-1.5 sm:text-[9px] md:px-2 md:text-[10px]";
+            statusClass = "retro-badge px-1 py-0.5 text-[9px] font-semibold leading-tight sm:px-1.5 sm:text-[10px] md:px-2 md:text-[11px]";
             statusStyle = offStatusStyle;
             cardStyle = offCardStyle;
           } else if (dayStatus === "worked") {
-            statusClass = "retro-badge px-1 py-0.5 text-[8px] font-semibold leading-tight sm:px-1.5 sm:text-[9px] md:px-2 md:text-[10px]";
+            statusClass = "retro-badge px-1 py-0.5 text-[9px] font-semibold leading-tight sm:px-1.5 sm:text-[10px] md:px-2 md:text-[11px]";
             statusStyle = workedStatusStyle;
             cardStyle = workedCardStyle;
           }
@@ -112,7 +101,7 @@ export default function ReportList({
               data-report-date={dateKey}
               onClick={() => onDateClick(dateKey)}
               style={cardStyle}
-              className={`flex min-h-[118px] min-w-0 flex-col rounded-[12px] border p-1.5 text-left transition active:scale-[0.99] hover:translate-y-[-1px] sm:min-h-[132px] sm:rounded-[18px] sm:p-2.5 md:min-h-[140px] md:rounded-[24px] md:p-3 ${
+              className={`flex min-h-[104px] min-w-0 flex-col items-center rounded-[12px] border p-1.5 text-center transition active:scale-[0.99] hover:translate-y-[-1px] sm:min-h-[116px] sm:rounded-[18px] sm:p-2 md:min-h-[124px] md:rounded-[22px] md:p-2.5 ${
                 isBiweeklyAnchor
                   ? "border-[var(--border-strong)] bg-[rgba(255,255,255,0.08)]"
                   : isToday
@@ -120,49 +109,36 @@ export default function ReportList({
                   : "border-[var(--border)] bg-[rgba(255,255,255,0.02)]"
               }`}
             >
-              <div className="flex items-start justify-between gap-1">
-                <div className="min-w-0">
-                  <div className="mt-0.5 flex items-center gap-0.5 whitespace-nowrap">
-                    <p
-                      className="theme-heading text-[9px] font-semibold tracking-tight sm:text-[11px] md:text-sm"
-                    >
-                      {dateKey.slice(5)}
-                    </p>
-                    <p
-                      className="theme-heading text-[9px] font-semibold tracking-tight sm:text-[11px] md:text-sm"
-                    >
-                      {getKoreanDayLabel(date.getDay())}
-                    </p>
-                  </div>
+              <div className="flex w-full flex-col items-center gap-1">
+                <div className="mt-0.5 flex items-center justify-center gap-0.5 whitespace-nowrap">
+                  <p
+                    className="theme-heading text-[10px] font-semibold tracking-tight sm:text-[12px] md:text-[15px]"
+                  >
+                    {dateKey.slice(5)}
+                  </p>
+                  <p
+                    className="theme-heading text-[10px] font-semibold tracking-tight sm:text-[12px] md:text-[15px]"
+                  >
+                    {getKoreanDayLabel(date.getDay())}
+                  </p>
                 </div>
 
-                <div className="flex flex-col items-end gap-1">
-                  {isToday ? (
-                    <span className="theme-chip-subtle px-1 py-0.5 text-[7px] font-semibold leading-none sm:px-1.5 sm:text-[8px] md:px-2 md:text-[10px]">
-                      TODAY
-                    </span>
-                  ) : null}
-                </div>
+                {isToday ? (
+                  <span className="theme-chip-subtle px-1 py-0.5 text-[8px] font-semibold leading-none sm:px-1.5 sm:text-[9px] md:px-2 md:text-[11px]">
+                    TODAY
+                  </span>
+                ) : null}
               </div>
 
-              <div className="mt-2 flex flex-wrap gap-1">
+              <div className="mt-2 flex w-full justify-center gap-1">
                 <span className={statusClass} style={statusStyle}>
                   {statusLabel}
                 </span>
               </div>
 
               {hasWorked && report ? (
-                <div className="mt-auto pt-1.5 space-y-0.5 sm:pt-2 sm:space-y-1">
-                  <div className="theme-copy text-[8px] leading-tight sm:text-[10px] md:text-xs">
-                    배송 {report.delivered_count}
-                  </div>
-                  <div className="theme-copy text-[8px] leading-tight sm:text-[10px] md:text-xs">
-                    반품 {report.returned_count}
-                  </div>
-                  <div className="theme-copy text-[8px] leading-tight sm:text-[10px] md:text-xs">
-                    취소 {report.canceled_count}
-                  </div>
-                  <div className="theme-heading break-all pt-1 text-[9px] font-bold leading-tight sm:text-[11px] md:text-[15px]">
+                <div className="mt-2 pt-1">
+                  <div className="theme-heading break-all text-[11px] font-bold leading-tight sm:text-[13px] md:text-[17px]">
                     {formatMoney(report.daily_sales)}
                   </div>
                 </div>
