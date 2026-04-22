@@ -21,8 +21,8 @@ const DEFAULT_LOADING_CONTENT_CLASS_NAME =
 export default function PageShell({ children, contentClassName }: PageShellProps) {
   return (
     <main className={PAGE_SHELL_CLASS_NAME}>
-      <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-6xl flex-col gap-4 sm:min-h-[calc(100vh-3rem)]">
-        <AppTopBar />
+      <AppTopBar />
+      <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-6xl flex-col gap-4 pt-[4rem] sm:min-h-[calc(100vh-3rem)] sm:pt-[5rem]">
         <LoginIdRequiredModal />
         <div className={`w-full self-center ${contentClassName}`}>{children}</div>
       </div>

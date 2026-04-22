@@ -460,144 +460,149 @@ export default function AppTopBar() {
   };
 
   return (
-    <div className="sticky top-0 z-50">
-      <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
+    <div
+      className="fixed z-50 px-3 sm:px-4"
+      style={{ top: 0, left: 0, right: 0 }}
+    >
+      <div className="mx-auto w-full max-w-6xl" style={{ width: "min(72rem, 100%)" }}>
+        <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
 
-      {menuOpen ? (
-        <button
-          type="button"
-          aria-label="메뉴 닫기"
-          onClick={() => setMenuPathname(null)}
-          className="fixed inset-0 z-40 bg-[rgba(4,4,6,0.52)] backdrop-blur-[2px]"
-        />
-      ) : null}
+        {menuOpen ? (
+          <button
+            type="button"
+            aria-label="메뉴 닫기"
+            onClick={() => setMenuPathname(null)}
+            className="fixed inset-0 z-40 bg-[rgba(4,4,6,0.52)] backdrop-blur-[2px]"
+          />
+        ) : null}
 
-      <nav className="retro-panel relative z-[60] rounded-[24px] px-3 py-3 sm:px-4 sm:py-4">
-        <div className="grid grid-cols-[3rem_1fr_auto] items-center gap-3 sm:grid-cols-[3.25rem_1fr_auto]">
-          <div className="relative justify-self-start">
-            <button
-              type="button"
-              onClick={() =>
-                setMenuPathname((current) => (current === pathname ? null : pathname))
-              }
-              aria-label="메뉴 열기"
-              aria-expanded={menuOpen}
-              aria-controls="global-page-menu"
-              title="메뉴"
-              className="retro-button flex h-[42px] w-[42px] items-center justify-center p-0 text-sm font-semibold"
-            >
-              <MenuIcon />
-            </button>
-          </div>
-
-          <div className="justify-self-center">
-            <Link href={logoHref} aria-label={logoAriaLabel}>
-              <Image
-                src="/driver-report-logo.svg"
-                alt="택배판"
-                width={172}
-                height={56}
-                priority
-                className="block"
-              />
-            </Link>
-          </div>
-
-          <div className="flex items-center justify-self-end gap-2">
-            {showDashboardMyPageButton ? (
+        <nav className="retro-panel relative z-[60] w-full rounded-[24px] px-3 py-3 sm:px-4 sm:py-4">
+          <div className="grid grid-cols-[3rem_1fr_auto] items-center gap-3 sm:grid-cols-[3.25rem_1fr_auto]">
+            <div className="relative justify-self-start">
               <button
                 type="button"
-                onClick={handleMyPageClick}
-                aria-label="마이페이지"
-                title="마이페이지"
+                onClick={() =>
+                  setMenuPathname((current) => (current === pathname ? null : pathname))
+                }
+                aria-label="메뉴 열기"
+                aria-expanded={menuOpen}
+                aria-controls="global-page-menu"
+                title="메뉴"
                 className="retro-button flex h-[42px] w-[42px] items-center justify-center p-0 text-sm font-semibold"
               >
-                <MyPageIcon />
+                <MenuIcon />
               </button>
-            ) : null}
+            </div>
 
-            <button
-              type="button"
-              onClick={handleThemeToggle}
-              aria-label={themeButtonLabel}
-              title={themeButtonLabel}
-              className="retro-button flex h-[42px] w-[42px] items-center justify-center p-0 text-sm font-semibold"
-            >
-              {themeMode === "dark" ? <SunIcon /> : <MoonIcon />}
-            </button>
+            <div className="justify-self-center">
+              <Link href={logoHref} aria-label={logoAriaLabel}>
+                <Image
+                  src="/driver-report-logo.svg"
+                  alt="택배판"
+                  width={172}
+                  height={56}
+                  priority
+                  className="block"
+                />
+              </Link>
+            </div>
 
-            <button
-              type="button"
-              onClick={handleAuthClick}
-              disabled={authPending}
-              aria-label={authButtonLabel}
-              title={authButtonLabel}
-              className="retro-button-solid flex h-[42px] w-[42px] items-center justify-center p-0 text-sm font-semibold"
-            >
-              {authPending ? <LoadingIcon /> : isLoggedIn ? <LogoutIcon /> : <LoginIcon />}
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {menuOpen ? (
-        <div
-          id="global-page-menu"
-          className="fixed left-3 right-3 top-[5.5rem] z-[60] sm:left-4 sm:right-auto sm:top-[6rem] sm:w-[18rem]"
-        >
-          <div className="retro-panel max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-[20px] px-3 py-3">
-            <p className="theme-kicker px-2 pb-2 text-[10px]">GLOBAL MENU</p>
-
-            <div className="space-y-3">
-              {menuSections.map((section) => (
-                <section key={section.id} className="space-y-1.5">
-                  <p className="theme-kicker px-2 text-[10px]">{section.title}</p>
-
-                  {section.items.length > 0 ? (
-                    <div className="space-y-1">
-                      {section.items.map((item) => {
-                        const isCurrentPage = Boolean(item.href && item.href === pathname);
-
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => handleMenuItemSelect(item)}
-                            className={`block w-full rounded-[14px] px-3 py-2.5 text-left text-sm font-semibold transition ${
-                              isCurrentPage
-                                ? "bg-[rgba(255,255,255,0.12)] text-[var(--text-strong)]"
-                                : "text-[var(--text)] hover:bg-[rgba(255,255,255,0.06)]"
-                            }`}
-                          >
-                            {item.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-                </section>
-              ))}
-
-              <div className="mt-4 border-t border-[var(--border)] px-1 pt-3">
-                <a
-                  href={KAKAO_INQUIRY_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => setMenuPathname(null)}
-                  className="retro-button flex min-h-[40px] w-full items-center justify-center px-4 py-2 text-[12px] font-semibold sm:text-[13px]"
-                  aria-label="카카오톡 문의하기"
+            <div className="flex items-center justify-self-end gap-2">
+              {showDashboardMyPageButton ? (
+                <button
+                  type="button"
+                  onClick={handleMyPageClick}
+                  aria-label="마이페이지"
+                  title="마이페이지"
+                  className="retro-button flex h-[42px] w-[42px] items-center justify-center p-0 text-sm font-semibold"
                 >
-                  문의하기
-                </a>
+                  <MyPageIcon />
+                </button>
+              ) : null}
 
-                <p className="theme-kicker px-1 pt-2 text-center text-[10px] sm:text-[11px]">
-                  카카오톡 상담으로 연결됩니다.
-                </p>
+              <button
+                type="button"
+                onClick={handleThemeToggle}
+                aria-label={themeButtonLabel}
+                title={themeButtonLabel}
+                className="retro-button flex h-[42px] w-[42px] items-center justify-center p-0 text-sm font-semibold"
+              >
+                {themeMode === "dark" ? <SunIcon /> : <MoonIcon />}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleAuthClick}
+                disabled={authPending}
+                aria-label={authButtonLabel}
+                title={authButtonLabel}
+                className="retro-button-solid flex h-[42px] w-[42px] items-center justify-center p-0 text-sm font-semibold"
+              >
+                {authPending ? <LoadingIcon /> : isLoggedIn ? <LogoutIcon /> : <LoginIcon />}
+              </button>
+            </div>
+          </div>
+        </nav>
+
+        {menuOpen ? (
+          <div
+            id="global-page-menu"
+            className="fixed left-3 right-3 top-[4rem] z-[60] sm:left-4 sm:right-auto sm:top-[4.5rem] sm:w-[18rem]"
+          >
+            <div className="retro-panel max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-[20px] px-3 py-3">
+              <p className="theme-kicker px-2 pb-2 text-[10px]">GLOBAL MENU</p>
+
+              <div className="space-y-3">
+                {menuSections.map((section) => (
+                  <section key={section.id} className="space-y-1.5">
+                    <p className="theme-kicker px-2 text-[10px]">{section.title}</p>
+
+                    {section.items.length > 0 ? (
+                      <div className="space-y-1">
+                        {section.items.map((item) => {
+                          const isCurrentPage = Boolean(item.href && item.href === pathname);
+
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => handleMenuItemSelect(item)}
+                              className={`block w-full rounded-[14px] px-3 py-2.5 text-left text-sm font-semibold transition ${
+                                isCurrentPage
+                                  ? "bg-[rgba(255,255,255,0.12)] text-[var(--text-strong)]"
+                                  : "text-[var(--text)] hover:bg-[rgba(255,255,255,0.06)]"
+                              }`}
+                            >
+                              {item.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </section>
+                ))}
+
+                <div className="mt-4 border-t border-[var(--border)] px-1 pt-3">
+                  <a
+                    href={KAKAO_INQUIRY_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => setMenuPathname(null)}
+                    className="retro-button flex min-h-[40px] w-full items-center justify-center px-4 py-2 text-[12px] font-semibold sm:text-[13px]"
+                    aria-label="카카오톡 문의하기"
+                  >
+                    문의하기
+                  </a>
+
+                  <p className="theme-kicker px-1 pt-2 text-center text-[10px] sm:text-[11px]">
+                    카카오톡 상담으로 연결됩니다.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }
