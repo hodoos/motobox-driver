@@ -338,11 +338,19 @@ function DashboardHomeSortableSection({
     isDragging,
   } = useSortable({ id: itemId, disabled: dragLocked });
 
+  const transformStyle = transform
+    ? CSS.Transform.toString({
+        ...transform,
+        scaleX: 1,
+        scaleY: 1,
+      })
+    : undefined;
+
   return (
     <div
       ref={setNodeRef}
       style={{
-        transform: CSS.Transform.toString(transform),
+        transform: transformStyle,
         transition,
       }}
       className={`${compact ? "w-[6.8rem] max-w-full flex-none min-[380px]:w-[7rem] sm:w-[7.2rem]" : "w-full basis-full"}${
