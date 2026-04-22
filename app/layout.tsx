@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import SessionTimeout from "../components/auth/SessionTimeout";
+import WebActivityTracker from "../components/auth/WebActivityTracker";
 
 export const metadata: Metadata = {
   title: "Driver Report",
@@ -16,6 +17,7 @@ export default function RootLayout({
     <html lang="ko" data-theme="dark" suppressHydrationWarning>
       <body className="antialiased">
         <SessionTimeout />
+        <WebActivityTracker />
         {children}
       </body>
     </html>

@@ -112,6 +112,7 @@ type StoredAdditionalWorkItem = Omit<AdditionalWorkItemForm, "key">;
 const LEGACY_ADDITIONAL_WORK_MEMO_MARKER =
   /\n?\[\[MOTOBOX_ADDITIONAL_WORK:([0-9]+(?:\.[0-9]+)?)\]\]$/;
 const ADDITIONAL_WORKS_MEMO_MARKER = /\n?\[\[MOTOBOX_ADDITIONAL_WORKS:([\s\S]+)\]\]$/;
+const REPORT_META_MEMO_MARKER = /\n?\[\[MOTOBOX_REPORT_META:([\s\S]+)\]\]$/;
 
 let additionalWorkKeySeed = 0;
 
@@ -138,14 +139,20 @@ function hasAdditionalWorkValues(item: StoredAdditionalWorkItem | AdditionalWork
   );
 }
 
-function getAdditionalWorkMetrics(additionalWorks: AdditionalWorkItemForm[]) {
+function getAdditionalWorkMetrics(
+  additionalWorks: AdditionalWorkItemForm[],
+  includeCanceledInSales: boolean
+) {
   return additionalWorks.reduce(
     (totals, item) => {
       const deliveredCount = Number(item.delivered_count || 0);
       const returnedCount = Number(item.returned_count || 0);
       const canceledCount = Number(item.canceled_count || 0);
       const unitPrice = Number(item.unit_price || 0);
-      const workCount = deliveredCount + returnedCount;
+      const workCount =
+        deliveredCount +
+        returnedCount +
+        (includeCanceledInSales ? canceledCount : 0);
 
       totals.deliveredCount += deliveredCount;
       totals.returnedCount += returnedCount;
@@ -166,9 +173,64 @@ function getAdditionalWorkMetrics(additionalWorks: AdditionalWorkItemForm[]) {
   );
 }
 
+function mapStoredAdditionalWorks(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [] as AdditionalWorkItemForm[];
+  }
+
+  return value.map((item) =>
+    createAdditionalWorkItem({
+      unit_price:
+        typeof item?.unit_price === "string"
+          ? item.unit_price
+          : String(item?.unit_price ?? ""),
+      delivered_count:
+        typeof item?.delivered_count === "string"
+          ? item.delivered_count
+          : String(item?.delivered_count ?? ""),
+      returned_count:
+        typeof item?.returned_count === "string"
+          ? item.returned_count
+          : String(item?.returned_count ?? ""),
+      canceled_count:
+        typeof item?.canceled_count === "string"
+          ? item.canceled_count
+          : String(item?.canceled_count ?? ""),
+    })
+  );
+}
+
 function parseStoredMemo(rawMemo?: string | null) {
   if (!rawMemo) {
-    return { memo: "", additionalWorks: [] as AdditionalWorkItemForm[] };
+    return {
+      memo: "",
+      additionalWorks: [] as AdditionalWorkItemForm[],
+      includeCanceledInSales: false,
+    };
+  }
+
+  const reportMetaMatch = rawMemo.match(REPORT_META_MEMO_MARKER);
+
+  if (reportMetaMatch && typeof reportMetaMatch.index === "number") {
+    try {
+      const decoded = decodeURIComponent(reportMetaMatch[1] ?? "");
+      const parsed = JSON.parse(decoded) as {
+        additionalWorks?: unknown;
+        includeCanceledInSales?: unknown;
+      };
+
+      return {
+        memo: rawMemo.slice(0, reportMetaMatch.index).trimEnd(),
+        additionalWorks: mapStoredAdditionalWorks(parsed.additionalWorks),
+        includeCanceledInSales: parsed.includeCanceledInSales === true,
+      };
+    } catch {
+      return {
+        memo: rawMemo,
+        additionalWorks: [] as AdditionalWorkItemForm[],
+        includeCanceledInSales: false,
+      };
+    }
   }
 
   const worksMatch = rawMemo.match(ADDITIONAL_WORKS_MEMO_MARKER);
@@ -181,30 +243,16 @@ function parseStoredMemo(rawMemo?: string | null) {
       if (Array.isArray(parsed)) {
         return {
           memo: rawMemo.slice(0, worksMatch.index).trimEnd(),
-          additionalWorks: parsed.map((item) =>
-            createAdditionalWorkItem({
-              unit_price:
-                typeof item?.unit_price === "string"
-                  ? item.unit_price
-                  : String(item?.unit_price ?? ""),
-              delivered_count:
-                typeof item?.delivered_count === "string"
-                  ? item.delivered_count
-                  : String(item?.delivered_count ?? ""),
-              returned_count:
-                typeof item?.returned_count === "string"
-                  ? item.returned_count
-                  : String(item?.returned_count ?? ""),
-              canceled_count:
-                typeof item?.canceled_count === "string"
-                  ? item.canceled_count
-                  : String(item?.canceled_count ?? ""),
-            })
-          ),
+          additionalWorks: mapStoredAdditionalWorks(parsed),
+          includeCanceledInSales: false,
         };
       }
     } catch {
-      return { memo: rawMemo, additionalWorks: [] as AdditionalWorkItemForm[] };
+      return {
+        memo: rawMemo,
+        additionalWorks: [] as AdditionalWorkItemForm[],
+        includeCanceledInSales: false,
+      };
     }
   }
 
@@ -214,13 +262,22 @@ function parseStoredMemo(rawMemo?: string | null) {
     return {
       memo: rawMemo.slice(0, legacyMatch.index).trimEnd(),
       additionalWorks: [createAdditionalWorkItem({ unit_price: legacyMatch[1] ?? "" })],
+      includeCanceledInSales: false,
     };
   }
 
-  return { memo: rawMemo, additionalWorks: [] as AdditionalWorkItemForm[] };
+  return {
+    memo: rawMemo,
+    additionalWorks: [] as AdditionalWorkItemForm[],
+    includeCanceledInSales: false,
+  };
 }
 
-function buildStoredMemo(memo: string, additionalWorks: AdditionalWorkItemForm[]) {
+function buildStoredMemo(
+  memo: string,
+  additionalWorks: AdditionalWorkItemForm[],
+  includeCanceledInSales: boolean
+) {
   const trimmedMemo = memo.trimEnd();
   const sanitizedAdditionalWorks = additionalWorks
     .filter(hasAdditionalWorkValues)
@@ -231,12 +288,15 @@ function buildStoredMemo(memo: string, additionalWorks: AdditionalWorkItemForm[]
       canceled_count,
     }));
 
-  if (sanitizedAdditionalWorks.length === 0) {
+  if (sanitizedAdditionalWorks.length === 0 && !includeCanceledInSales) {
     return trimmedMemo;
   }
 
-  const marker = `[[MOTOBOX_ADDITIONAL_WORKS:${encodeURIComponent(
-    JSON.stringify(sanitizedAdditionalWorks)
+  const marker = `[[MOTOBOX_REPORT_META:${encodeURIComponent(
+    JSON.stringify({
+      additionalWorks: sanitizedAdditionalWorks,
+      includeCanceledInSales,
+    })
   )}]]`;
 
   return trimmedMemo ? `${trimmedMemo}\n${marker}` : marker;
@@ -248,6 +308,7 @@ function createEmptyReportForm(dateKey: string): ReportForm {
     delivered_count: "",
     returned_count: "",
     canceled_count: "",
+    include_canceled_in_sales: false,
     memo: "",
     is_day_off: false,
     unit_price_override: "",
@@ -263,7 +324,10 @@ function getReportFormForDate(rows: DailyReportRow[], dateKey: string): ReportFo
   }
 
   const parsedMemo = parseStoredMemo(report.memo);
-  const additionalWorkMetrics = getAdditionalWorkMetrics(parsedMemo.additionalWorks);
+  const additionalWorkMetrics = getAdditionalWorkMetrics(
+    parsedMemo.additionalWorks,
+    parsedMemo.includeCanceledInSales
+  );
 
   return {
     report_date: report.report_date,
@@ -276,6 +340,7 @@ function getReportFormForDate(rows: DailyReportRow[], dateKey: string): ReportFo
     canceled_count: String(
       Math.max((report.canceled_count ?? 0) - additionalWorkMetrics.canceledCount, 0)
     ),
+    include_canceled_in_sales: parsedMemo.includeCanceledInSales,
     memo: parsedMemo.memo,
     is_day_off: Boolean(report.is_day_off),
     unit_price_override: report.unit_price_override
@@ -285,16 +350,31 @@ function getReportFormForDate(rows: DailyReportRow[], dateKey: string): ReportFo
   };
 }
 
-function getBillableQuantity(deliveredCount: number, returnedCount: number) {
-  return deliveredCount + (returnedCount > 0 ? 1 : 0);
+function getBillableQuantity(
+  deliveredCount: number,
+  returnedCount: number,
+  canceledCount: number,
+  includeCanceledInSales: boolean
+) {
+  return (
+    deliveredCount +
+    (returnedCount > 0 ? 1 : 0) +
+    (includeCanceledInSales ? canceledCount : 0)
+  );
 }
 
 function getDailySales(
   deliveredCount: number,
   returnedCount: number,
+  canceledCount: number,
+  includeCanceledInSales: boolean,
   unitPrice: number
 ) {
-  return (deliveredCount + returnedCount) * unitPrice;
+  return (
+    deliveredCount +
+    returnedCount +
+    (includeCanceledInSales ? canceledCount : 0)
+  ) * unitPrice;
 }
 
 function getDateWithinRange(
@@ -748,7 +828,10 @@ export default function DashboardPage() {
 
     if (existing) {
       const parsedMemo = parseStoredMemo(existing.memo);
-      const additionalWorkMetrics = getAdditionalWorkMetrics(parsedMemo.additionalWorks);
+      const additionalWorkMetrics = getAdditionalWorkMetrics(
+        parsedMemo.additionalWorks,
+        parsedMemo.includeCanceledInSales
+      );
 
       setReportForm({
         report_date: existing.report_date,
@@ -761,6 +844,7 @@ export default function DashboardPage() {
         canceled_count: String(
           Math.max((existing.canceled_count ?? 0) - additionalWorkMetrics.canceledCount, 0)
         ),
+        include_canceled_in_sales: parsedMemo.includeCanceledInSales,
         memo: parsedMemo.memo,
         is_day_off: Boolean(existing.is_day_off),
         unit_price_override: existing.unit_price_override
@@ -790,7 +874,10 @@ export default function DashboardPage() {
           canceledCount: 0,
           sales: 0,
         }
-      : getAdditionalWorkMetrics(sanitizedAdditionalWorks);
+      : getAdditionalWorkMetrics(
+          sanitizedAdditionalWorks,
+          form.include_canceled_in_sales
+        );
 
     const hasStandardWorkInput =
       !form.is_day_off &&
@@ -844,7 +931,8 @@ export default function DashboardPage() {
     const canceledCount = form.is_day_off ? 0 : Number(form.canceled_count || 0);
     const storedMemo = buildStoredMemo(
       form.memo,
-      form.is_day_off ? [] : sanitizedAdditionalWorks
+      form.is_day_off ? [] : sanitizedAdditionalWorks,
+      form.include_canceled_in_sales
     );
     const payload = {
       user_id: user.id,
@@ -855,7 +943,13 @@ export default function DashboardPage() {
       memo: storedMemo,
       daily_sales: form.is_day_off
         ? 0
-        : getDailySales(deliveredCount, returnedCount, appliedUnitPrice) +
+        : getDailySales(
+            deliveredCount,
+            returnedCount,
+            canceledCount,
+            form.include_canceled_in_sales,
+            appliedUnitPrice
+          ) +
           additionalWorkMetrics.sales,
       is_day_off: form.is_day_off,
       unit_price_override: form.unit_price_override
@@ -976,9 +1070,13 @@ export default function DashboardPage() {
 
     const totalQuantity = periodData.reduce((sum, item) => {
       if (!item.isWorked || !item.report) return sum;
+      const parsedMemo = parseStoredMemo(item.report.memo);
+
       return sum + getBillableQuantity(
         item.report.delivered_count || 0,
-        item.report.returned_count || 0
+        item.report.returned_count || 0,
+        item.report.canceled_count || 0,
+        parsedMemo.includeCanceledInSales
       );
     }, 0);
 

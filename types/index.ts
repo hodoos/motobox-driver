@@ -1,8 +1,30 @@
 export type UserType = {
   id: string;
   email?: string;
+  login_id?: string;
   driver_name?: string;
   phone_number?: string;
+  signup_type?: "driver" | "vendor";
+  is_coupang?: boolean;
+};
+
+export type AccountSettings = {
+  login_id: string;
+  email: string;
+  password: string;
+  password_confirm: string;
+  driver_name: string;
+  phone_number: string;
+  signup_type: "driver" | "vendor";
+  is_coupang: boolean;
+  unit_price: string;
+  settlement_start_day: string;
+  settlement_start_month_offset: string;
+  settlement_end_day: string;
+  settlement_end_month_offset: string;
+  off_days: number[];
+  biweekly_off_days: number[];
+  biweekly_anchor_date: string;
 };
 
 export type DriverSettings = {
@@ -31,6 +53,7 @@ export type ReportForm = {
   delivered_count: string;
   returned_count: string;
   canceled_count: string;
+  include_canceled_in_sales: boolean;
   memo: string;
   is_day_off: boolean;
   unit_price_override: string;
@@ -70,6 +93,7 @@ export type AdminManagedUserRow = {
   driver_name: string | null;
   phone_number: string | null;
   last_sign_in_at: string | null;
+  last_web_activity_at: string | null;
   unit_price: number | null;
   current_user_level: AdminUserLevel;
   is_legacy_admin: boolean;

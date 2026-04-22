@@ -1,14 +1,17 @@
 import { useState } from "react";
-import { DriverSettings } from "../../types";
+import { AccountSettings } from "../../types";
 import { getKoreanDayLabel } from "../../lib/format";
 import DatePickerModal from "./DatePickerModal";
 
 type Props = {
-  settings: DriverSettings;
-  setSettings: React.Dispatch<React.SetStateAction<DriverSettings>>;
+  settings: AccountSettings;
+  setSettings: React.Dispatch<React.SetStateAction<AccountSettings>>;
+  loginIdLocked: boolean;
   handleSettingsChange: (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => void;
+  handleLoginIdChange: (value: string) => void;
+  handleAffiliationCheckedChange: (checked: boolean) => void;
   saveSettings: () => void;
   saving: boolean;
 };
@@ -16,7 +19,10 @@ type Props = {
 export default function SettingsForm({
   settings,
   setSettings,
+  loginIdLocked,
   handleSettingsChange,
+  handleLoginIdChange,
+  handleAffiliationCheckedChange,
   saveSettings,
   saving,
 }: Props) {
@@ -51,8 +57,90 @@ export default function SettingsForm({
       <div>
         <div className="space-y-16 text-center sm:space-y-20">
           <div className="retro-card rounded-[18px] px-5 py-5 sm:px-7 sm:py-7">
-            <div className="flex flex-wrap justify-center gap-10">
-              <div className="flex w-full max-w-[11rem] flex-col items-center gap-5">
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="flex w-full flex-col items-center gap-5">
+                <label
+                  className="theme-heading block text-sm font-semibold"
+                  style={{ marginTop: "0.875rem", marginBottom: "0.875rem" }}
+                >
+                  로그인 ID
+                </label>
+                <input
+                  type="text"
+                  name="login_id"
+                  value={settings.login_id}
+                  onChange={(event) => handleLoginIdChange(event.target.value)}
+                  placeholder="로그인 ID"
+                  autoComplete="username"
+                  maxLength={20}
+                  disabled={loginIdLocked}
+                  className="w-full px-4 py-3 text-center disabled:cursor-not-allowed disabled:opacity-70"
+                />
+                <p className="theme-copy text-[11px] leading-relaxed">
+                  {loginIdLocked
+                    ? "한번 설정한 ID는 수정할 수 없습니다."
+                    : "영문 소문자와 숫자로 4~20자"}
+                </p>
+              </div>
+
+              <div className="flex w-full flex-col items-center gap-5">
+                <label
+                  className="theme-heading block text-sm font-semibold"
+                  style={{ marginTop: "0.875rem", marginBottom: "0.875rem" }}
+                >
+                  이메일
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={settings.email}
+                  onChange={handleSettingsChange}
+                  placeholder="이메일"
+                  autoComplete="email"
+                  className="w-full px-4 py-3 text-center"
+                />
+              </div>
+
+              <div className="flex w-full flex-col items-center gap-5">
+                <label
+                  className="theme-heading block text-sm font-semibold"
+                  style={{ marginTop: "0.875rem", marginBottom: "0.875rem" }}
+                >
+                  새 비밀번호
+                </label>
+                <input
+                  type="password"
+                  name="password"
+                  value={settings.password}
+                  onChange={handleSettingsChange}
+                  placeholder="새 비밀번호"
+                  autoComplete="new-password"
+                  className="w-full px-4 py-3 text-center"
+                />
+              </div>
+
+              <div className="flex w-full flex-col items-center gap-5">
+                <label
+                  className="theme-heading block text-sm font-semibold"
+                  style={{ marginTop: "0.875rem", marginBottom: "0.875rem" }}
+                >
+                  새 비밀번호 확인
+                </label>
+                <input
+                  type="password"
+                  name="password_confirm"
+                  value={settings.password_confirm}
+                  onChange={handleSettingsChange}
+                  placeholder="새 비밀번호 확인"
+                  autoComplete="new-password"
+                  className="w-full px-4 py-3 text-center"
+                />
+                <p className="theme-copy text-[11px] leading-relaxed">
+                  비밀번호를 바꾸려면 새 비밀번호와 확인을 함께 입력해주세요.
+                </p>
+              </div>
+
+              <div className="flex w-full flex-col items-center gap-5">
                 <label
                   className="theme-heading block text-sm font-semibold"
                   style={{ marginTop: "0.875rem", marginBottom: "0.875rem" }}
@@ -70,7 +158,7 @@ export default function SettingsForm({
                 />
               </div>
 
-              <div className="flex w-full max-w-[11rem] flex-col items-center gap-5">
+              <div className="flex w-full flex-col items-center gap-5">
                 <label
                   className="theme-heading block text-sm font-semibold"
                   style={{ marginTop: "0.875rem", marginBottom: "0.875rem" }}
@@ -90,7 +178,45 @@ export default function SettingsForm({
                 />
               </div>
 
-              <div className="flex w-full max-w-[11rem] flex-col items-center gap-5">
+              <div className="flex w-full flex-col items-center gap-5">
+                <label
+                  className="theme-heading block text-sm font-semibold"
+                  style={{ marginTop: "0.875rem", marginBottom: "0.875rem" }}
+                >
+                  가입 유형
+                </label>
+                <select
+                  name="signup_type"
+                  value={settings.signup_type}
+                  onChange={handleSettingsChange}
+                  className="w-full px-4 py-3 text-center"
+                >
+                  <option value="driver">기사</option>
+                  <option value="vendor">벤더</option>
+                </select>
+              </div>
+
+              <div className="flex w-full flex-col items-center gap-5">
+                <label
+                  className="theme-heading block text-sm font-semibold"
+                  style={{ marginTop: "0.875rem", marginBottom: "0.875rem" }}
+                >
+                  소속
+                </label>
+                <label className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[16px] border border-[rgba(255,255,255,0.12)] px-4 py-3 text-sm font-medium">
+                  <input
+                    type="checkbox"
+                    name="is_coupang"
+                    checked={settings.is_coupang}
+                    onChange={(event) =>
+                      handleAffiliationCheckedChange(event.target.checked)
+                    }
+                  />
+                  <span>쿠팡</span>
+                </label>
+              </div>
+
+              <div className="flex w-full flex-col items-center gap-5">
                 <label
                   className="theme-heading block text-sm font-semibold"
                   style={{ marginTop: "0.875rem", marginBottom: "0.875rem" }}
@@ -103,8 +229,7 @@ export default function SettingsForm({
                   value={settings.unit_price}
                   onChange={handleSettingsChange}
                   placeholder="배송 단가(원)"
-                  className="no-spinner w-full max-w-[11rem] px-4 py-3 text-center"
-                  style={{ marginBottom: "0.875rem" }}
+                  className="no-spinner w-full px-4 py-3 text-center"
                 />
               </div>
             </div>

@@ -145,6 +145,28 @@ function dedupeCommunityPosts(posts: CommunityPostRow[]) {
   return sortCommunityPosts(Array.from(postMap.values()));
 }
 
+function updateLatestCommunityPostMap(
+  latestCommunityPostMap: Map<string, string>,
+  userId: unknown,
+  updatedAt: unknown
+) {
+  const normalizedUserId = normalizeText(userId);
+  const normalizedUpdatedAt = normalizeIsoDate(updatedAt);
+
+  if (!normalizedUserId || !normalizedUpdatedAt) {
+    return;
+  }
+
+  const currentUpdatedAt = latestCommunityPostMap.get(normalizedUserId);
+
+  if (
+    !currentUpdatedAt ||
+    new Date(normalizedUpdatedAt).getTime() > new Date(currentUpdatedAt).getTime()
+  ) {
+    latestCommunityPostMap.set(normalizedUserId, normalizedUpdatedAt);
+  }
+}
+
 function createCommunityPostRecord(
   actor: MutableActor,
   input: CreateCommunityPostInput
@@ -186,6 +208,42 @@ async function readCommunityPostFile() {
 async function writeCommunityPostFile(posts: CommunityPostRow[]) {
   await mkdir(COMMUNITY_POSTS_DIRECTORY, { recursive: true });
   await writeFile(COMMUNITY_POSTS_FILE_PATH, JSON.stringify(posts, null, 2), "utf8");
+}
+
+export async function getLatestCommunityPostUpdateMap(adminClient: SupabaseClient | null) {
+  const latestCommunityPostMap = new Map<string, string>();
+
+  if (adminClient) {
+    const { data } = await adminClient
+      .from("community_posts")
+      .select("author_user_id, updated_at")
+      .order("updated_at", { ascending: false });
+
+    if (Array.isArray(data)) {
+      data.forEach((value) => {
+        if (!isRecord(value)) {
+          return;
+        }
+
+        updateLatestCommunityPostMap(
+          latestCommunityPostMap,
+          value.author_user_id,
+          value.updated_at
+        );
+      });
+    }
+  }
+
+  const filePosts = await readCommunityPostFile();
+  filePosts.forEach((post) => {
+    updateLatestCommunityPostMap(
+      latestCommunityPostMap,
+      post.author_user_id,
+      post.updated_at
+    );
+  });
+
+  return latestCommunityPostMap;
 }
 
 async function listCommunityPostsFromDatabase(

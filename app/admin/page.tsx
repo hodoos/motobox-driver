@@ -118,6 +118,36 @@ function getAvailableUserLevels(actor: User | null, row: AdminManagedUserRow) {
   ];
 }
 
+function getUserLevelAccentClass(level: UserLevel) {
+  switch (level) {
+    case "운영자Lv":
+      return "admin-sheet-select--operator";
+    case "관리자Lv":
+      return "admin-sheet-select--admin";
+    case "Lv3-제휴":
+      return "admin-sheet-select--affiliate";
+    case "벤더Lv":
+      return "admin-sheet-select--vendor";
+    default:
+      return "";
+  }
+}
+
+function getUserLevelRowClass(level: UserLevel) {
+  switch (level) {
+    case "운영자Lv":
+      return "admin-sheet-row--operator";
+    case "관리자Lv":
+      return "admin-sheet-row--admin";
+    case "Lv3-제휴":
+      return "admin-sheet-row--affiliate";
+    case "벤더Lv":
+      return "admin-sheet-row--vendor";
+    default:
+      return "";
+  }
+}
+
 async function getSupabaseAccessToken() {
   const {
     data: { session },
@@ -555,9 +585,12 @@ export default function AdminPage() {
 
       <div className="flex w-full flex-col gap-4">
         <section className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <span className="theme-chip-subtle px-3 py-1.5 text-xs sm:text-sm">
-              관리 대상 {managedUsers.length}명
+          <div className="flex flex-wrap items-center justify-center gap-3 text-center">
+            <span
+              className="retro-title theme-heading px-1 py-1 tracking-[0.18em]"
+              style={{ fontSize: "clamp(1.5rem, 2.8vw, 1.75rem)" }}
+            >
+              USER LIST
             </span>
           </div>
 
@@ -585,6 +618,7 @@ export default function AdminPage() {
                       <th>이메일</th>
                       <th>연락처</th>
                       <th>마지막 로그인</th>
+                      <th>마지막 웹 활동</th>
                       <th className="w-[1%] whitespace-nowrap">변경 등급</th>
                     </tr>
                   </thead>
@@ -592,18 +626,28 @@ export default function AdminPage() {
                     {managedUsers.map((managedUser) => {
                       const draftLevel =
                         userLevelDrafts[managedUser.user_id] ?? managedUser.current_user_level;
-                      const availableLevels = getAvailableUserLevels(authUser, managedUser);
-                      const canEditAnyLevel = USER_LEVEL_OPTIONS.some((level) =>
-                        canManageUserLevelChange(authUser, managedUser.current_user_level, level)
-                      );
+                      const availableLevels = managedUser.is_legacy_admin
+                        ? [managedUser.current_user_level]
+                        : getAvailableUserLevels(authUser, managedUser);
+                      const canEditAnyLevel =
+                        !managedUser.is_legacy_admin &&
+                        USER_LEVEL_OPTIONS.some((level) =>
+                          canManageUserLevelChange(authUser, managedUser.current_user_level, level)
+                        );
                       const lastSignInLabel = managedUser.last_sign_in_at
                         ? formatDateTime(managedUser.last_sign_in_at)
                         : "기록 없음";
+                      const lastWebActivityLabel =
+                        managedUser.last_web_activity_at
+                          ? formatDateTime(managedUser.last_web_activity_at)
+                          : "기록 없음";
 
                       return (
                         <tr
                           key={managedUser.user_id}
-                          className="align-top"
+                          className={`align-top ${getUserLevelRowClass(
+                            managedUser.current_user_level
+                          )}`}
                         >
                           <td>
                             <p className="theme-heading font-semibold">
@@ -619,6 +663,9 @@ export default function AdminPage() {
                           <td className="whitespace-nowrap">
                             {lastSignInLabel}
                           </td>
+                          <td className="whitespace-nowrap">
+                            {lastWebActivityLabel}
+                          </td>
                           <td className="w-[1%] whitespace-nowrap">
                             <select
                               value={draftLevel}
@@ -629,7 +676,9 @@ export default function AdminPage() {
                                   event.target.value
                                 )
                               }
-                              className="admin-sheet-select text-left"
+                              className={`admin-sheet-select text-left ${getUserLevelAccentClass(
+                                managedUser.current_user_level
+                              )}`}
                             >
                               {availableLevels.map((level) => (
                                 <option
@@ -653,8 +702,10 @@ export default function AdminPage() {
 
         {isOperatorView ? (
           <section className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="retro-title theme-heading text-lg sm:text-xl">최근 수정 기록</h2>
+            <div className="flex flex-col items-center justify-center gap-3 text-center">
+              <h2 className="retro-title text-lg sm:text-xl" style={{ color: "inherit" }}>
+                LOG HISTORY
+              </h2>
               <span className="theme-chip-subtle px-3 py-1.5 text-xs sm:text-sm">
                 {auditLogs.length}건
               </span>

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import LoginIdRequiredModal from "../auth/LoginIdRequiredModal";
 import AppTopBar from "./AppTopBar";
 
 type PageShellProps = {
@@ -22,6 +23,7 @@ export default function PageShell({ children, contentClassName }: PageShellProps
     <main className={PAGE_SHELL_CLASS_NAME}>
       <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-6xl flex-col gap-4 sm:min-h-[calc(100vh-3rem)]">
         <AppTopBar />
+        <LoginIdRequiredModal />
         <div className={`w-full self-center ${contentClassName}`}>{children}</div>
       </div>
     </main>

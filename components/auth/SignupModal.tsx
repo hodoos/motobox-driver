@@ -1,7 +1,10 @@
 "use client";
 
+import { sanitizeLoginIdInput } from "../../lib/loginId";
+
 type Props = {
   open: boolean;
+  loginId: string;
   driverName: string;
   email: string;
   phoneNumber: string;
@@ -9,6 +12,7 @@ type Props = {
   passwordConfirm: string;
   signupType: "driver" | "vendor";
   isCoupangChecked: boolean;
+  setLoginId: (value: string) => void;
   setDriverName: (value: string) => void;
   setEmail: (value: string) => void;
   setPhoneNumber: (value: string) => void;
@@ -22,6 +26,7 @@ type Props = {
 
 export default function SignupModal({
   open,
+  loginId,
   driverName,
   email,
   phoneNumber,
@@ -29,6 +34,7 @@ export default function SignupModal({
   passwordConfirm,
   signupType,
   isCoupangChecked,
+  setLoginId,
   setDriverName,
   setEmail,
   setPhoneNumber,
@@ -61,6 +67,18 @@ export default function SignupModal({
           </div>
 
           <div className="space-y-5">
+            <input
+              type="text"
+              placeholder="ID"
+              value={loginId}
+              onChange={(e) => setLoginId(sanitizeLoginIdInput(e.target.value))}
+              autoComplete="username"
+              maxLength={20}
+              className="block h-12 w-full px-4 py-3 text-left text-base sm:text-center"
+            />
+            <p className="theme-copy -mt-2 text-xs leading-relaxed sm:text-center">
+              영문 소문자와 숫자로 4~20자
+            </p>
             <input
               type="text"
               placeholder="이름"
@@ -123,7 +141,7 @@ export default function SignupModal({
               </div>
             </div>
             <div className="space-y-3 rounded-[20px] border border-[rgba(255,255,255,0.12)] px-4 py-4 text-left">
-              <p className="theme-label text-sm font-semibold">추가 정보</p>
+              <p className="theme-label text-sm font-semibold">소속</p>
               <label className="flex items-center gap-2 text-sm font-medium">
                 <input
                   type="checkbox"

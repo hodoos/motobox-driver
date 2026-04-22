@@ -1,19 +1,23 @@
 import { KAKAO_INQUIRY_URL } from "../../lib/support";
 
 type Props = {
-  email: string;
+  identifier: string;
   password: string;
-  setEmail: (value: string) => void;
+  rememberCredentials: boolean;
+  setIdentifier: (value: string) => void;
   setPassword: (value: string) => void;
+  onRememberCredentialsChange: (checked: boolean) => void;
   onLogin: () => void;
   onOpenSignup: () => void;
 };
 
 export default function LoginCard({
-  email,
+  identifier,
   password,
-  setEmail,
+  rememberCredentials,
+  setIdentifier,
   setPassword,
+  onRememberCredentialsChange,
   onLogin,
   onOpenSignup,
 }: Props) {
@@ -33,10 +37,11 @@ export default function LoginCard({
             <div className="w-full max-w-[14.5rem] sm:max-w-[14.5rem]">
               <div>
                 <input
-                  type="email"
-                  placeholder="이메일"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  type="text"
+                  placeholder="ID"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  autoComplete="username"
                   className="block h-14 w-full px-5 py-4 text-center text-base sm:h-16 sm:px-6 sm:text-lg"
                 />
               </div>
@@ -52,10 +57,20 @@ export default function LoginCard({
                   placeholder="비밀번호"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
                   className="block h-14 w-full px-5 py-4 text-center text-base sm:h-16 sm:px-6 sm:text-lg"
                 />
               </div>
             </div>
+
+            <label className="mt-1 flex items-center justify-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={rememberCredentials}
+                onChange={(event) => onRememberCredentialsChange(event.target.checked)}
+              />
+              <span>아이디/비밀번호 저장</span>
+            </label>
           </div>
 
           <div

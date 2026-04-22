@@ -242,6 +242,44 @@ export default function TodayQuickCard({
               className="no-spinner px-4 py-3 text-center disabled:opacity-60"
               style={{ ...compactInputStyle, marginBottom: "12px" }}
             />
+            <div className="flex flex-col items-center gap-1 text-[11px]">
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={reportForm.include_canceled_in_sales}
+                  disabled={reportForm.is_day_off}
+                  onChange={(event) => {
+                    if (!event.target.checked) {
+                      return;
+                    }
+
+                    setReportForm((prev) => ({
+                      ...prev,
+                      include_canceled_in_sales: true,
+                    }));
+                  }}
+                />
+                취소건 포함
+              </label>
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={!reportForm.include_canceled_in_sales}
+                  disabled={reportForm.is_day_off}
+                  onChange={(event) => {
+                    if (!event.target.checked) {
+                      return;
+                    }
+
+                    setReportForm((prev) => ({
+                      ...prev,
+                      include_canceled_in_sales: false,
+                    }));
+                  }}
+                />
+                취소건 미포함
+              </label>
+            </div>
           </div>
         </div>
 

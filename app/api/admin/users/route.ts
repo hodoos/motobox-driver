@@ -28,6 +28,7 @@ type DriverSettingsLookupRow = {
   user_id: string;
   driver_name: string | null;
   phone_number: string | null;
+  last_web_activity_at?: string | null;
   unit_price: number | null;
 };
 
@@ -49,8 +50,23 @@ function normalizeText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function readLastWebActivityAt(authUser: User, driverSettingsRow?: DriverSettingsLookupRow) {
+  return (
+    normalizeText(authUser.user_metadata?.last_web_activity_at) ||
+    normalizeText(driverSettingsRow?.last_web_activity_at) ||
+    null
+  );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isMissingDriverSettingsLastWebActivityColumn(error: { message?: string } | null) {
+  return Boolean(
+    error?.message?.includes("last_web_activity_at") &&
+      error.message.includes("driver_settings")
+  );
 }
 
 async function loadAuthorizedAdminUser(request: Request) {
@@ -119,6 +135,7 @@ function toManagedUserRow(
 ): AdminManagedUserRow {
   const storedRow = driverSettingsMap.get(authUser.id);
   const profileSeed = extractDriverProfileSeed(authUser);
+  const isLegacyAdmin = isLegacyAdminUser(authUser);
 
   return {
     user_id: authUser.id,
@@ -126,15 +143,17 @@ function toManagedUserRow(
     driver_name: storedRow?.driver_name?.trim() || profileSeed.driverName?.trim() || null,
     phone_number: storedRow?.phone_number?.trim() || profileSeed.phoneNumber?.trim() || null,
     last_sign_in_at: normalizeText(authUser.last_sign_in_at) || null,
+    last_web_activity_at: readLastWebActivityAt(authUser, storedRow),
     unit_price: storedRow?.unit_price ?? null,
-    current_user_level: getUserLevel(authUser),
-    is_legacy_admin: isLegacyAdminUser(authUser),
+    current_user_level: isLegacyAdmin ? getAdminDisplayLevel(authUser) : getUserLevel(authUser),
+    is_legacy_admin: isLegacyAdmin,
   };
 }
 
 function createManagedUserRows(
   authUsers: User[],
-  driverSettingsRows: DriverSettingsLookupRow[]
+  driverSettingsRows: DriverSettingsLookupRow[],
+  currentActorUserId?: string | null
 ) {
   const driverSettingsMap = new Map(
     driverSettingsRows.map((row) => [row.user_id, row] as const)
@@ -142,7 +161,9 @@ function createManagedUserRows(
 
   return authUsers
     .map((authUser) => toManagedUserRow(authUser, driverSettingsMap))
-    .filter((row) => !row.is_legacy_admin)
+    .filter(
+      (row) => !row.is_legacy_admin || row.user_id === normalizeText(currentActorUserId)
+    )
     .sort((left, right) => {
       const leftName = left.driver_name || left.email || left.user_id;
       const rightName = right.driver_name || right.email || right.user_id;
@@ -157,10 +178,40 @@ function createManagedUserRows(
 }
 
 async function loadDriverSettingsRows(adminClient: ReturnType<typeof createSupabaseAdminClient>) {
-  return adminClient
+  const result = await adminClient
     .from("driver_settings")
-    .select("user_id, driver_name, phone_number, unit_price")
+    .select("user_id, driver_name, phone_number, unit_price, last_web_activity_at")
     .order("driver_name", { ascending: true });
+
+  if (isMissingDriverSettingsLastWebActivityColumn(result.error)) {
+    return adminClient
+      .from("driver_settings")
+      .select("user_id, driver_name, phone_number, unit_price")
+      .order("driver_name", { ascending: true });
+  }
+
+  return result;
+}
+
+async function loadDriverSettingsRowByUserId(
+  adminClient: ReturnType<typeof createSupabaseAdminClient>,
+  userId: string
+) {
+  const result = await adminClient
+    .from("driver_settings")
+    .select("user_id, driver_name, phone_number, unit_price, last_web_activity_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (isMissingDriverSettingsLastWebActivityColumn(result.error)) {
+    return adminClient
+      .from("driver_settings")
+      .select("user_id, driver_name, phone_number, unit_price")
+      .eq("user_id", userId)
+      .maybeSingle();
+  }
+
+  return result;
 }
 
 function parseUserLevelUpdateInput(value: unknown) {
@@ -215,7 +266,8 @@ export async function GET(request: Request) {
   const responseBody: AdminUsersResponse = {
     users: createManagedUserRows(
       usersResult.data ?? [],
-      (driverSettingsResult.data as DriverSettingsLookupRow[] | null) ?? []
+      (driverSettingsResult.data as DriverSettingsLookupRow[] | null) ?? [],
+      user.id
     ),
   };
 
@@ -273,11 +325,10 @@ export async function PATCH(request: Request) {
   }
 
   if (previousUserLevel === payload.nextUserLevel) {
-    const { data: driverSettingsData } = await adminClient
-      .from("driver_settings")
-      .select("user_id, driver_name, phone_number, unit_price")
-      .eq("user_id", targetUser.id)
-      .maybeSingle();
+    const { data: driverSettingsData } = await loadDriverSettingsRowByUserId(
+      adminClient,
+      targetUser.id
+    );
 
     const responseBody: AdminUserLevelUpdateResponse = {
       user: toManagedUserRow(
@@ -326,11 +377,10 @@ export async function PATCH(request: Request) {
     source: "/admin",
   });
 
-  const { data: driverSettingsData, error: driverSettingsError } = await adminClient
-    .from("driver_settings")
-    .select("user_id, driver_name, phone_number, unit_price")
-    .eq("user_id", targetUser.id)
-    .maybeSingle();
+  const {
+    data: driverSettingsData,
+    error: driverSettingsError,
+  } = await loadDriverSettingsRowByUserId(adminClient, targetUser.id);
 
   if (driverSettingsError) {
     return createErrorResponse(

@@ -50,6 +50,10 @@ export function getKoreanErrorMessage(message?: string, fallback?: string) {
     return "현재 회원가입이 비활성화되어 있습니다.";
   }
 
+  if (/too many requests|over_email_send_rate_limit|over_request_rate_limit|rate limit|429/i.test(normalizedMessage)) {
+    return "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.";
+  }
+
   if (/network request failed|failed to fetch|networkerror/i.test(normalizedMessage)) {
     return "네트워크 연결을 확인한 뒤 다시 시도해주세요.";
   }
