@@ -28,11 +28,15 @@ function normalizeMenuVisibilitySettings(value: unknown): MenuVisibilitySettings
   }
 
   const defaultSettings = getDefaultMenuVisibilitySettings();
+  const storedSettings = value.settings;
+  const storedItemSettings = isRecord(storedSettings.items)
+    ? storedSettings.items
+    : null;
   const nextItemSettings = MENU_VISIBILITY_ITEM_KEYS.reduce<MenuVisibilitySettings["items"]>(
     (items, key) => {
       items[key] =
-        isRecord(value.settings.items) && typeof value.settings.items[key] === "boolean"
-          ? (value.settings.items[key] as boolean)
+        storedItemSettings && typeof storedItemSettings[key] === "boolean"
+          ? (storedItemSettings[key] as boolean)
           : defaultSettings.items[key];
 
       return items;
@@ -41,8 +45,8 @@ function normalizeMenuVisibilitySettings(value: unknown): MenuVisibilitySettings
   );
   const nextSettings = MENU_VISIBILITY_KEYS.reduce<MenuVisibilitySettings>((settings, key) => {
     settings[key] =
-      typeof value.settings[key] === "boolean"
-        ? (value.settings[key] as boolean)
+      typeof storedSettings[key] === "boolean"
+        ? (storedSettings[key] as boolean)
         : defaultSettings[key];
     return settings;
   }, { ...defaultSettings, items: nextItemSettings });
