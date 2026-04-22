@@ -9,7 +9,6 @@ import {
   getKoreanErrorMessage,
   ToastState,
 } from "../../lib/toast";
-import { isAdminUser } from "../../lib/admin";
 import { extractDriverProfileSeed } from "../../lib/driverSettings";
 import { formatMoney, toDateString } from "../../lib/format";
 import {
@@ -86,7 +85,7 @@ function WorkSummaryStrip(props: WorkSummaryStripProps) {
   return (
     <section className="mt-1 w-full">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-        {WORK_SUMMARY_ITEMS.map((item, index) => (
+        {WORK_SUMMARY_ITEMS.map((item) => (
           <div
             key={item.label}
             className="retro-card min-w-0 rounded-[20px] p-3 text-center sm:rounded-[24px] sm:p-5"
@@ -434,7 +433,6 @@ export default function DashboardPage() {
   const [reportsLoading, setReportsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
-  const [hasAdminAccess, setHasAdminAccess] = useState(false);
 
   const [periodAnchor, setPeriodAnchor] = useState<Date>(
     new Date(now.getFullYear(), now.getMonth(), 1)
@@ -639,8 +637,6 @@ export default function DashboardPage() {
       }
 
       const profileSeed = extractDriverProfileSeed(user);
-      setHasAdminAccess(isAdminUser(user));
-
       setUser({
         id: user.id,
         email: user.email,
@@ -999,21 +995,6 @@ export default function DashboardPage() {
     showToast("success", "저장 완료", `${reportForm.report_date} 내용을 반영했습니다.`);
     setIsReportModalOpen(false);
     await refreshReports(activeQuickEntryDate);
-  };
-
-  const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      showToast(
-        "error",
-        "로그아웃 실패",
-        getKoreanErrorMessage(error.message, "로그아웃 중 문제가 발생했습니다.")
-      );
-      return;
-    }
-
-    router.replace("/");
   };
 
   const toggleStatCards = () => {
