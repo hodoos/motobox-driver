@@ -7,6 +7,47 @@ import {
   getReportDayStatusLabel,
 } from "../../lib/reportStatus";
 
+const REPORT_META_MEMO_MARKER = /\n?\[\[MOTOBOX_REPORT_META:([\s\S]+)\]\]$/;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getReportExpenseTotal(rawMemo?: string | null) {
+  if (!rawMemo) {
+    return 0;
+  }
+
+  const markerMatch = rawMemo.match(REPORT_META_MEMO_MARKER);
+
+  if (!markerMatch) {
+    return 0;
+  }
+
+  try {
+    const parsed = JSON.parse(decodeURIComponent(markerMatch[1]));
+
+    if (!isRecord(parsed) || !Array.isArray(parsed.expenseItems)) {
+      return 0;
+    }
+
+    return parsed.expenseItems.reduce((sum, item) => {
+      if (!isRecord(item)) {
+        return sum;
+      }
+
+      const amount = Number(item.amount ?? 0);
+      return Number.isFinite(amount) ? sum + amount : sum;
+    }, 0);
+  } catch {
+    return 0;
+  }
+}
+
+function formatNegativeMoney(value: number) {
+  return `-${formatMoney(value)}`;
+}
+
 const offStatusStyle: CSSProperties = {
   borderColor: "rgba(248, 113, 113, 0.72)",
   backgroundColor: "rgba(239, 68, 68, 0.28)",
@@ -54,6 +95,7 @@ export default function ReportList({
         {dates.map((date) => {
           const dateKey = toDateString(date);
           const report = reportsMap.get(dateKey);
+          const expenseTotal = getReportExpenseTotal(report?.memo);
           const isToday = dateKey === todayString;
           const isWeeklyRegularOff = weeklyOffDays.includes(date.getDay());
           const isBiweeklyRegularOff = isBiweeklyOffDate(
@@ -141,6 +183,11 @@ export default function ReportList({
                   <div className="theme-heading break-all text-[11px] font-bold leading-tight sm:text-[13px] md:text-[17px]">
                     {formatMoney(report.daily_sales)}
                   </div>
+                  {expenseTotal > 0 ? (
+                    <div className="mt-1 break-all text-[10px] font-semibold leading-tight text-[rgba(248,113,113,0.96)] sm:text-[11px] md:text-[14px]">
+                      {formatNegativeMoney(expenseTotal)}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </button>

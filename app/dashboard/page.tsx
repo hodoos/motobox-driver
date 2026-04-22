@@ -71,9 +71,11 @@ type WorkSummaryStripProps = {
 };
 
 type DailySalesListItem = {
+  dateKey: string;
   dateLabel: string;
   quantityLabel: string;
   salesLabel: string;
+  expenseLabel: string | null;
 };
 
 type DashboardHomeMetricCardData = {
@@ -1829,11 +1831,17 @@ export default function DashboardPage() {
           item.report?.canceled_count || 0,
           parsedMemo.includeCanceledInSales
         );
+        const expenseTotal = parsedMemo.expenseItems.reduce(
+          (sum, expenseItem) => sum + Number(expenseItem.amount || 0),
+          0
+        );
 
         return {
+          dateKey: item.report!.report_date,
           dateLabel: formatDashboardDateLabel(item.date),
           quantityLabel: `${quantity}건`,
           salesLabel: formatMoney(item.report?.daily_sales || 0),
+          expenseLabel: expenseTotal > 0 ? `-${formatMoney(expenseTotal)}` : null,
         };
       });
 
@@ -2088,9 +2096,11 @@ export default function DashboardPage() {
         {summary.dailySalesList.length > 0 ? (
           <div className="mt-4 space-y-2">
             {summary.dailySalesList.map((item) => (
-              <div
-                key={item.dateLabel}
-                className="theme-note-box flex items-center justify-between gap-3 rounded-[20px] px-4 py-3"
+              <button
+                type="button"
+                key={item.dateKey}
+                onClick={() => openReportModal(item.dateKey)}
+                className="theme-note-box flex w-full items-center justify-between gap-3 rounded-[20px] px-4 py-3 text-left transition active:scale-[0.99] hover:translate-y-[-1px]"
               >
                 <div className="min-w-0">
                   <p className="theme-copy text-sm leading-relaxed sm:text-base">
@@ -2100,10 +2110,17 @@ export default function DashboardPage() {
                 <p className="theme-copy shrink-0 text-sm leading-relaxed sm:text-base">
                   {item.quantityLabel}
                 </p>
-                <p className="theme-heading shrink-0 text-base font-semibold sm:text-lg">
-                  {item.salesLabel}
-                </p>
-              </div>
+                <div className="flex shrink-0 items-center gap-4 text-right sm:gap-5">
+                  <p className="theme-heading whitespace-nowrap text-base font-semibold sm:text-lg">
+                    {item.salesLabel}
+                  </p>
+                  {item.expenseLabel ? (
+                    <p className="whitespace-nowrap text-sm font-semibold leading-none text-[rgba(248,113,113,0.96)] sm:text-base">
+                      {item.expenseLabel}
+                    </p>
+                  ) : null}
+                </div>
+              </button>
             ))}
           </div>
         ) : (
