@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { recordOperatorAuditLog } from "../../lib/operatorAuditLogClient";
 import { supabase } from "../../lib/supabase";
@@ -24,6 +25,144 @@ import { AccountSettings, UserType } from "../../types";
 import SettingsForm from "../../components/settings/SettingsForm";
 import ToastViewport from "../../components/ui/ToastViewport";
 
+type PasswordChangeFormState = {
+  currentPassword: string;
+  nextPassword: string;
+  nextPasswordConfirm: string;
+};
+
+function createEmptyPasswordChangeForm(): PasswordChangeFormState {
+  return {
+    currentPassword: "",
+    nextPassword: "",
+    nextPasswordConfirm: "",
+  };
+}
+
+type PasswordChangeModalProps = {
+  currentPassword: string;
+  nextPassword: string;
+  nextPasswordConfirm: string;
+  onCurrentPasswordChange: (value: string) => void;
+  onNextPasswordChange: (value: string) => void;
+  onNextPasswordConfirmChange: (value: string) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+  saving: boolean;
+};
+
+function PasswordChangeModal({
+  currentPassword,
+  nextPassword,
+  nextPasswordConfirm,
+  onCurrentPasswordChange,
+  onNextPasswordChange,
+  onNextPasswordConfirmChange,
+  onClose,
+  onSubmit,
+  saving,
+}: PasswordChangeModalProps) {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        zIndex: 99999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "100vw",
+        height: "100dvh",
+        padding: "0.75rem",
+        background: "rgba(0, 0, 0, 0.8)",
+        backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
+      }}
+    >
+      <div className="retro-panel relative flex max-h-[85dvh] w-full max-w-[28rem] flex-col gap-6 overflow-y-auto rounded-[28px] px-5 py-5 text-left sm:p-6 sm:text-center">
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={saving}
+          className="retro-button min-h-[42px] px-4 py-2 text-sm font-semibold disabled:opacity-60"
+          style={{ position: "absolute", top: "0.75rem", right: "0.75rem", zIndex: 20 }}
+        >
+          X
+        </button>
+
+        <div className="w-full space-y-7 pr-12">
+          <div className="text-center">
+            <p className="retro-title theme-kicker text-[10px]">PASSWORD</p>
+            <h2 className="retro-title theme-heading mt-3 text-base leading-relaxed sm:text-lg">
+              비밀번호 변경
+            </h2>
+            <p className="theme-copy mt-3 text-sm leading-relaxed">
+              기존 비밀번호를 확인한 뒤 새 비밀번호로 변경합니다.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <input
+              type="password"
+              placeholder="기존 비밀번호"
+              value={currentPassword}
+              onChange={(event) => onCurrentPasswordChange(event.target.value)}
+              autoComplete="current-password"
+              className="block h-12 w-full px-4 py-3 text-left text-base sm:text-center"
+            />
+            <input
+              type="password"
+              placeholder="새 비밀번호"
+              value={nextPassword}
+              onChange={(event) => onNextPasswordChange(event.target.value)}
+              autoComplete="new-password"
+              className="block h-12 w-full px-4 py-3 text-left text-base sm:text-center"
+            />
+            <input
+              type="password"
+              placeholder="새 비밀번호 확인"
+              value={nextPasswordConfirm}
+              onChange={(event) => onNextPasswordConfirmChange(event.target.value)}
+              autoComplete="new-password"
+              className="block h-12 w-full px-4 py-3 text-left text-base sm:text-center"
+            />
+            <p className="theme-copy text-xs leading-relaxed sm:text-sm">
+              새 비밀번호는 6자 이상 입력해주세요.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid w-full gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={saving}
+            className="retro-button-solid ui-action-fit min-h-[48px] px-8 py-3.5 text-base font-semibold disabled:opacity-60"
+          >
+            {saving ? "변경 중..." : "변경"}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="retro-button ui-action-fit min-h-[48px] px-8 py-3.5 text-base font-semibold disabled:opacity-60"
+          >
+            닫기
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 async function loadDriverSettings(userId: string) {
   const { data, error } = await supabase
     .from("driver_settings")
@@ -44,13 +183,16 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [passwordChangeSaving, setPasswordChangeSaving] = useState(false);
+  const [passwordChangeForm, setPasswordChangeForm] = useState<PasswordChangeFormState>(
+    () => createEmptyPasswordChangeForm()
+  );
   const [toast, setToast] = useState<ToastState | null>(null);
 
   const [settings, setSettings] = useState<AccountSettings>({
     login_id: "",
     email: "",
-    password: "",
-    password_confirm: "",
     driver_name: "",
     phone_number: "",
     signup_type: "driver",
@@ -143,8 +285,6 @@ export default function SettingsPage() {
         setSettings({
           login_id: user.login_id ?? "",
           email: user.email ?? "",
-          password: "",
-          password_confirm: "",
           driver_name: data.driver_name ?? user.driver_name ?? "",
           phone_number: data.phone_number ?? user.phone_number ?? "",
           signup_type: user.signup_type ?? "driver",
@@ -212,6 +352,108 @@ export default function SettingsPage() {
     }));
   };
 
+  const closePasswordChangeModal = () => {
+    if (passwordChangeSaving) {
+      return;
+    }
+
+    setPasswordModalOpen(false);
+    setPasswordChangeForm(createEmptyPasswordChangeForm());
+  };
+
+  const handlePasswordChange = async () => {
+    if (!user?.email) {
+      showToast(
+        "error",
+        "비밀번호 변경 실패",
+        "현재 계정 이메일을 확인할 수 없어 비밀번호를 변경하지 못했습니다."
+      );
+      return;
+    }
+
+    const currentPassword = passwordChangeForm.currentPassword;
+    const nextPassword = passwordChangeForm.nextPassword;
+    const nextPasswordConfirm = passwordChangeForm.nextPasswordConfirm;
+
+    if (!currentPassword || !nextPassword || !nextPasswordConfirm) {
+      showToast(
+        "error",
+        "비밀번호를 확인해주세요",
+        "기존 비밀번호, 새 비밀번호, 새 비밀번호 확인을 모두 입력해주세요."
+      );
+      return;
+    }
+
+    if (nextPassword !== nextPasswordConfirm) {
+      showToast(
+        "error",
+        "비밀번호가 일치하지 않습니다",
+        "새 비밀번호와 새 비밀번호 확인을 다시 입력해주세요."
+      );
+      return;
+    }
+
+    if (nextPassword.length < 6) {
+      showToast(
+        "error",
+        "비밀번호를 확인해주세요",
+        "비밀번호는 6자 이상 입력해주세요."
+      );
+      return;
+    }
+
+    setPasswordChangeSaving(true);
+
+    const { error: verifyError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+
+    if (verifyError) {
+      setPasswordChangeSaving(false);
+      showToast(
+        "error",
+        "기존 비밀번호를 확인해주세요",
+        getKoreanErrorMessage(verifyError.message, "기존 비밀번호가 올바르지 않습니다.")
+      );
+      return;
+    }
+
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: nextPassword,
+    });
+
+    setPasswordChangeSaving(false);
+
+    if (updateError) {
+      showToast(
+        "error",
+        "비밀번호 변경 실패",
+        getKoreanErrorMessage(updateError.message, "비밀번호를 변경하지 못했습니다.")
+      );
+      return;
+    }
+
+    await recordOperatorAuditLog({
+      action: "auth_password_updated",
+      targetType: "auth_user",
+      targetId: user.id,
+      summary: "사용자가 자신의 비밀번호를 변경했습니다.",
+      details: {
+        user_id: user.id,
+        email: user.email,
+      },
+    });
+
+    setPasswordModalOpen(false);
+    setPasswordChangeForm(createEmptyPasswordChangeForm());
+    showToast(
+      "success",
+      "비밀번호 변경 완료",
+      "새 비밀번호로 다음 로그인부터 사용할 수 있습니다."
+    );
+  };
+
   const saveSettings = async () => {
     if (!user) return;
 
@@ -220,9 +462,6 @@ export default function SettingsPage() {
     const normalizedLoginId = normalizeLoginId(settings.login_id);
     const resolvedLoginId = currentLoginId || normalizedLoginId;
     const normalizedEmail = settings.email.trim();
-    const nextPassword = settings.password;
-    const nextPasswordConfirm = settings.password_confirm;
-    const hasPasswordChange = Boolean(nextPassword || nextPasswordConfirm);
 
     if (loginIdLocked && currentLoginId !== normalizedLoginId) {
       showToast("error", "ID 수정 불가", "한번 설정한 ID는 변경할 수 없습니다.");
@@ -246,35 +485,6 @@ export default function SettingsPage() {
     if (!normalizedEmail) {
       showToast("error", "이메일을 확인해주세요", "이메일을 입력해주세요.");
       return;
-    }
-
-    if (hasPasswordChange) {
-      if (!nextPassword || !nextPasswordConfirm) {
-        showToast(
-          "error",
-          "비밀번호를 확인해주세요",
-          "새 비밀번호와 비밀번호 확인을 모두 입력해주세요."
-        );
-        return;
-      }
-
-      if (nextPassword !== nextPasswordConfirm) {
-        showToast(
-          "error",
-          "비밀번호가 일치하지 않습니다",
-          "새 비밀번호와 비밀번호 확인을 다시 입력해주세요."
-        );
-        return;
-      }
-
-      if (nextPassword.length < 6) {
-        showToast(
-          "error",
-          "비밀번호를 확인해주세요",
-          "비밀번호는 6자 이상 입력해주세요."
-        );
-        return;
-      }
     }
 
     setSaving(true);
@@ -312,7 +522,6 @@ export default function SettingsPage() {
 
     const { error: authError } = await supabase.auth.updateUser({
       email: normalizedEmail,
-      password: hasPasswordChange ? nextPassword : undefined,
       data: {
         login_id: resolvedLoginId,
         driver_name: settings.driver_name.trim(),
@@ -341,7 +550,6 @@ export default function SettingsPage() {
         user_id: user.id,
         login_id: resolvedLoginId,
         email: normalizedEmail,
-        password_changed: hasPasswordChange,
         driver_name: settings.driver_name.trim(),
         phone_number: settings.phone_number.trim(),
         signup_type: settings.signup_type,
@@ -403,7 +611,6 @@ export default function SettingsPage() {
         user_id: user.id,
         login_id: resolvedLoginId,
         email: normalizedEmail,
-        password_changed: hasPasswordChange,
         driver_name: settings.driver_name.trim(),
         phone_number: settings.phone_number.trim(),
         signup_type: settings.signup_type,
@@ -436,12 +643,6 @@ export default function SettingsPage() {
           }
         : prev
     );
-
-    setSettings((prev) => ({
-      ...prev,
-      password: "",
-      password_confirm: "",
-    }));
 
     queuePendingToast({
       tone: "success",
@@ -496,10 +697,40 @@ export default function SettingsPage() {
           handleSettingsChange={handleSettingsChange}
           handleLoginIdChange={handleLoginIdChange}
           handleAffiliationCheckedChange={handleAffiliationCheckedChange}
+          onOpenPasswordChange={() => setPasswordModalOpen(true)}
           saveSettings={saveSettings}
           saving={saving}
         />
       </div>
+
+      {passwordModalOpen ? (
+        <PasswordChangeModal
+          currentPassword={passwordChangeForm.currentPassword}
+          nextPassword={passwordChangeForm.nextPassword}
+          nextPasswordConfirm={passwordChangeForm.nextPasswordConfirm}
+          onCurrentPasswordChange={(value: string) =>
+            setPasswordChangeForm((prev) => ({
+              ...prev,
+              currentPassword: value,
+            }))
+          }
+          onNextPasswordChange={(value: string) =>
+            setPasswordChangeForm((prev) => ({
+              ...prev,
+              nextPassword: value,
+            }))
+          }
+          onNextPasswordConfirmChange={(value: string) =>
+            setPasswordChangeForm((prev) => ({
+              ...prev,
+              nextPasswordConfirm: value,
+            }))
+          }
+          onClose={closePasswordChangeModal}
+          onSubmit={() => void handlePasswordChange()}
+          saving={passwordChangeSaving}
+        />
+      ) : null}
     </PageShell>
   );
 }

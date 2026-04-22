@@ -12,6 +12,7 @@ type Props = {
   ) => void;
   handleLoginIdChange: (value: string) => void;
   handleAffiliationCheckedChange: (checked: boolean) => void;
+  onOpenPasswordChange: () => void;
   saveSettings: () => void;
   saving: boolean;
 };
@@ -23,6 +24,7 @@ export default function SettingsForm({
   handleSettingsChange,
   handleLoginIdChange,
   handleAffiliationCheckedChange,
+  onOpenPasswordChange,
   saveSettings,
   saving,
 }: Props) {
@@ -106,37 +108,18 @@ export default function SettingsForm({
                   className="theme-heading block text-sm font-semibold"
                   style={{ marginTop: "0.875rem", marginBottom: "0.875rem" }}
                 >
-                  새 비밀번호
+                  비밀번호 변경
                 </label>
-                <input
-                  type="password"
-                  name="password"
-                  value={settings.password}
-                  onChange={handleSettingsChange}
-                  placeholder="새 비밀번호"
-                  autoComplete="new-password"
-                  className="w-full px-4 py-3 text-center"
-                />
-              </div>
-
-              <div className="flex w-full flex-col items-center gap-5">
-                <label
-                  className="theme-heading block text-sm font-semibold"
-                  style={{ marginTop: "0.875rem", marginBottom: "0.875rem" }}
+                <button
+                  type="button"
+                  onClick={onOpenPasswordChange}
+                  disabled={saving}
+                  className="retro-button-solid inline-flex w-auto items-center justify-center whitespace-nowrap px-4 py-3 text-center text-sm font-semibold disabled:opacity-60"
                 >
-                  새 비밀번호 확인
-                </label>
-                <input
-                  type="password"
-                  name="password_confirm"
-                  value={settings.password_confirm}
-                  onChange={handleSettingsChange}
-                  placeholder="새 비밀번호 확인"
-                  autoComplete="new-password"
-                  className="w-full px-4 py-3 text-center"
-                />
+                  비밀번호 변경하기
+                </button>
                 <p className="theme-copy text-[11px] leading-relaxed">
-                  비밀번호를 바꾸려면 새 비밀번호와 확인을 함께 입력해주세요.
+                  기존 비밀번호 확인 후 팝업에서 새 비밀번호를 설정합니다.
                 </p>
               </div>
 

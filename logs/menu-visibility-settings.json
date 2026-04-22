@@ -1,0 +1,26 @@
+{
+  "settings": {
+    "basic": true,
+    "admin": true,
+    "dashboard": true,
+    "community": true,
+    "affiliate": true,
+    "vendor": true,
+    "items": {
+      "dashboard": true,
+      "my-page": true,
+      "today-quick-card": true,
+      "work-summary": true,
+      "stats": true,
+      "daily-sales-list": true,
+      "work-calendar": true,
+      "jobs": true,
+      "free-talk": true,
+      "notice": true,
+      "tips": true,
+      "affiliate": true,
+      "vendor-home": true
+    }
+  },
+  "updated_at": "2026-04-22T14:44:24.543Z"
+}

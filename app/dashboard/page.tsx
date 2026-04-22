@@ -48,6 +48,7 @@ import {
   AdditionalWorkItemForm,
   DailyReportRow,
   DriverSettings,
+  ExpenseItemForm,
   FreshbackRecoveryItemForm,
   ReportForm,
   UserType,
@@ -56,6 +57,7 @@ import StatCards from "../../components/dashboard/StatCards";
 import ReportModal from "../../components/dashboard/ReportModal";
 import ReportList from "../../components/dashboard/ReportList";
 import TodayQuickCard from "../../components/dashboard/TodayQuickCard";
+import WeatherCard from "../../components/dashboard/WeatherCard";
 import PageShell, { PageLoadingShell } from "../../components/layout/PageShell";
 import ToastViewport from "../../components/ui/ToastViewport";
 
@@ -172,6 +174,7 @@ const DASHBOARD_HOME_LAYOUT_SECTION_IDS = [
   "work-calendar",
   "daily-sales-list",
   "today-quick-card",
+    "weather-card",
   ...DASHBOARD_HOME_WORK_SUMMARY_ITEM_IDS,
   ...DASHBOARD_HOME_SALES_STAT_ITEM_IDS,
 ] as const;
@@ -186,6 +189,7 @@ type DashboardHomeLayoutItem = {
 
 const DASHBOARD_HOME_LAYOUT_LABELS: Record<DashboardHomeLayoutSectionId, string> = {
   "today-quick-card": "일일 리포트 작성",
+    "weather-card": "날씨 정보",
   "work-summary-adjusted-period-days": "근무 통계 - 이달 근무",
   "work-summary-worked-days": "근무 통계 - 정상 근무",
   "work-summary-additional-off-days": "근무 통계 - 추가 휴무",
@@ -204,6 +208,7 @@ const DEFAULT_DASHBOARD_HOME_LAYOUT: DashboardHomeLayoutItem[] = [
   { id: "work-calendar", visible: false },
   { id: "daily-sales-list", visible: false },
   { id: "today-quick-card", visible: true },
+    { id: "weather-card", visible: false },
   ...DASHBOARD_HOME_WORK_SUMMARY_ITEM_IDS.map((id) => ({ id, visible: false })),
   ...DASHBOARD_HOME_SALES_STAT_ITEM_IDS.map((id) => ({ id, visible: false })),
 ];
@@ -221,6 +226,7 @@ function isDashboardHomeLayoutSectionId(
 function isDashboardHomeMetricCardId(value: DashboardHomeLayoutSectionId) {
   return (
     value !== "today-quick-card" &&
+      value !== "weather-card" &&
     value !== "daily-sales-list" &&
     value !== "work-calendar"
   );
@@ -385,6 +391,7 @@ function DashboardHomeSortableSection({
 
 type StoredAdditionalWorkItem = Omit<AdditionalWorkItemForm, "key">;
 type StoredFreshbackRecoveryItem = Omit<FreshbackRecoveryItemForm, "key">;
+type StoredExpenseItem = Omit<ExpenseItemForm, "key">;
 
 const LEGACY_ADDITIONAL_WORK_MEMO_MARKER =
   /\n?\[\[MOTOBOX_ADDITIONAL_WORK:([0-9]+(?:\.[0-9]+)?)\]\]$/;
@@ -393,6 +400,7 @@ const REPORT_META_MEMO_MARKER = /\n?\[\[MOTOBOX_REPORT_META:([\s\S]+)\]\]$/;
 
 let additionalWorkKeySeed = 0;
 let freshbackRecoveryKeySeed = 0;
+let expenseItemKeySeed = 0;
 
 function createAdditionalWorkItem(
   overrides: Partial<StoredAdditionalWorkItem> = {}
@@ -429,6 +437,26 @@ function createFreshbackRecoveryItem(
   };
 }
 
+function createExpenseItem(
+  overrides: Partial<StoredExpenseItem> = {}
+): ExpenseItemForm {
+  expenseItemKeySeed += 1;
+
+  return {
+    key: `expense-item-${expenseItemKeySeed}`,
+    description: overrides.description ?? "",
+    amount: overrides.amount ?? "",
+  };
+}
+
+function createDefaultExpenseItems(): ExpenseItemForm[] {
+  return [createExpenseItem()];
+}
+
+function ensureExpenseItems(items: ExpenseItemForm[]): ExpenseItemForm[] {
+  return items.length > 0 ? items : createDefaultExpenseItems();
+}
+
 function createDefaultFreshbackRecoveryItems(): FreshbackRecoveryItemForm[] {
   return [createFreshbackRecoveryItem()];
 }
@@ -443,6 +471,10 @@ function hasFreshbackRecoveryItemValues(
   item: StoredFreshbackRecoveryItem | FreshbackRecoveryItemForm
 ) {
   return Boolean(item.unit_price.trim() || item.quantity.trim());
+}
+
+function hasExpenseItemValues(item: StoredExpenseItem | ExpenseItemForm) {
+  return Boolean(item.description.trim() || item.amount.trim());
 }
 
 function mapStoredFreshbackRecovery(value: unknown) {
@@ -562,6 +594,25 @@ function mapStoredAdditionalWorks(value: unknown) {
   );
 }
 
+function mapStoredExpenses(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [] as ExpenseItemForm[];
+  }
+
+  return value.map((item) =>
+    createExpenseItem({
+      description:
+        typeof item?.description === "string"
+          ? item.description
+          : String(item?.description ?? ""),
+      amount:
+        typeof item?.amount === "string"
+          ? item.amount
+          : String(item?.amount ?? ""),
+    })
+  );
+}
+
 function parseStoredMemo(rawMemo?: string | null) {
   if (!rawMemo) {
     return {
@@ -569,6 +620,7 @@ function parseStoredMemo(rawMemo?: string | null) {
       additionalWorks: [] as AdditionalWorkItemForm[],
       includeCanceledInSales: false,
       freshbackRecoveryItems: [] as FreshbackRecoveryItemForm[],
+      expenseItems: [] as ExpenseItemForm[],
     };
   }
 
@@ -581,6 +633,7 @@ function parseStoredMemo(rawMemo?: string | null) {
         additionalWorks?: unknown;
         includeCanceledInSales?: unknown;
         freshbackRecovery?: unknown;
+        expenseItems?: unknown;
       };
 
       return {
@@ -588,6 +641,7 @@ function parseStoredMemo(rawMemo?: string | null) {
         additionalWorks: mapStoredAdditionalWorks(parsed.additionalWorks),
         includeCanceledInSales: parsed.includeCanceledInSales === true,
         freshbackRecoveryItems: mapStoredFreshbackRecovery(parsed.freshbackRecovery),
+        expenseItems: mapStoredExpenses(parsed.expenseItems),
       };
     } catch {
       return {
@@ -595,6 +649,7 @@ function parseStoredMemo(rawMemo?: string | null) {
         additionalWorks: [] as AdditionalWorkItemForm[],
         includeCanceledInSales: false,
         freshbackRecoveryItems: [] as FreshbackRecoveryItemForm[],
+        expenseItems: [] as ExpenseItemForm[],
       };
     }
   }
@@ -612,6 +667,7 @@ function parseStoredMemo(rawMemo?: string | null) {
           additionalWorks: mapStoredAdditionalWorks(parsed),
           includeCanceledInSales: false,
           freshbackRecoveryItems: [] as FreshbackRecoveryItemForm[],
+          expenseItems: [] as ExpenseItemForm[],
         };
       }
     } catch {
@@ -620,6 +676,7 @@ function parseStoredMemo(rawMemo?: string | null) {
         additionalWorks: [] as AdditionalWorkItemForm[],
         includeCanceledInSales: false,
         freshbackRecoveryItems: [] as FreshbackRecoveryItemForm[],
+        expenseItems: [] as ExpenseItemForm[],
       };
     }
   }
@@ -632,6 +689,7 @@ function parseStoredMemo(rawMemo?: string | null) {
       additionalWorks: [createAdditionalWorkItem({ unit_price: legacyMatch[1] ?? "" })],
       includeCanceledInSales: false,
       freshbackRecoveryItems: [] as FreshbackRecoveryItemForm[],
+      expenseItems: [] as ExpenseItemForm[],
     };
   }
 
@@ -640,6 +698,7 @@ function parseStoredMemo(rawMemo?: string | null) {
     additionalWorks: [] as AdditionalWorkItemForm[],
     includeCanceledInSales: false,
     freshbackRecoveryItems: [] as FreshbackRecoveryItemForm[],
+    expenseItems: [] as ExpenseItemForm[],
   };
 }
 
@@ -647,7 +706,8 @@ function buildStoredMemo(
   memo: string,
   additionalWorks: AdditionalWorkItemForm[],
   includeCanceledInSales: boolean,
-  freshbackRecoveryItems: FreshbackRecoveryItemForm[]
+  freshbackRecoveryItems: FreshbackRecoveryItemForm[],
+  expenseItems: ExpenseItemForm[]
 ) {
   const trimmedMemo = memo.trimEnd();
   const sanitizedAdditionalWorks = additionalWorks
@@ -665,12 +725,20 @@ function buildStoredMemo(
       unit_price,
       quantity,
     }));
+  const sanitizedExpenseItems = expenseItems
+    .filter(hasExpenseItemValues)
+    .map(({ description, amount }) => ({
+      description,
+      amount,
+    }));
   const hasFreshbackRecovery = sanitizedFreshbackRecovery.length > 0;
+  const hasExpenseItems = sanitizedExpenseItems.length > 0;
 
   if (
     sanitizedAdditionalWorks.length === 0 &&
     !includeCanceledInSales &&
-    !hasFreshbackRecovery
+    !hasFreshbackRecovery &&
+    !hasExpenseItems
   ) {
     return trimmedMemo;
   }
@@ -680,6 +748,7 @@ function buildStoredMemo(
       additionalWorks: sanitizedAdditionalWorks,
       includeCanceledInSales,
       freshbackRecovery: hasFreshbackRecovery ? sanitizedFreshbackRecovery : undefined,
+      expenseItems: hasExpenseItems ? sanitizedExpenseItems : undefined,
     })
   )}]]`;
 
@@ -698,6 +767,7 @@ function createEmptyReportForm(dateKey: string): ReportForm {
     unit_price_override: "",
     additional_works: [],
     freshback_recovery_items: createDefaultFreshbackRecoveryItems(),
+    expense_items: createDefaultExpenseItems(),
   };
 }
 
@@ -735,6 +805,7 @@ function getReportFormForDate(rows: DailyReportRow[], dateKey: string): ReportFo
     freshback_recovery_items: ensureFreshbackRecoveryItems(
       parsedMemo.freshbackRecoveryItems
     ),
+    expense_items: ensureExpenseItems(parsedMemo.expenseItems),
   };
 }
 
@@ -1348,6 +1419,7 @@ export default function DashboardPage() {
         freshback_recovery_items: ensureFreshbackRecoveryItems(
           parsedMemo.freshbackRecoveryItems
         ),
+        expense_items: ensureExpenseItems(parsedMemo.expenseItems),
       });
     } else {
       setReportForm(createEmptyReportForm(nextQuickEntryDate));
@@ -1367,6 +1439,9 @@ export default function DashboardPage() {
     const freshbackRecovery = form.is_day_off
       ? []
       : form.freshback_recovery_items ?? [];
+    const sanitizedExpenseItems = (form.is_day_off ? [] : form.expense_items ?? []).filter(
+      hasExpenseItemValues
+    );
     const additionalWorkMetrics = form.is_day_off
       ? {
           deliveredCount: 0,
@@ -1402,7 +1477,8 @@ export default function DashboardPage() {
       form.memo.trim() === "" &&
       form.unit_price_override === "" &&
       sanitizedAdditionalWorks.length === 0 &&
-      !hasFreshbackRecoveryValues(form.freshback_recovery_items ?? []);
+      !hasFreshbackRecoveryValues(form.freshback_recovery_items ?? []) &&
+      sanitizedExpenseItems.length === 0;
 
     if (isEmptyReport) {
       const { error } = await supabase
@@ -1434,7 +1510,8 @@ export default function DashboardPage() {
       form.memo,
       form.is_day_off ? [] : sanitizedAdditionalWorks,
       form.include_canceled_in_sales,
-      freshbackRecovery
+      freshbackRecovery,
+      sanitizedExpenseItems
     );
     const payload = {
       user_id: user.id,
@@ -1900,6 +1977,27 @@ export default function DashboardPage() {
     </section>
   );
 
+  const renderWeatherSection = (key: string, dragHandle?: ReactNode) => (
+    <section key={key} className="relative">
+      {dragHandle ? (
+        <div
+          className="pointer-events-none z-10"
+          style={{
+            position: "absolute",
+            top: "0.75rem",
+            right: "0.75rem",
+            bottom: "auto",
+            left: "auto",
+          }}
+        >
+          <div className="pointer-events-auto">{dragHandle}</div>
+        </div>
+      ) : null}
+
+      <WeatherCard />
+    </section>
+  );
+
   const renderDashboardHomeMetricCardSection = (
     key: string,
     sectionId: DashboardHomeLayoutSectionId,
@@ -2100,6 +2198,8 @@ export default function DashboardPage() {
     switch (item.id) {
       case "today-quick-card":
         return renderQuickEntrySection(`home-${item.id}`, dragHandle);
+            case "weather-card":
+              return renderWeatherSection(`home-${item.id}`, dragHandle);
       case "daily-sales-list":
         return renderDailySalesListSection(`home-${item.id}`, dragHandle);
       case "work-calendar":

@@ -1,7 +1,8 @@
 import type { CSSProperties } from "react";
-import { toDateString } from "../../lib/format";
+import { formatMoney, toDateString } from "../../lib/format";
 import {
   AdditionalWorkItemForm,
+  ExpenseItemForm,
   FreshbackRecoveryItemForm,
   ReportForm,
 } from "../../types";
@@ -36,6 +37,24 @@ function createFreshbackRecoveryItem(
     unit_price: overrides.unit_price ?? "",
     quantity: overrides.quantity ?? "",
   };
+}
+
+function createExpenseItem(
+  overrides: Partial<Omit<ExpenseItemForm, "key">> = {}
+): ExpenseItemForm {
+  return {
+    key: `expense-item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    description: overrides.description ?? "",
+    amount: overrides.amount ?? "",
+  };
+}
+
+function createDefaultExpenseItems(): ExpenseItemForm[] {
+  return [createExpenseItem()];
+}
+
+function getNormalizedExpenseItems(items?: ExpenseItemForm[]): ExpenseItemForm[] {
+  return items && items.length > 0 ? items : createDefaultExpenseItems();
 }
 
 function getNormalizedFreshbackRecoveryItems(
@@ -92,8 +111,13 @@ export default function TodayQuickCard({
   const canMoveToPreviousDate = previousDate >= minDate;
   const canMoveToNextDate = nextDate <= maxDate;
   const additionalWorks = reportForm.additional_works ?? [];
+  const expenseItems = getNormalizedExpenseItems(reportForm.expense_items);
   const freshbackRecoveryItems = getNormalizedFreshbackRecoveryItems(
     reportForm.freshback_recovery_items
+  );
+  const expenseTotal = expenseItems.reduce(
+    (sum, item) => sum + Number(item.amount || 0),
+    0
   );
 
   const handleAddAdditionalWork = () => {
@@ -127,6 +151,54 @@ export default function TodayQuickCard({
         (item) => item.key !== key
       ),
     }));
+  };
+
+  const handleInsertExpenseRow = (key: string) => {
+    if (reportForm.is_day_off) {
+      return;
+    }
+
+    setReportForm((prev) => {
+      const currentItems = getNormalizedExpenseItems(prev.expense_items);
+      const sourceIndex = currentItems.findIndex((item) => item.key === key);
+      const insertIndex = sourceIndex >= 0 ? sourceIndex + 1 : currentItems.length;
+
+      return {
+        ...prev,
+        expense_items: [
+          ...currentItems.slice(0, insertIndex),
+          createExpenseItem(),
+          ...currentItems.slice(insertIndex),
+        ],
+      };
+    });
+  };
+
+  const handleExpenseChange = (
+    key: string,
+    field: Exclude<keyof ExpenseItemForm, "key">,
+    value: string
+  ) => {
+    setReportForm((prev) => ({
+      ...prev,
+      expense_items: getNormalizedExpenseItems(prev.expense_items).map((item) =>
+        item.key === key ? { ...item, [field]: value } : item
+      ),
+    }));
+  };
+
+  const handleRemoveExpense = (key: string) => {
+    setReportForm((prev) => {
+      const remainingItems = getNormalizedExpenseItems(prev.expense_items).filter(
+        (item) => item.key !== key
+      );
+
+      return {
+        ...prev,
+        expense_items:
+          remainingItems.length > 0 ? remainingItems : createDefaultExpenseItems(),
+      };
+    });
   };
 
   const handleFreshbackRecoveryChange = (
@@ -205,6 +277,7 @@ export default function TodayQuickCard({
                       ? [createFreshbackRecoveryItem()]
                       : prev.freshback_recovery_items,
                     additional_works: e.target.checked ? [] : prev.additional_works ?? [],
+                    expense_items: createDefaultExpenseItems(),
                   }));
                 }}
               />
@@ -290,6 +363,12 @@ export default function TodayQuickCard({
           </div>
         </div>
 
+        <div
+          aria-hidden="true"
+          className="mx-auto h-px w-full max-w-[20rem]"
+          style={{ backgroundColor: "var(--border-strong)" }}
+        />
+
         <div className="mx-auto grid w-full max-w-[20rem] grid-cols-[minmax(0,6.8rem)_minmax(0,1fr)] items-start gap-3">
           <div className="flex w-full min-w-0 flex-col items-center space-y-2">
             <label className="theme-label block text-center text-sm font-semibold">
@@ -362,6 +441,12 @@ export default function TodayQuickCard({
             </div>
           </div>
         </div>
+
+        <div
+          aria-hidden="true"
+          className="mx-auto h-px w-full max-w-[20rem]"
+          style={{ backgroundColor: "var(--border-strong)" }}
+        />
 
         <div className="mx-auto w-full max-w-[20rem] space-y-2">
           <label className="theme-label block text-center text-sm font-semibold">
@@ -450,6 +535,81 @@ export default function TodayQuickCard({
             ))}
           </div>
         </div>
+
+        <div
+          aria-hidden="true"
+          className="mx-auto h-px w-full max-w-[20rem]"
+          style={{ backgroundColor: "var(--border-strong)" }}
+        />
+
+        <div className="mx-auto w-full max-w-[16rem] space-y-3 sm:max-w-[17rem]">
+            <div className="flex items-center justify-between gap-3">
+              <p className="theme-copy text-xs font-semibold">
+                총 지출 {formatMoney(expenseTotal)}
+              </p>
+            </div>
+
+            {expenseItems.map((item, index) => (
+              <div
+                key={item.key}
+                className="grid grid-cols-[minmax(0,1fr)_5.5rem_2.25rem] items-center gap-2.5"
+              >
+                  <input
+                    type="text"
+                    aria-label={`지출 ${index + 1} 내용`}
+                    value={item.description}
+                    onChange={(e) =>
+                      handleExpenseChange(item.key, "description", e.target.value)
+                    }
+                    disabled={reportForm.is_day_off}
+                    placeholder="지출내용"
+                    className="px-3 py-2 text-left disabled:opacity-60"
+                    style={inlineInputStyle}
+                  />
+
+                  <input
+                    type="number"
+                    aria-label={`지출 ${index + 1} 비용`}
+                    value={item.amount}
+                    onChange={(e) =>
+                      handleExpenseChange(item.key, "amount", e.target.value)
+                    }
+                    disabled={reportForm.is_day_off}
+                    placeholder="지출비용"
+                    className="no-spinner px-2.5 py-2 text-center disabled:opacity-60"
+                    style={inlineInputStyle}
+                  />
+
+                  {index === 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => handleInsertExpenseRow(item.key)}
+                      disabled={reportForm.is_day_off}
+                      className="retro-button flex min-h-[36px] min-w-[36px] items-center justify-center px-2 py-1.5 text-xs font-semibold disabled:cursor-default disabled:opacity-40"
+                      aria-label="지출 행 추가"
+                    >
+                      +
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveExpense(item.key)}
+                      disabled={reportForm.is_day_off}
+                      className="retro-button flex min-h-[36px] min-w-[36px] items-center justify-center px-2 py-1.5 text-xs font-semibold disabled:cursor-default disabled:opacity-40"
+                      aria-label={`지출 ${index + 1} 삭제`}
+                    >
+                      X
+                    </button>
+                  )}
+              </div>
+            ))}
+          </div>
+
+        <div
+          aria-hidden="true"
+          className="mx-auto h-px w-full max-w-[17rem]"
+          style={{ backgroundColor: "var(--border-strong)" }}
+        />
 
         {additionalWorks.length > 0 ? (
           <div className="space-y-3">

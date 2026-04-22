@@ -14,6 +14,10 @@ import {
   DASHBOARD_SECTION_STORAGE_KEY,
   DashboardSectionId,
 } from "../../lib/dashboardNavigation";
+import {
+  getDefaultMenuVisibilitySettings,
+  MENU_VISIBILITY_UPDATED_EVENT,
+} from "../../lib/menuVisibility";
 import { KAKAO_INQUIRY_URL } from "../../lib/support";
 import { supabase } from "../../lib/supabase";
 import {
@@ -22,6 +26,11 @@ import {
   queuePendingToast,
   ToastState,
 } from "../../lib/toast";
+import type {
+  MenuVisibilityItemKey,
+  MenuVisibilitySettings,
+  MenuVisibilitySettingsResponse,
+} from "../../types";
 import ToastViewport from "../ui/ToastViewport";
 
 type MenuItem = {
@@ -30,6 +39,7 @@ type MenuItem = {
   href?: string;
   dashboardSectionId?: DashboardSectionId;
   isPlaceholder?: boolean;
+  visibilityKey?: MenuVisibilityItemKey;
 };
 
 type MenuSection = {
@@ -41,6 +51,7 @@ type MenuSection = {
 type ThemeMode = "dark" | "light";
 
 const THEME_STORAGE_KEY = "motobox:theme";
+let lastKnownMenuOpen = false;
 
 function LogoWordmark({ mode }: { mode: ThemeMode }) {
   const palette =
@@ -373,7 +384,16 @@ function readStoredTheme(): ThemeMode {
   return document.documentElement.dataset.theme === "light" ? "light" : "dark";
 }
 
-function createMenuSections(user: User | null): MenuSection[] {
+function createMenuSections(
+  user: User | null,
+  menuVisibility: MenuVisibilitySettings
+): MenuSection[] {
+  const menuItemVisibility = menuVisibility.items ?? getDefaultMenuVisibilitySettings().items;
+  const getVisibleMenuItems = (items: MenuItem[]) =>
+    items.filter((item) =>
+      item.visibilityKey ? menuItemVisibility[item.visibilityKey] : true
+    );
+
   if (!user) {
     return [
       {
@@ -385,11 +405,22 @@ function createMenuSections(user: User | null): MenuSection[] {
   }
 
   const basicItems: MenuItem[] = [
-    { id: "dashboard", href: "/dashboard", label: "홈", dashboardSectionId: "home" },
-    { id: "my-page", href: "/settings", label: "마이페이지" },
+    {
+      id: "dashboard",
+      href: "/dashboard",
+      label: "홈",
+      dashboardSectionId: "home",
+      visibilityKey: "dashboard",
+    },
+    {
+      id: "my-page",
+      href: "/settings",
+      label: "마이페이지",
+      visibilityKey: "my-page",
+    },
   ];
 
-  if (isAdminUser(user)) {
+  if (menuVisibility.admin && isAdminUser(user)) {
     basicItems.push({ id: "admin", href: "/admin", label: "관리자" });
   }
 
@@ -400,6 +431,7 @@ function createMenuSections(user: User | null): MenuSection[] {
     href: board.path,
     label: board.menuLabel,
     isPlaceholder: true,
+    visibilityKey: board.key,
   } satisfies MenuItem));
 
   const vendorSections = isVendorUser(user)
@@ -412,6 +444,7 @@ function createMenuSections(user: User | null): MenuSection[] {
               id: "vendor-home",
               href: "/vendor",
               label: "밴더 전용 페이지",
+              visibilityKey: "vendor-home",
             },
           ],
         } satisfies MenuSection,
@@ -428,65 +461,94 @@ function createMenuSections(user: User | null): MenuSection[] {
         id: board.key,
         href: board.path,
         label: board.menuLabel,
+        visibilityKey: board.key,
       },
     ],
   }));
 
   return [
-    {
-      id: "basic",
-      title: "기본",
-      items: basicItems,
-    },
-    {
-      id: "dashboard-sections",
-      title: "대시보드",
-      items: [
-        {
-          id: "today-quick-card",
-          label: "업무 작성",
-          dashboardSectionId: "today-quick-card",
-        },
-        {
-          id: "work-summary",
-          label: "근무 통계",
-          dashboardSectionId: "work-summary",
-        },
-        {
-          id: "stats",
-          label: "매출 통계",
-          dashboardSectionId: "stats",
-        },
-        {
-          id: "daily-sales-list",
-          label: "일별 매출 리스트 형",
-          dashboardSectionId: "daily-sales-list",
-        },
-        {
-          id: "work-calendar",
-          label: "일별 매출 캘린더 형",
-          dashboardSectionId: "work-calendar",
-        },
-      ],
-    },
-    {
-      id: "community",
-      title: "커뮤니티",
-      items: communityItems,
-    },
-    ...affiliateSections,
-    ...vendorSections,
-  ];
+    menuVisibility.basic
+      ? {
+          id: "basic",
+          title: "기본",
+          items: getVisibleMenuItems(basicItems),
+        }
+      : null,
+    menuVisibility.dashboard
+      ? {
+          id: "dashboard-sections",
+          title: "대시보드",
+          items: getVisibleMenuItems([
+            {
+              id: "today-quick-card",
+              label: "업무 작성",
+              dashboardSectionId: "today-quick-card",
+              visibilityKey: "today-quick-card",
+            },
+            {
+              id: "work-summary",
+              label: "근무 통계",
+              dashboardSectionId: "work-summary",
+              visibilityKey: "work-summary",
+            },
+            {
+              id: "stats",
+              label: "매출 통계",
+              dashboardSectionId: "stats",
+              visibilityKey: "stats",
+            },
+            {
+              id: "daily-sales-list",
+              label: "일별 매출 - 리스트",
+              dashboardSectionId: "daily-sales-list",
+              visibilityKey: "daily-sales-list",
+            },
+            {
+              id: "work-calendar",
+              label: "일별 매출 - 캘린더",
+              dashboardSectionId: "work-calendar",
+              visibilityKey: "work-calendar",
+            },
+          ]),
+        }
+      : null,
+    menuVisibility.community
+      ? {
+          id: "community",
+          title: "커뮤니티",
+          items: getVisibleMenuItems(communityItems),
+        }
+      : null,
+    ...(menuVisibility.affiliate
+      ? affiliateSections.map((section) => ({
+          ...section,
+          items: getVisibleMenuItems(section.items),
+        }))
+      : []),
+    ...(menuVisibility.vendor
+      ? vendorSections.map((section) => ({
+          ...section,
+          items: getVisibleMenuItems(section.items),
+        }))
+      : []),
+  ].filter((section): section is MenuSection => Boolean(section && section.items.length > 0));
 }
 
 export default function AppTopBar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(() => lastKnownMenuOpen);
   const [authPending, setAuthPending] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => readStoredTheme());
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [menuVisibility, setMenuVisibility] = useState<MenuVisibilitySettings>(() =>
+    getDefaultMenuVisibilitySettings()
+  );
+
+  useEffect(() => {
+    lastKnownMenuOpen = menuOpen;
+  }, [menuOpen]);
 
   useEffect(() => {
     let isDisposed = false;
@@ -517,7 +579,48 @@ export default function AppTopBar() {
     };
   }, [themeMode]);
 
-  const menuSections = createMenuSections(user);
+  useEffect(() => {
+    let isDisposed = false;
+
+    const loadMenuVisibility = async () => {
+      try {
+        const response = await fetch("/api/menu-visibility", {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json().catch(() => null)) as MenuVisibilitySettingsResponse | null;
+
+        if (!isDisposed && payload?.settings) {
+          setMenuVisibility(payload.settings);
+        }
+      } catch {
+        // Ignore fetch failures and keep default menu visibility.
+      }
+    };
+
+    const handleMenuVisibilityUpdated = () => {
+      void loadMenuVisibility();
+    };
+
+    void loadMenuVisibility();
+
+    window.addEventListener(MENU_VISIBILITY_UPDATED_EVENT, handleMenuVisibilityUpdated);
+
+    return () => {
+      isDisposed = true;
+      window.removeEventListener(
+        MENU_VISIBILITY_UPDATED_EVENT,
+        handleMenuVisibilityUpdated
+      );
+    };
+  }, []);
+
+  const menuSections = createMenuSections(user, menuVisibility);
   const isDashboardPage = pathname === "/dashboard";
   const isLoggedIn = Boolean(user);
   const logoHref = isLoggedIn ? "/dashboard" : "/";

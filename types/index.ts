@@ -11,8 +11,6 @@ export type UserType = {
 export type AccountSettings = {
   login_id: string;
   email: string;
-  password: string;
-  password_confirm: string;
   driver_name: string;
   phone_number: string;
   signup_type: "driver" | "vendor";
@@ -54,6 +52,12 @@ export type FreshbackRecoveryItemForm = {
   quantity: string;
 };
 
+export type ExpenseItemForm = {
+  key: string;
+  description: string;
+  amount: string;
+};
+
 export type ReportForm = {
   report_date: string;
   delivered_count: string;
@@ -65,6 +69,7 @@ export type ReportForm = {
   unit_price_override: string;
   additional_works: AdditionalWorkItemForm[];
   freshback_recovery_items: FreshbackRecoveryItemForm[];
+  expense_items: ExpenseItemForm[];
 };
 
 export type DailyReportRow = {
@@ -159,4 +164,42 @@ export type StaffAuditLogRow = {
 
 export type StaffAuditLogResponse = {
   logs: StaffAuditLogRow[];
+};
+
+export type MenuVisibilityKey =
+  | "basic"
+  | "admin"
+  | "dashboard"
+  | "community"
+  | "affiliate"
+  | "vendor";
+
+export type MenuVisibilityItemKey =
+  | "dashboard"
+  | "my-page"
+  | "today-quick-card"
+  | "work-summary"
+  | "stats"
+  | "daily-sales-list"
+  | "work-calendar"
+  | "jobs"
+  | "free-talk"
+  | "notice"
+  | "tips"
+  | "affiliate"
+  | "vendor-home";
+
+export type MenuVisibilityItemSettings = Record<MenuVisibilityItemKey, boolean>;
+
+export type MenuVisibilitySettings = Record<MenuVisibilityKey, boolean> & {
+  items: MenuVisibilityItemSettings;
+};
+
+export type MenuVisibilitySettingsPatch = Partial<Record<MenuVisibilityKey, boolean>> & {
+  items?: Partial<MenuVisibilityItemSettings>;
+};
+
+export type MenuVisibilitySettingsResponse = {
+  settings: MenuVisibilitySettings;
+  updated_at: string | null;
 };

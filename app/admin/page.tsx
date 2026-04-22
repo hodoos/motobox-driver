@@ -1,9 +1,16 @@
 "use client";
 
 import type { User } from "@supabase/supabase-js";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { recordOperatorAuditLog } from "../../lib/operatorAuditLogClient";
+import {
+  applyMenuVisibilitySettingsPatch,
+  getDefaultMenuVisibilitySettings,
+  MENU_VISIBILITY_DEFINITIONS,
+  MENU_VISIBILITY_ITEM_DEFINITIONS,
+  MENU_VISIBILITY_UPDATED_EVENT,
+} from "../../lib/menuVisibility";
 import { supabase } from "../../lib/supabase";
 import {
   canManageUserLevelChange,
@@ -30,6 +37,11 @@ import type {
   AdminManagedUserRow,
   AdminUserLevelUpdateResponse,
   AdminUsersResponse,
+  MenuVisibilityItemKey,
+  MenuVisibilityKey,
+  MenuVisibilitySettings,
+  MenuVisibilitySettingsPatch,
+  MenuVisibilitySettingsResponse,
   StaffAuditLogResponse,
   StaffAuditLogRow,
 } from "../../types";
@@ -64,6 +76,190 @@ type SessionTimeoutSettingsRequestResult = {
   error: string | null;
   status: number;
 };
+
+type MenuVisibilitySettingsRequestResult = {
+  data: MenuVisibilitySettingsResponse | null;
+  error: string | null;
+  status: number;
+};
+
+type MenuVisibilitySavingStateKey =
+  | `category:${MenuVisibilityKey}`
+  | `item:${MenuVisibilityItemKey}`;
+
+type UserListSortKey =
+  | "driver_name"
+  | "email"
+  | "phone_number"
+  | "last_sign_in_at"
+  | "last_web_activity_at"
+  | "current_user_level";
+
+type UserListSortDirection = "asc" | "desc";
+
+type UserListSortState = {
+  key: UserListSortKey;
+  direction: UserListSortDirection;
+};
+
+type UserListSortColumn = {
+  key: UserListSortKey;
+  label: string;
+  className?: string;
+};
+
+type AdminFolderSectionProps = {
+  title: string;
+  description: string;
+  children: ReactNode;
+  meta?: ReactNode;
+  defaultOpen?: boolean;
+};
+
+const USER_LEVEL_SORT_ORDER = USER_LEVEL_OPTIONS.reduce<Record<UserLevel, number>>(
+  (order, level, index) => {
+    order[level] = index;
+    return order;
+  },
+  {} as Record<UserLevel, number>
+);
+
+const USER_LIST_SORT_COLUMNS: readonly UserListSortColumn[] = [
+  { key: "driver_name", label: "이름" },
+  { key: "email", label: "이메일" },
+  { key: "phone_number", label: "연락처" },
+  { key: "last_sign_in_at", label: "마지막 로그인" },
+  { key: "last_web_activity_at", label: "마지막 웹 활동" },
+  {
+    key: "current_user_level",
+    label: "변경 등급",
+    className: "w-[1%] whitespace-nowrap",
+  },
+];
+
+function getDefaultUserListSortDirection(key: UserListSortKey): UserListSortDirection {
+  if (key === "last_sign_in_at" || key === "last_web_activity_at") {
+    return "desc";
+  }
+
+  return "asc";
+}
+
+function SortIndicator({
+  isActive,
+  direction,
+}: {
+  isActive: boolean;
+  direction: UserListSortDirection;
+}) {
+  return (
+    <span
+      className={`theme-kicker text-[9px] tracking-[0.12em] ${
+        isActive ? "text-[var(--text-strong)]" : "opacity-50"
+      }`}
+    >
+      {isActive ? (direction === "asc" ? "ASC" : "DESC") : "SORT"}
+    </span>
+  );
+}
+
+function FolderIcon({ isOpen }: { isOpen: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5 shrink-0"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M3.5 7.5C3.5 6.39543 4.39543 5.5 5.5 5.5H9.2C9.75411 5.5 10.2791 5.74405 10.6382 6.16606L11.6 7.3C11.9591 7.72201 12.4841 7.96606 13.0382 7.96606H18.5C19.6046 7.96606 20.5 8.86149 20.5 9.96606V17.5C20.5 18.6046 19.6046 19.5 18.5 19.5H5.5C4.39543 19.5 3.5 18.6046 3.5 17.5V7.5Z"
+        fill={isOpen ? "rgba(244,176,75,0.3)" : "rgba(244,176,75,0.18)"}
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
+      <path
+        d="M4.3 10.2H19.7"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function ChevronIcon({ isOpen }: { isOpen: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={`h-4 w-4 shrink-0 transition-transform ${isOpen ? "rotate-90" : "rotate-0"}`}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M9 6L15 12L9 18"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function AdminFolderSection({
+  title,
+  description,
+  children,
+  meta,
+  defaultOpen = false,
+}: AdminFolderSectionProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <section className="retro-panel rounded-[24px] px-4 py-4 sm:rounded-[28px] sm:px-6 sm:py-5">
+      <button
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
+        aria-expanded={isOpen}
+        className="theme-note-box flex w-full items-start justify-between gap-3 rounded-[20px] px-4 py-3 text-left transition hover:bg-[rgba(255,255,255,0.05)]"
+      >
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="pt-0.5 text-[var(--text-strong)]">
+            <FolderIcon isOpen={isOpen} />
+          </div>
+          <div className="min-w-0">
+            <p className="retro-title theme-heading text-base leading-none sm:text-lg">
+              {title}
+            </p>
+            <p className="theme-copy mt-2 text-sm leading-relaxed">
+              {description}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-3 pl-2 pt-0.5">
+          {meta}
+          <span className="theme-copy hidden text-xs font-semibold sm:block">
+            {isOpen ? "펼침" : "접힘"}
+          </span>
+          <ChevronIcon isOpen={isOpen} />
+        </div>
+      </button>
+
+      {isOpen ? <div className="mt-1">{children}</div> : null}
+    </section>
+  );
+}
+
+function getCategorySavingStateKey(key: MenuVisibilityKey): MenuVisibilitySavingStateKey {
+  return `category:${key}`;
+}
+
+function getItemSavingStateKey(key: MenuVisibilityItemKey): MenuVisibilitySavingStateKey {
+  return `item:${key}`;
+}
 
 function getDriverDisplayName(driver?: Partial<AdminManagedUserRow> | null) {
   const driverName = driver?.driver_name?.trim();
@@ -115,6 +311,57 @@ function sortManagedUsers(rows: AdminManagedUserRow[]) {
 
     return left.user_id.localeCompare(right.user_id);
   });
+}
+
+function getManagedUserNameSortValue(row: AdminManagedUserRow) {
+  return row.driver_name?.trim() || row.email?.trim() || row.user_id;
+}
+
+function getManagedUserSortValue(
+  row: AdminManagedUserRow,
+  key: UserListSortKey
+): string | number | null {
+  switch (key) {
+    case "driver_name":
+      return getManagedUserNameSortValue(row);
+    case "email":
+      return row.email?.trim() || null;
+    case "phone_number":
+      return row.phone_number?.trim() || null;
+    case "last_sign_in_at":
+      return row.last_sign_in_at ? new Date(row.last_sign_in_at).getTime() : null;
+    case "last_web_activity_at":
+      return row.last_web_activity_at ? new Date(row.last_web_activity_at).getTime() : null;
+    case "current_user_level":
+      return USER_LEVEL_SORT_ORDER[row.current_user_level] ?? null;
+    default:
+      return null;
+  }
+}
+
+function compareNullableValues(
+  leftValue: string | number | null,
+  rightValue: string | number | null,
+  direction: UserListSortDirection
+) {
+  if (leftValue === null && rightValue === null) {
+    return 0;
+  }
+
+  if (leftValue === null) {
+    return 1;
+  }
+
+  if (rightValue === null) {
+    return -1;
+  }
+
+  if (typeof leftValue === "number" && typeof rightValue === "number") {
+    return direction === "asc" ? leftValue - rightValue : rightValue - leftValue;
+  }
+
+  const comparison = String(leftValue).localeCompare(String(rightValue), "ko");
+  return direction === "asc" ? comparison : -comparison;
 }
 
 function buildUserLevelDrafts(rows: AdminManagedUserRow[]) {
@@ -401,6 +648,98 @@ async function updateSessionTimeoutSettings(
   }
 }
 
+async function loadMenuVisibilitySettings(
+  accessToken?: string
+): Promise<MenuVisibilitySettingsRequestResult> {
+  try {
+    const response = await fetch("/api/menu-visibility", {
+      method: "GET",
+      headers: accessToken
+        ? {
+            Authorization: `Bearer ${accessToken}`,
+          }
+        : undefined,
+      cache: "no-store",
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | (MenuVisibilitySettingsResponse & { error?: string })
+      | { error?: string }
+      | null;
+
+    if (!response.ok) {
+      return {
+        data: null,
+        error:
+          payload && "error" in payload && typeof payload.error === "string"
+            ? payload.error
+            : "메뉴 표시 설정을 불러오지 못했습니다.",
+        status: response.status,
+      };
+    }
+
+    return {
+      data: payload as MenuVisibilitySettingsResponse,
+      error: null,
+      status: response.status,
+    };
+  } catch (error) {
+    return {
+      data: null,
+      error: getKoreanErrorMessage(
+        error instanceof Error ? error.message : undefined,
+        "메뉴 표시 설정을 불러오지 못했습니다."
+      ),
+      status: 0,
+    };
+  }
+}
+
+async function updateMenuVisibilitySettings(
+  accessToken: string,
+  settings: MenuVisibilitySettingsPatch
+): Promise<MenuVisibilitySettingsRequestResult> {
+  try {
+    const response = await fetch("/api/menu-visibility", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ settings }),
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | (MenuVisibilitySettingsResponse & { error?: string })
+      | { error?: string }
+      | null;
+
+    if (!response.ok) {
+      return {
+        data: null,
+        error:
+          payload && "error" in payload && typeof payload.error === "string"
+            ? payload.error
+            : "메뉴 표시 설정을 저장하지 못했습니다.",
+        status: response.status,
+      };
+    }
+
+    return {
+      data: payload as MenuVisibilitySettingsResponse,
+      error: null,
+      status: response.status,
+    };
+  } catch (error) {
+    return {
+      data: null,
+      error: getKoreanErrorMessage(
+        error instanceof Error ? error.message : undefined,
+        "메뉴 표시 설정을 저장하지 못했습니다."
+      ),
+      status: 0,
+    };
+  }
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [authUser, setAuthUser] = useState<User | null>(null);
@@ -409,12 +748,18 @@ export default function AdminPage() {
   const [auditLogsLoading, setAuditLogsLoading] = useState(false);
   const [sessionTimeoutLoading, setSessionTimeoutLoading] = useState(false);
   const [sessionTimeoutSaving, setSessionTimeoutSaving] = useState(false);
+  const [menuVisibilityLoading, setMenuVisibilityLoading] = useState(false);
+  const [menuVisibilitySavingKey, setMenuVisibilitySavingKey] =
+    useState<MenuVisibilitySavingStateKey | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [managedUsersError, setManagedUsersError] = useState<string | null>(null);
   const [auditLogsError, setAuditLogsError] = useState<string | null>(null);
   const [sessionTimeoutError, setSessionTimeoutError] = useState<string | null>(null);
+  const [menuVisibilityError, setMenuVisibilityError] = useState<string | null>(null);
   const [managedUsers, setManagedUsers] = useState<AdminManagedUserRow[]>([]);
   const [auditLogs, setAuditLogs] = useState<StaffAuditLogRow[]>([]);
+  const [menuVisibilitySettings, setMenuVisibilitySettings] =
+    useState<MenuVisibilitySettings>(() => getDefaultMenuVisibilitySettings());
   const [currentSessionTimeoutMinutes, setCurrentSessionTimeoutMinutes] = useState(
     DEFAULT_SESSION_TIMEOUT_MINUTES
   );
@@ -424,8 +769,40 @@ export default function AdminPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [userLevelDrafts, setUserLevelDrafts] = useState<Record<string, UserLevel>>({});
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
+  const [userListSort, setUserListSort] = useState<UserListSortState>({
+    key: "driver_name",
+    direction: "asc",
+  });
 
   const isOperatorView = isOperatorUser(authUser);
+  const menuVisibilityItems =
+    menuVisibilitySettings.items ?? getDefaultMenuVisibilitySettings().items;
+  const sortedManagedUsers = useMemo(
+    () =>
+      [...managedUsers].sort((left, right) => {
+        const valueComparison = compareNullableValues(
+          getManagedUserSortValue(left, userListSort.key),
+          getManagedUserSortValue(right, userListSort.key),
+          userListSort.direction
+        );
+
+        if (valueComparison !== 0) {
+          return valueComparison;
+        }
+
+        const nameComparison = getManagedUserNameSortValue(left).localeCompare(
+          getManagedUserNameSortValue(right),
+          "ko"
+        );
+
+        if (nameComparison !== 0) {
+          return nameComparison;
+        }
+
+        return left.user_id.localeCompare(right.user_id);
+      }),
+    [managedUsers, userListSort]
+  );
 
   const showToast = (tone: ToastState["tone"], title: string, message?: string) => {
     setToast(createToastState({ tone, title, message }));
@@ -484,6 +861,8 @@ export default function AdminPage() {
       setAuditLogsError(null);
       setSessionTimeoutLoading(true);
       setSessionTimeoutError(null);
+      setMenuVisibilityLoading(true);
+      setMenuVisibilityError(null);
 
       if (isOperatorView) {
         setAuditLogsLoading(true);
@@ -508,11 +887,13 @@ export default function AdminPage() {
         setAuditLogs([]);
         setSessionTimeoutLoading(false);
         setSessionTimeoutError(fallbackMessage);
+        setMenuVisibilityLoading(false);
+        setMenuVisibilityError(fallbackMessage);
         showToast("error", "관리자 데이터 불러오기 실패", fallbackMessage);
         return;
       }
 
-      const [usersResult, logsResult, sessionTimeoutResult] = await Promise.all([
+      const [usersResult, logsResult, sessionTimeoutResult, menuVisibilityResult] = await Promise.all([
         loadAdminUsers(accessToken),
         isOperatorView
           ? loadAuditLogs(accessToken)
@@ -522,6 +903,7 @@ export default function AdminPage() {
               status: 200,
             }),
         loadSessionTimeoutSettings(accessToken),
+        loadMenuVisibilitySettings(accessToken),
       ]);
 
       if (isDisposed) {
@@ -553,6 +935,7 @@ export default function AdminPage() {
 
       setManagedUsersLoading(false);
       setSessionTimeoutLoading(false);
+      setMenuVisibilityLoading(false);
 
       if (usersResult.data) {
         const nextUsers = sortManagedUsers(usersResult.data.users ?? []);
@@ -576,6 +959,15 @@ export default function AdminPage() {
       if (sessionTimeoutResult.error) {
         setSessionTimeoutError(sessionTimeoutResult.error);
         showToast("error", "세션 타임아웃 설정 불러오기 실패", sessionTimeoutResult.error);
+      }
+
+      if (menuVisibilityResult.data?.settings) {
+        setMenuVisibilitySettings(menuVisibilityResult.data.settings);
+      }
+
+      if (menuVisibilityResult.error) {
+        setMenuVisibilityError(menuVisibilityResult.error);
+        showToast("error", "메뉴 표시 설정 불러오기 실패", menuVisibilityResult.error);
       }
 
       if (isOperatorView) {
@@ -803,6 +1195,192 @@ export default function AdminPage() {
     );
   };
 
+  const handleMenuVisibilityToggle = async (
+    key: MenuVisibilityKey,
+    nextVisible: boolean
+  ) => {
+    const definition = MENU_VISIBILITY_DEFINITIONS.find((item) => item.key === key);
+    const patch = { [key]: nextVisible } as MenuVisibilitySettingsPatch;
+    const previousSettings = menuVisibilitySettings;
+    const accessToken = await getSupabaseAccessToken();
+
+    if (!accessToken) {
+      queuePendingToast({
+        tone: "error",
+        title: "로그인이 필요합니다",
+        message: "다시 로그인한 뒤 메뉴 표시 설정을 변경해주세요.",
+      });
+      router.replace("/");
+      return;
+    }
+
+    setMenuVisibilitySettings((current) => applyMenuVisibilitySettingsPatch(current, patch));
+    setMenuVisibilitySavingKey(getCategorySavingStateKey(key));
+
+    const updateResult = await updateMenuVisibilitySettings(accessToken, patch);
+
+    setMenuVisibilitySavingKey(null);
+
+    if (updateResult.status === 401) {
+      setMenuVisibilitySettings(previousSettings);
+      queuePendingToast({
+        tone: "error",
+        title: "로그인이 필요합니다",
+        message: updateResult.error || "다시 로그인한 뒤 관리자 페이지를 이용해주세요.",
+      });
+      router.replace("/");
+      return;
+    }
+
+    if (updateResult.status === 403) {
+      setMenuVisibilitySettings(previousSettings);
+      showToast(
+        "error",
+        "메뉴 표시 설정 권한이 없습니다",
+        updateResult.error || undefined
+      );
+      return;
+    }
+
+    if (!updateResult.data?.settings) {
+      setMenuVisibilitySettings(previousSettings);
+      showToast(
+        "error",
+        "메뉴 표시 설정 저장 실패",
+        updateResult.error || "메뉴 표시 설정을 저장하지 못했습니다."
+      );
+      return;
+    }
+
+    setMenuVisibilityError(null);
+    setMenuVisibilitySettings(updateResult.data.settings);
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event(MENU_VISIBILITY_UPDATED_EVENT));
+    }
+
+    await recordOperatorAuditLog({
+      action: "menu_visibility_updated",
+      targetType: "system",
+      targetId: `menu-visibility:${key}`,
+      source: "/admin",
+      summary: "관리 권한 계정이 메뉴 표시 설정을 변경했습니다.",
+      details: {
+        key,
+        visible: nextVisible,
+      },
+    });
+
+    showToast(
+      "success",
+      "메뉴 표시 설정을 저장했습니다",
+      `${definition?.label ?? key} 항목을 ${nextVisible ? "보이기" : "숨기기"}로 변경했습니다.`
+    );
+  };
+
+  const handleMenuVisibilityItemToggle = async (
+    key: MenuVisibilityItemKey,
+    nextVisible: boolean
+  ) => {
+    const definition = MENU_VISIBILITY_ITEM_DEFINITIONS.find((item) => item.key === key);
+    const patch = {
+      items: {
+        [key]: nextVisible,
+      },
+    } as MenuVisibilitySettingsPatch;
+    const previousSettings = menuVisibilitySettings;
+    const accessToken = await getSupabaseAccessToken();
+
+    if (!accessToken) {
+      queuePendingToast({
+        tone: "error",
+        title: "로그인이 필요합니다",
+        message: "다시 로그인한 뒤 메뉴 표시 설정을 변경해주세요.",
+      });
+      router.replace("/");
+      return;
+    }
+
+    setMenuVisibilitySettings((current) => applyMenuVisibilitySettingsPatch(current, patch));
+    setMenuVisibilitySavingKey(getItemSavingStateKey(key));
+
+    const updateResult = await updateMenuVisibilitySettings(accessToken, patch);
+
+    setMenuVisibilitySavingKey(null);
+
+    if (updateResult.status === 401) {
+      setMenuVisibilitySettings(previousSettings);
+      queuePendingToast({
+        tone: "error",
+        title: "로그인이 필요합니다",
+        message: updateResult.error || "다시 로그인한 뒤 관리자 페이지를 이용해주세요.",
+      });
+      router.replace("/");
+      return;
+    }
+
+    if (updateResult.status === 403) {
+      setMenuVisibilitySettings(previousSettings);
+      showToast(
+        "error",
+        "메뉴 표시 설정 권한이 없습니다",
+        updateResult.error || undefined
+      );
+      return;
+    }
+
+    if (!updateResult.data?.settings) {
+      setMenuVisibilitySettings(previousSettings);
+      showToast(
+        "error",
+        "메뉴 표시 설정 저장 실패",
+        updateResult.error || "메뉴 표시 설정을 저장하지 못했습니다."
+      );
+      return;
+    }
+
+    setMenuVisibilityError(null);
+    setMenuVisibilitySettings(updateResult.data.settings);
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event(MENU_VISIBILITY_UPDATED_EVENT));
+    }
+
+    await recordOperatorAuditLog({
+      action: "menu_visibility_updated",
+      targetType: "system",
+      targetId: `menu-visibility:item:${key}`,
+      source: "/admin",
+      summary: "관리 권한 계정이 하위 메뉴 표시 설정을 변경했습니다.",
+      details: {
+        key,
+        visible: nextVisible,
+      },
+    });
+
+    showToast(
+      "success",
+      "메뉴 표시 설정을 저장했습니다",
+      `${definition?.label ?? key} 하위 메뉴를 ${nextVisible ? "보이기" : "숨기기"}로 변경했습니다.`
+    );
+  };
+
+  const handleUserListSortChange = (key: UserListSortKey) => {
+    setUserListSort((current) => {
+      if (current.key === key) {
+        return {
+          key,
+          direction: current.direction === "asc" ? "desc" : "asc",
+        };
+      }
+
+      return {
+        key,
+        direction: getDefaultUserListSortDirection(key),
+      };
+    });
+  };
+
   if (loading) {
     return <PageLoadingShell message="관리자 페이지 확인 중..." />;
   }
@@ -812,15 +1390,10 @@ export default function AdminPage() {
       <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
 
       <div className="flex w-full flex-col gap-4">
-        <section className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">
-          <div className="flex flex-col items-center justify-center gap-2 text-center">
-            <h2 className="retro-title theme-heading text-lg sm:text-xl">
-              SESSION TIMEOUT
-            </h2>
-            <p className="theme-copy text-sm leading-relaxed">
-              모든 로그인 세션의 자동 로그아웃 기준 시간을 관리자 페이지에서 조정합니다.
-            </p>
-          </div>
+        <AdminFolderSection
+          title="SESSION TIMEOUT"
+          description="모든 로그인 세션의 자동 로그아웃 기준 시간을 관리자 페이지에서 조정합니다."
+        >
 
           {sessionTimeoutError ? (
             <div className="theme-note-box mt-4 rounded-[20px] px-4 py-3 text-sm leading-relaxed">
@@ -874,17 +1447,126 @@ export default function AdminPage() {
               </div>
             </div>
           )}
-        </section>
+        </AdminFolderSection>
 
-        <section className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">
-          <div className="flex flex-wrap items-center justify-center gap-3 text-center">
-            <span
-              className="retro-title theme-heading px-1 py-1 tracking-[0.18em]"
-              style={{ fontSize: "clamp(1.5rem, 2.8vw, 1.75rem)" }}
-            >
-              USER LIST
+        <AdminFolderSection
+          title="MENU MANAGEMENT"
+          description="상단 메뉴에서 카테고리와 하위 메뉴를 관리자 페이지에서 직접 숨기거나 다시 보이게 할 수 있습니다."
+        >
+
+          {menuVisibilityError ? (
+            <div className="theme-note-box mt-4 rounded-[20px] px-4 py-3 text-sm leading-relaxed">
+              {menuVisibilityError}
+            </div>
+          ) : null}
+
+          {menuVisibilityLoading ? (
+            <div className="theme-note-box mt-4 rounded-[20px] px-4 py-4 text-sm text-center">
+              메뉴 표시 설정을 불러오는 중...
+            </div>
+          ) : (
+            <div className="mt-4 space-y-2.5">
+              {MENU_VISIBILITY_DEFINITIONS.map((item) => {
+                const isVisible = menuVisibilitySettings[item.key];
+                const isSaving =
+                  menuVisibilitySavingKey === getCategorySavingStateKey(item.key);
+
+                return (
+                  <div
+                    key={item.key}
+                    className="theme-note-box rounded-[20px] px-4 py-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="theme-heading text-sm font-semibold leading-relaxed">
+                          {item.label}
+                        </p>
+                        <p className="theme-copy mt-1 text-xs leading-relaxed sm:text-sm">
+                          {item.description}
+                        </p>
+                      </div>
+
+                      <label className="flex shrink-0 cursor-pointer items-center gap-2 pt-0.5">
+                        {isSaving ? (
+                          <span className="theme-copy text-xs leading-none">저장 중</span>
+                        ) : null}
+                        <span className="theme-copy text-xs font-semibold leading-none">
+                          {isVisible ? "보임" : "숨김"}
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={isVisible}
+                          disabled={menuVisibilitySavingKey !== null}
+                          onChange={(event) =>
+                            void handleMenuVisibilityToggle(item.key, event.target.checked)
+                          }
+                          className="h-4 w-4 shrink-0 cursor-pointer accent-[rgb(244,176,75)]"
+                        />
+                      </label>
+                    </div>
+
+                    {item.items?.length ? (
+                      <div className="mt-3 space-y-2 border-t border-[var(--border)]/70 pt-3">
+                        {item.items.map((childItem) => {
+                          const isChildVisible = menuVisibilityItems[childItem.key];
+                          const isChildSaving =
+                            menuVisibilitySavingKey === getItemSavingStateKey(childItem.key);
+
+                          return (
+                            <label
+                              key={childItem.key}
+                              className="flex cursor-pointer items-start justify-between gap-3 rounded-[16px] bg-[rgba(255,255,255,0.03)] px-3 py-2.5"
+                            >
+                              <div className="min-w-0">
+                                <p className="theme-heading text-sm font-semibold leading-relaxed">
+                                  {childItem.label}
+                                </p>
+                                <p className="theme-copy mt-1 text-[11px] leading-relaxed sm:text-xs">
+                                  {childItem.description}
+                                </p>
+                              </div>
+
+                              <div className="flex shrink-0 items-center gap-2 pt-0.5">
+                                {isChildSaving ? (
+                                  <span className="theme-copy text-xs leading-none">저장 중</span>
+                                ) : null}
+                                <span className="theme-copy text-xs font-semibold leading-none">
+                                  {isChildVisible ? "보임" : "숨김"}
+                                </span>
+                                <input
+                                  type="checkbox"
+                                  checked={isChildVisible}
+                                  disabled={menuVisibilitySavingKey !== null}
+                                  onChange={(event) =>
+                                    void handleMenuVisibilityItemToggle(
+                                      childItem.key,
+                                      event.target.checked
+                                    )
+                                  }
+                                  className="h-4 w-4 shrink-0 cursor-pointer accent-[rgb(244,176,75)]"
+                                />
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </AdminFolderSection>
+
+        <AdminFolderSection
+          title="USER LIST"
+          description="관리자 페이지에서 사용자 목록을 확인하고 권한 등급을 변경할 수 있습니다."
+          meta={
+            <span className="theme-chip-subtle px-3 py-1 text-xs sm:text-sm">
+              {managedUsers.length}명
             </span>
-          </div>
+          }
+        >
 
           {managedUsersError ? (
             <div className="theme-note-box mt-4 rounded-[20px] px-4 py-3 text-sm leading-relaxed">
@@ -906,16 +1588,38 @@ export default function AdminPage() {
                 <table className="admin-sheet-table admin-sheet-table--linear min-w-full w-max text-sm">
                   <thead>
                     <tr>
-                      <th>이름</th>
-                      <th>이메일</th>
-                      <th>연락처</th>
-                      <th>마지막 로그인</th>
-                      <th>마지막 웹 활동</th>
-                      <th className="w-[1%] whitespace-nowrap">변경 등급</th>
+                      {USER_LIST_SORT_COLUMNS.map((column) => {
+                        const isActive = userListSort.key === column.key;
+                        const ariaSort = isActive
+                          ? userListSort.direction === "asc"
+                            ? "ascending"
+                            : "descending"
+                          : "none";
+
+                        return (
+                          <th
+                            key={column.key}
+                            aria-sort={ariaSort}
+                            className={column.className}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleUserListSortChange(column.key)}
+                              className="flex w-full items-center gap-2 text-left transition hover:text-[var(--text-strong)]"
+                            >
+                              <span>{column.label}</span>
+                              <SortIndicator
+                                isActive={isActive}
+                                direction={userListSort.direction}
+                              />
+                            </button>
+                          </th>
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody>
-                    {managedUsers.map((managedUser) => {
+                    {sortedManagedUsers.map((managedUser) => {
                       const draftLevel =
                         userLevelDrafts[managedUser.user_id] ?? managedUser.current_user_level;
                       const availableLevels = managedUser.is_legacy_admin
@@ -990,18 +1694,18 @@ export default function AdminPage() {
               </div>
             </>
           )}
-        </section>
+        </AdminFolderSection>
 
         {isOperatorView ? (
-          <section className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">
-            <div className="flex flex-col items-center justify-center gap-3 text-center">
-              <h2 className="retro-title text-lg sm:text-xl" style={{ color: "inherit" }}>
-                LOG HISTORY
-              </h2>
+          <AdminFolderSection
+            title="LOG HISTORY"
+            description="운영자 권한 계정이 관리자 작업 이력을 접었다 펼치며 확인할 수 있습니다."
+            meta={
               <span className="theme-chip-subtle px-3 py-1.5 text-xs sm:text-sm">
                 {auditLogs.length}건
               </span>
-            </div>
+            }
+          >
 
             {auditLogsError ? (
               <div className="theme-note-box mt-4 rounded-[20px] px-4 py-3 text-sm leading-relaxed">
@@ -1069,7 +1773,7 @@ export default function AdminPage() {
                 </>
               )}
             </div>
-          </section>
+          </AdminFolderSection>
         ) : null}
       </div>
     </PageShell>

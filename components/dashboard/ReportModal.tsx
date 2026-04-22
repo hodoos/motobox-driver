@@ -1,5 +1,6 @@
 import { createPortal } from "react-dom";
-import { FreshbackRecoveryItemForm, ReportForm } from "../../types";
+import { formatMoney } from "../../lib/format";
+import { ExpenseItemForm, FreshbackRecoveryItemForm, ReportForm } from "../../types";
 
 const freshbackRecoveryPriceOptions = ["100", "150", "200"] as const;
 
@@ -11,6 +12,24 @@ function createFreshbackRecoveryItem(
     unit_price: overrides.unit_price ?? "",
     quantity: overrides.quantity ?? "",
   };
+}
+
+function createExpenseItem(
+  overrides: Partial<Omit<ExpenseItemForm, "key">> = {}
+): ExpenseItemForm {
+  return {
+    key: `expense-item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    description: overrides.description ?? "",
+    amount: overrides.amount ?? "",
+  };
+}
+
+function createDefaultExpenseItems(): ExpenseItemForm[] {
+  return [createExpenseItem()];
+}
+
+function getNormalizedExpenseItems(items?: ExpenseItemForm[]): ExpenseItemForm[] {
+  return items && items.length > 0 ? items : createDefaultExpenseItems();
 }
 
 function getNormalizedFreshbackRecoveryItems(
@@ -48,6 +67,11 @@ export default function ReportModal({
 
   const freshbackRecoveryItems = getNormalizedFreshbackRecoveryItems(
     reportForm.freshback_recovery_items
+  );
+  const expenseItems = getNormalizedExpenseItems(reportForm.expense_items);
+  const expenseTotal = expenseItems.reduce(
+    (sum, item) => sum + Number(item.amount || 0),
+    0
   );
 
   const handleFreshbackRecoveryChange = (
@@ -97,6 +121,54 @@ export default function ReportModal({
         prev.freshback_recovery_items
       ).filter((item) => item.key !== key),
     }));
+  };
+
+  const handleInsertExpenseRow = (key: string) => {
+    if (reportForm.is_day_off) {
+      return;
+    }
+
+    setReportForm((prev) => {
+      const currentItems = getNormalizedExpenseItems(prev.expense_items);
+      const sourceIndex = currentItems.findIndex((item) => item.key === key);
+      const insertIndex = sourceIndex >= 0 ? sourceIndex + 1 : currentItems.length;
+
+      return {
+        ...prev,
+        expense_items: [
+          ...currentItems.slice(0, insertIndex),
+          createExpenseItem(),
+          ...currentItems.slice(insertIndex),
+        ],
+      };
+    });
+  };
+
+  const handleExpenseChange = (
+    key: string,
+    field: Exclude<keyof ExpenseItemForm, "key">,
+    value: string
+  ) => {
+    setReportForm((prev) => ({
+      ...prev,
+      expense_items: getNormalizedExpenseItems(prev.expense_items).map((item) =>
+        item.key === key ? { ...item, [field]: value } : item
+      ),
+    }));
+  };
+
+  const handleRemoveExpense = (key: string) => {
+    setReportForm((prev) => {
+      const remainingItems = getNormalizedExpenseItems(prev.expense_items).filter(
+        (item) => item.key !== key
+      );
+
+      return {
+        ...prev,
+        expense_items:
+          remainingItems.length > 0 ? remainingItems : createDefaultExpenseItems(),
+      };
+    });
   };
 
   return createPortal(
@@ -161,6 +233,7 @@ export default function ReportModal({
                       ? [createFreshbackRecoveryItem()]
                       : prev.freshback_recovery_items,
                     additional_works: e.target.checked ? [] : prev.additional_works ?? [],
+                    expense_items: createDefaultExpenseItems(),
                   }))
                 }
               />
@@ -341,6 +414,69 @@ export default function ReportModal({
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="theme-copy text-[11px] font-semibold">
+                총 지출 {formatMoney(expenseTotal)}
+              </p>
+            </div>
+
+            <div className="mx-auto w-full max-w-[16rem] space-y-2">
+                {expenseItems.map((item, index) => (
+                  <div
+                    key={item.key}
+                    className="grid grid-cols-[minmax(0,1fr)_5.5rem_2.25rem] items-center gap-2.5"
+                  >
+                    <input
+                      type="text"
+                      aria-label={`지출 ${index + 1} 내용`}
+                      value={item.description}
+                      onChange={(e) =>
+                        handleExpenseChange(item.key, "description", e.target.value)
+                      }
+                      disabled={reportForm.is_day_off}
+                      placeholder="지출내용"
+                      className="h-10 px-3 py-2 text-left text-sm disabled:opacity-60"
+                    />
+
+                    <input
+                      type="number"
+                      aria-label={`지출 ${index + 1} 비용`}
+                      value={item.amount}
+                      onChange={(e) =>
+                        handleExpenseChange(item.key, "amount", e.target.value)
+                      }
+                      disabled={reportForm.is_day_off}
+                      placeholder="지출비용"
+                      className="no-spinner h-10 px-2.5 py-2 text-center text-sm disabled:opacity-60"
+                    />
+
+                    {index === 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => handleInsertExpenseRow(item.key)}
+                        disabled={reportForm.is_day_off}
+                        className="retro-button flex min-h-[34px] min-w-[34px] items-center justify-center px-2 py-1 text-xs font-semibold disabled:opacity-40"
+                        aria-label="지출 행 추가"
+                      >
+                        +
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveExpense(item.key)}
+                        disabled={reportForm.is_day_off}
+                        className="retro-button flex min-h-[34px] min-w-[34px] items-center justify-center px-2 py-1 text-xs font-semibold disabled:opacity-40"
+                        aria-label={`지출 ${index + 1} 삭제`}
+                      >
+                        X
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
           </div>
 
           <div className="space-y-1">
