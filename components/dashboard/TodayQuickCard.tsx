@@ -1,6 +1,12 @@
 import type { CSSProperties } from "react";
 import { toDateString } from "../../lib/format";
-import { AdditionalWorkItemForm, ReportForm } from "../../types";
+import {
+  AdditionalWorkItemForm,
+  FreshbackRecoveryItemForm,
+  ReportForm,
+} from "../../types";
+
+const freshbackRecoveryPriceOptions = ["100", "150", "200"] as const;
 
 const compactInputStyle = {
   width: "100%",
@@ -20,6 +26,22 @@ function createAdditionalWorkItem(): AdditionalWorkItemForm {
     returned_count: "",
     canceled_count: "",
   };
+}
+
+function createFreshbackRecoveryItem(
+  overrides: Partial<Omit<FreshbackRecoveryItemForm, "key">> = {}
+): FreshbackRecoveryItemForm {
+  return {
+    key: `freshback-recovery-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    unit_price: overrides.unit_price ?? "",
+    quantity: overrides.quantity ?? "",
+  };
+}
+
+function getNormalizedFreshbackRecoveryItems(
+  items?: FreshbackRecoveryItemForm[]
+): FreshbackRecoveryItemForm[] {
+  return items && items.length > 0 ? items : [createFreshbackRecoveryItem()];
 }
 
 function parseDateKey(dateKey: string) {
@@ -70,6 +92,9 @@ export default function TodayQuickCard({
   const canMoveToPreviousDate = previousDate >= minDate;
   const canMoveToNextDate = nextDate <= maxDate;
   const additionalWorks = reportForm.additional_works ?? [];
+  const freshbackRecoveryItems = getNormalizedFreshbackRecoveryItems(
+    reportForm.freshback_recovery_items
+  );
 
   const handleAddAdditionalWork = () => {
     if (reportForm.is_day_off) {
@@ -104,6 +129,55 @@ export default function TodayQuickCard({
     }));
   };
 
+  const handleFreshbackRecoveryChange = (
+    key: string,
+    field: Exclude<keyof FreshbackRecoveryItemForm, "key">,
+    value: string
+  ) => {
+    setReportForm((prev) => ({
+      ...prev,
+      freshback_recovery_items: getNormalizedFreshbackRecoveryItems(
+        prev.freshback_recovery_items
+      ).map((item) => (item.key === key ? { ...item, [field]: value } : item)),
+    }));
+  };
+
+  const handleCloneFreshbackRecovery = (key: string) => {
+    if (reportForm.is_day_off) {
+      return;
+    }
+
+    setReportForm((prev) => {
+      const currentItems = getNormalizedFreshbackRecoveryItems(
+        prev.freshback_recovery_items
+      );
+      const sourceIndex = currentItems.findIndex((item) => item.key === key);
+      const safeSourceIndex = sourceIndex >= 0 ? sourceIndex : currentItems.length - 1;
+      const sourceItem = currentItems[safeSourceIndex] ?? createFreshbackRecoveryItem();
+
+      return {
+        ...prev,
+        freshback_recovery_items: [
+          ...currentItems.slice(0, safeSourceIndex + 1),
+          createFreshbackRecoveryItem({
+            unit_price: sourceItem.unit_price,
+            quantity: sourceItem.quantity,
+          }),
+          ...currentItems.slice(safeSourceIndex + 1),
+        ],
+      };
+    });
+  };
+
+  const handleRemoveFreshbackRecovery = (key: string) => {
+    setReportForm((prev) => ({
+      ...prev,
+      freshback_recovery_items: getNormalizedFreshbackRecoveryItems(
+        prev.freshback_recovery_items
+      ).filter((item) => item.key !== key),
+    }));
+  };
+
   return (
     <div className="retro-panel rounded-[24px] p-4 sm:rounded-[28px] sm:p-5">
       <div className="space-y-5">
@@ -127,6 +201,9 @@ export default function TodayQuickCard({
                     delivered_count: e.target.checked ? "" : prev.delivered_count,
                     returned_count: e.target.checked ? "" : prev.returned_count,
                     canceled_count: e.target.checked ? "" : prev.canceled_count,
+                    freshback_recovery_items: e.target.checked
+                      ? [createFreshbackRecoveryItem()]
+                      : prev.freshback_recovery_items,
                     additional_works: e.target.checked ? [] : prev.additional_works ?? [],
                   }));
                 }}
@@ -175,7 +252,7 @@ export default function TodayQuickCard({
           </p>
         </div>
 
-        <div className="mx-auto grid w-full max-w-[20rem] grid-cols-2 justify-items-center gap-x-3 gap-y-4 sm:gap-x-4">
+        <div className="mx-auto grid w-full max-w-[20rem] grid-cols-1 justify-items-center gap-x-3 gap-y-4 min-[360px]:grid-cols-2 sm:gap-x-4">
           <div className="flex w-full max-w-[8rem] flex-col items-center space-y-2">
             <label className="theme-label block text-center text-sm font-semibold">
               단가
@@ -211,8 +288,10 @@ export default function TodayQuickCard({
               style={{ ...compactInputStyle, marginBottom: "12px" }}
             />
           </div>
+        </div>
 
-          <div className="flex w-full max-w-[8rem] flex-col items-center space-y-2">
+        <div className="mx-auto grid w-full max-w-[20rem] grid-cols-[minmax(0,6.8rem)_minmax(0,1fr)] items-start gap-3">
+          <div className="flex w-full min-w-0 flex-col items-center space-y-2">
             <label className="theme-label block text-center text-sm font-semibold">
               반품
             </label>
@@ -228,58 +307,147 @@ export default function TodayQuickCard({
             />
           </div>
 
-          <div className="flex w-full max-w-[8rem] flex-col items-center space-y-2">
-            <label className="theme-label block text-center text-sm font-semibold">
+          <div className="flex w-full min-w-0 flex-col items-center space-y-2">
+            <label className="theme-label block w-full text-center text-sm font-semibold">
               취소
             </label>
-            <input
-              type="number"
-              name="canceled_count"
-              value={reportForm.canceled_count}
-              onChange={handleReportChange}
-              disabled={reportForm.is_day_off}
-              placeholder="취소"
-              className="no-spinner px-4 py-3 text-center disabled:opacity-60"
-              style={{ ...compactInputStyle, marginBottom: "12px" }}
-            />
-            <div className="flex flex-col items-center gap-1 text-[11px]">
-              <label className="flex items-center gap-1.5">
-                <input
-                  type="checkbox"
-                  checked={reportForm.include_canceled_in_sales}
-                  disabled={reportForm.is_day_off}
-                  onChange={(event) => {
-                    if (!event.target.checked) {
-                      return;
-                    }
+            <div className="flex w-full min-w-0 items-start gap-2">
+              <input
+                type="number"
+                name="canceled_count"
+                value={reportForm.canceled_count}
+                onChange={handleReportChange}
+                disabled={reportForm.is_day_off}
+                placeholder="취소"
+                className="no-spinner w-full min-w-0 max-w-[6.5rem] px-4 py-3 text-center disabled:opacity-60"
+              />
+              <div className="flex min-w-0 flex-col items-start gap-1 pt-1 text-[11px]">
+                <label className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={reportForm.include_canceled_in_sales}
+                    disabled={reportForm.is_day_off}
+                    onChange={(event) => {
+                      if (!event.target.checked) {
+                        return;
+                      }
 
-                    setReportForm((prev) => ({
-                      ...prev,
-                      include_canceled_in_sales: true,
-                    }));
-                  }}
-                />
-                취소건 포함
-              </label>
-              <label className="flex items-center gap-1.5">
-                <input
-                  type="checkbox"
-                  checked={!reportForm.include_canceled_in_sales}
-                  disabled={reportForm.is_day_off}
-                  onChange={(event) => {
-                    if (!event.target.checked) {
-                      return;
-                    }
+                      setReportForm((prev) => ({
+                        ...prev,
+                        include_canceled_in_sales: true,
+                      }));
+                    }}
+                  />
+                  취소건 포함
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={!reportForm.include_canceled_in_sales}
+                    disabled={reportForm.is_day_off}
+                    onChange={(event) => {
+                      if (!event.target.checked) {
+                        return;
+                      }
 
-                    setReportForm((prev) => ({
-                      ...prev,
-                      include_canceled_in_sales: false,
-                    }));
-                  }}
-                />
-                취소건 미포함
-              </label>
+                      setReportForm((prev) => ({
+                        ...prev,
+                        include_canceled_in_sales: false,
+                      }));
+                    }}
+                  />
+                  취소건 미포함
+                </label>
+              </div>
             </div>
+          </div>
+        </div>
+
+        <div className="mx-auto w-full max-w-[20rem] space-y-2">
+          <label className="theme-label block text-center text-sm font-semibold">
+            프레쉬백 회수
+          </label>
+          <div className="space-y-2.5">
+            {freshbackRecoveryItems.map((item, index) => (
+              <div
+                key={item.key}
+                className="grid grid-cols-2 items-end gap-2 min-[360px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_5rem]"
+              >
+                  <div className="space-y-1">
+                    <label className="theme-label block text-center text-[11px] font-semibold">
+                      가격
+                    </label>
+                    <select
+                      value={item.unit_price}
+                      onChange={(e) =>
+                        handleFreshbackRecoveryChange(item.key, "unit_price", e.target.value)
+                      }
+                      disabled={reportForm.is_day_off}
+                      className="px-3 py-2 text-center disabled:opacity-60"
+                      style={inlineInputStyle}
+                    >
+                      <option value="">가격 선택</option>
+                      {freshbackRecoveryPriceOptions.map((price) => (
+                        <option key={price} value={price}>
+                          {price}원
+                        </option>
+                      ))}
+                      {item.unit_price &&
+                      !freshbackRecoveryPriceOptions.includes(
+                        item.unit_price as (typeof freshbackRecoveryPriceOptions)[number]
+                      ) ? (
+                        <option value={item.unit_price}>{item.unit_price}원</option>
+                      ) : null}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="theme-label block text-center text-[11px] font-semibold">
+                      갯수
+                    </label>
+                    <input
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) =>
+                        handleFreshbackRecoveryChange(item.key, "quantity", e.target.value)
+                      }
+                      disabled={reportForm.is_day_off}
+                      placeholder="갯수"
+                      className="no-spinner px-3 py-2 text-center disabled:opacity-60"
+                      style={inlineInputStyle}
+                    />
+                  </div>
+
+                  <div className="col-span-2 flex justify-end gap-1.5 pt-0 min-[360px]:col-span-1 min-[360px]:grid min-[360px]:h-full min-[360px]:grid-cols-2 min-[360px]:items-center min-[360px]:justify-items-end min-[360px]:pt-5">
+                    {index === 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => handleCloneFreshbackRecovery(item.key)}
+                        disabled={reportForm.is_day_off}
+                        className="retro-button min-h-[36px] min-w-[36px] px-2 py-1.5 text-xs font-semibold disabled:cursor-default disabled:opacity-40"
+                        aria-label={`프레쉬백 회수 ${index + 1} 복사`}
+                      >
+                        +
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFreshbackRecovery(item.key)}
+                        disabled={reportForm.is_day_off}
+                        className="retro-button min-h-[36px] min-w-[36px] px-2 py-1.5 text-xs font-semibold disabled:cursor-default disabled:opacity-40"
+                        aria-label={`프레쉬백 회수 ${index + 1} 삭제`}
+                      >
+                        x
+                      </button>
+                    )}
+                    {index > 0 ? (
+                      <span aria-hidden="true" className="block h-[36px] w-[36px]" />
+                    ) : (
+                      <span aria-hidden="true" className="block h-[36px] w-[36px]" />
+                    )}
+                  </div>
+              </div>
+            ))}
           </div>
         </div>
 

@@ -48,6 +48,7 @@ import {
   AdditionalWorkItemForm,
   DailyReportRow,
   DriverSettings,
+  FreshbackRecoveryItemForm,
   ReportForm,
   UserType,
 } from "../../types";
@@ -383,6 +384,7 @@ function DashboardHomeSortableSection({
 }
 
 type StoredAdditionalWorkItem = Omit<AdditionalWorkItemForm, "key">;
+type StoredFreshbackRecoveryItem = Omit<FreshbackRecoveryItemForm, "key">;
 
 const LEGACY_ADDITIONAL_WORK_MEMO_MARKER =
   /\n?\[\[MOTOBOX_ADDITIONAL_WORK:([0-9]+(?:\.[0-9]+)?)\]\]$/;
@@ -390,6 +392,7 @@ const ADDITIONAL_WORKS_MEMO_MARKER = /\n?\[\[MOTOBOX_ADDITIONAL_WORKS:([\s\S]+)\
 const REPORT_META_MEMO_MARKER = /\n?\[\[MOTOBOX_REPORT_META:([\s\S]+)\]\]$/;
 
 let additionalWorkKeySeed = 0;
+let freshbackRecoveryKeySeed = 0;
 
 function createAdditionalWorkItem(
   overrides: Partial<StoredAdditionalWorkItem> = {}
@@ -411,6 +414,90 @@ function hasAdditionalWorkValues(item: StoredAdditionalWorkItem | AdditionalWork
       item.delivered_count.trim() ||
       item.returned_count.trim() ||
       item.canceled_count.trim()
+  );
+}
+
+function createFreshbackRecoveryItem(
+  overrides: Partial<StoredFreshbackRecoveryItem> = {}
+): FreshbackRecoveryItemForm {
+  freshbackRecoveryKeySeed += 1;
+
+  return {
+    key: `freshback-recovery-${freshbackRecoveryKeySeed}`,
+    unit_price: overrides.unit_price ?? "",
+    quantity: overrides.quantity ?? "",
+  };
+}
+
+function createDefaultFreshbackRecoveryItems(): FreshbackRecoveryItemForm[] {
+  return [createFreshbackRecoveryItem()];
+}
+
+function ensureFreshbackRecoveryItems(
+  items: FreshbackRecoveryItemForm[]
+): FreshbackRecoveryItemForm[] {
+  return items.length > 0 ? items : createDefaultFreshbackRecoveryItems();
+}
+
+function hasFreshbackRecoveryItemValues(
+  item: StoredFreshbackRecoveryItem | FreshbackRecoveryItemForm
+) {
+  return Boolean(item.unit_price.trim() || item.quantity.trim());
+}
+
+function mapStoredFreshbackRecovery(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map((item) =>
+      createFreshbackRecoveryItem({
+        unit_price:
+          typeof item?.unit_price === "string"
+            ? item.unit_price
+            : String(item?.unit_price ?? ""),
+        quantity:
+          typeof item?.quantity === "string"
+            ? item.quantity
+            : String(item?.quantity ?? ""),
+      })
+    );
+  }
+
+  if (!isRecord(value)) {
+    return [] as FreshbackRecoveryItemForm[];
+  }
+
+  return [
+    createFreshbackRecoveryItem({
+      unit_price: "100",
+      quantity:
+        typeof value.count100 === "string"
+          ? value.count100
+          : String(value.count100 ?? ""),
+    }),
+    createFreshbackRecoveryItem({
+      unit_price: "150",
+      quantity:
+        typeof value.count150 === "string"
+          ? value.count150
+          : String(value.count150 ?? ""),
+    }),
+    createFreshbackRecoveryItem({
+      unit_price: "200",
+      quantity:
+        typeof value.count200 === "string"
+          ? value.count200
+          : String(value.count200 ?? ""),
+    }),
+  ].filter(hasFreshbackRecoveryItemValues);
+}
+
+function hasFreshbackRecoveryValues(value: FreshbackRecoveryItemForm[]) {
+  return value.some(hasFreshbackRecoveryItemValues);
+}
+
+function getFreshbackRecoverySales(value: FreshbackRecoveryItemForm[]) {
+  return value.reduce(
+    (sum, item) => sum + Number(item.unit_price || 0) * Number(item.quantity || 0),
+    0
   );
 }
 
@@ -481,6 +568,7 @@ function parseStoredMemo(rawMemo?: string | null) {
       memo: "",
       additionalWorks: [] as AdditionalWorkItemForm[],
       includeCanceledInSales: false,
+      freshbackRecoveryItems: [] as FreshbackRecoveryItemForm[],
     };
   }
 
@@ -492,18 +580,21 @@ function parseStoredMemo(rawMemo?: string | null) {
       const parsed = JSON.parse(decoded) as {
         additionalWorks?: unknown;
         includeCanceledInSales?: unknown;
+        freshbackRecovery?: unknown;
       };
 
       return {
         memo: rawMemo.slice(0, reportMetaMatch.index).trimEnd(),
         additionalWorks: mapStoredAdditionalWorks(parsed.additionalWorks),
         includeCanceledInSales: parsed.includeCanceledInSales === true,
+        freshbackRecoveryItems: mapStoredFreshbackRecovery(parsed.freshbackRecovery),
       };
     } catch {
       return {
         memo: rawMemo,
         additionalWorks: [] as AdditionalWorkItemForm[],
         includeCanceledInSales: false,
+        freshbackRecoveryItems: [] as FreshbackRecoveryItemForm[],
       };
     }
   }
@@ -520,6 +611,7 @@ function parseStoredMemo(rawMemo?: string | null) {
           memo: rawMemo.slice(0, worksMatch.index).trimEnd(),
           additionalWorks: mapStoredAdditionalWorks(parsed),
           includeCanceledInSales: false,
+          freshbackRecoveryItems: [] as FreshbackRecoveryItemForm[],
         };
       }
     } catch {
@@ -527,6 +619,7 @@ function parseStoredMemo(rawMemo?: string | null) {
         memo: rawMemo,
         additionalWorks: [] as AdditionalWorkItemForm[],
         includeCanceledInSales: false,
+        freshbackRecoveryItems: [] as FreshbackRecoveryItemForm[],
       };
     }
   }
@@ -538,6 +631,7 @@ function parseStoredMemo(rawMemo?: string | null) {
       memo: rawMemo.slice(0, legacyMatch.index).trimEnd(),
       additionalWorks: [createAdditionalWorkItem({ unit_price: legacyMatch[1] ?? "" })],
       includeCanceledInSales: false,
+      freshbackRecoveryItems: [] as FreshbackRecoveryItemForm[],
     };
   }
 
@@ -545,13 +639,15 @@ function parseStoredMemo(rawMemo?: string | null) {
     memo: rawMemo,
     additionalWorks: [] as AdditionalWorkItemForm[],
     includeCanceledInSales: false,
+    freshbackRecoveryItems: [] as FreshbackRecoveryItemForm[],
   };
 }
 
 function buildStoredMemo(
   memo: string,
   additionalWorks: AdditionalWorkItemForm[],
-  includeCanceledInSales: boolean
+  includeCanceledInSales: boolean,
+  freshbackRecoveryItems: FreshbackRecoveryItemForm[]
 ) {
   const trimmedMemo = memo.trimEnd();
   const sanitizedAdditionalWorks = additionalWorks
@@ -563,7 +659,19 @@ function buildStoredMemo(
       canceled_count,
     }));
 
-  if (sanitizedAdditionalWorks.length === 0 && !includeCanceledInSales) {
+  const sanitizedFreshbackRecovery = freshbackRecoveryItems
+    .filter(hasFreshbackRecoveryItemValues)
+    .map(({ unit_price, quantity }) => ({
+      unit_price,
+      quantity,
+    }));
+  const hasFreshbackRecovery = sanitizedFreshbackRecovery.length > 0;
+
+  if (
+    sanitizedAdditionalWorks.length === 0 &&
+    !includeCanceledInSales &&
+    !hasFreshbackRecovery
+  ) {
     return trimmedMemo;
   }
 
@@ -571,6 +679,7 @@ function buildStoredMemo(
     JSON.stringify({
       additionalWorks: sanitizedAdditionalWorks,
       includeCanceledInSales,
+      freshbackRecovery: hasFreshbackRecovery ? sanitizedFreshbackRecovery : undefined,
     })
   )}]]`;
 
@@ -588,6 +697,7 @@ function createEmptyReportForm(dateKey: string): ReportForm {
     is_day_off: false,
     unit_price_override: "",
     additional_works: [],
+    freshback_recovery_items: createDefaultFreshbackRecoveryItems(),
   };
 }
 
@@ -622,6 +732,9 @@ function getReportFormForDate(rows: DailyReportRow[], dateKey: string): ReportFo
       ? String(report.unit_price_override)
       : "",
     additional_works: parsedMemo.additionalWorks,
+    freshback_recovery_items: ensureFreshbackRecoveryItems(
+      parsedMemo.freshbackRecoveryItems
+    ),
   };
 }
 
@@ -859,6 +972,16 @@ export default function DashboardPage() {
   );
   const activeHomeDashboardLayout = visibleDashboardHomeLayoutDraft;
   const activeHomeDashboardLayoutIds = activeHomeDashboardLayout.map((item) => item.id);
+  const dashboardHomeLayoutEditorItems = useMemo(
+    () =>
+      [...dashboardHomeLayoutDraft].sort((leftItem, rightItem) =>
+        DASHBOARD_HOME_LAYOUT_LABELS[leftItem.id].localeCompare(
+          DASHBOARD_HOME_LAYOUT_LABELS[rightItem.id],
+          "ko"
+        )
+      ),
+    [dashboardHomeLayoutDraft]
+  );
   const isQuickEntryVisibleOnHome = visibleDashboardHomeLayout.some(
     (item) => item.id === "today-quick-card"
   );
@@ -1222,6 +1345,9 @@ export default function DashboardPage() {
           ? String(existing.unit_price_override)
           : "",
         additional_works: parsedMemo.additionalWorks,
+        freshback_recovery_items: ensureFreshbackRecoveryItems(
+          parsedMemo.freshbackRecoveryItems
+        ),
       });
     } else {
       setReportForm(createEmptyReportForm(nextQuickEntryDate));
@@ -1238,6 +1364,9 @@ export default function DashboardPage() {
 
     const additionalWorks = form.additional_works ?? [];
     const sanitizedAdditionalWorks = additionalWorks.filter(hasAdditionalWorkValues);
+    const freshbackRecovery = form.is_day_off
+      ? []
+      : form.freshback_recovery_items ?? [];
     const additionalWorkMetrics = form.is_day_off
       ? {
           deliveredCount: 0,
@@ -1272,7 +1401,8 @@ export default function DashboardPage() {
       form.canceled_count === "" &&
       form.memo.trim() === "" &&
       form.unit_price_override === "" &&
-      sanitizedAdditionalWorks.length === 0;
+      sanitizedAdditionalWorks.length === 0 &&
+      !hasFreshbackRecoveryValues(form.freshback_recovery_items ?? []);
 
     if (isEmptyReport) {
       const { error } = await supabase
@@ -1303,7 +1433,8 @@ export default function DashboardPage() {
     const storedMemo = buildStoredMemo(
       form.memo,
       form.is_day_off ? [] : sanitizedAdditionalWorks,
-      form.include_canceled_in_sales
+      form.include_canceled_in_sales,
+      freshbackRecovery
     );
     const payload = {
       user_id: user.id,
@@ -1321,7 +1452,8 @@ export default function DashboardPage() {
             form.include_canceled_in_sales,
             appliedUnitPrice
           ) +
-          additionalWorkMetrics.sales,
+          additionalWorkMetrics.sales +
+          getFreshbackRecoverySales(freshbackRecovery),
       is_day_off: form.is_day_off,
       unit_price_override: form.unit_price_override
         ? Number(form.unit_price_override)
@@ -2046,7 +2178,7 @@ export default function DashboardPage() {
               <div className="mt-2.5 space-y-2.5">
                 <div className="max-h-[14rem] overflow-y-auto pr-1">
                   <div className="grid gap-1.5 sm:grid-cols-2">
-                    {dashboardHomeLayoutDraft.map((item) => (
+                    {dashboardHomeLayoutEditorItems.map((item) => (
                       <DashboardHomeLayoutEditorItem
                         key={item.id}
                         item={item}

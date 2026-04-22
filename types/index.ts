@@ -48,6 +48,12 @@ export type AdditionalWorkItemForm = {
   canceled_count: string;
 };
 
+export type FreshbackRecoveryItemForm = {
+  key: string;
+  unit_price: string;
+  quantity: string;
+};
+
 export type ReportForm = {
   report_date: string;
   delivered_count: string;
@@ -58,6 +64,7 @@ export type ReportForm = {
   is_day_off: boolean;
   unit_price_override: string;
   additional_works: AdditionalWorkItemForm[];
+  freshback_recovery_items: FreshbackRecoveryItemForm[];
 };
 
 export type DailyReportRow = {

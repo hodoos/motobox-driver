@@ -13,6 +13,7 @@ export function hasWorkActivity(report?: DailyReportRow | null) {
       (report.delivered_count > 0 ||
         report.returned_count > 0 ||
         report.canceled_count > 0 ||
+        report.daily_sales > 0 ||
         (report.memo && report.memo.trim() !== "") ||
         report.unit_price_override)
   );
