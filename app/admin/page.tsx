@@ -1386,7 +1386,7 @@ export default function AdminPage() {
   }
 
   return (
-    <PageShell contentClassName="flex w-full max-w-[34rem] flex-col gap-4 sm:max-w-2xl lg:max-w-5xl">
+    <PageShell contentClassName="flex w-full min-w-0 max-w-[34rem] flex-col gap-4 sm:max-w-2xl lg:max-w-5xl">
       <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
 
       <div className="flex w-full flex-col gap-4">

@@ -75,7 +75,7 @@ export default function VendorPage() {
   }
 
   return (
-    <PageShell contentClassName="flex w-full max-w-[34rem] flex-col gap-4 sm:max-w-2xl lg:max-w-4xl">
+    <PageShell contentClassName="flex w-full min-w-0 max-w-[34rem] flex-col gap-4 sm:max-w-2xl lg:max-w-4xl">
       <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
 
       <section className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">

@@ -2100,17 +2100,17 @@ export default function DashboardPage() {
                 type="button"
                 key={item.dateKey}
                 onClick={() => openReportModal(item.dateKey)}
-                className="theme-note-box flex w-full items-center justify-between gap-3 rounded-[20px] px-4 py-3 text-left transition active:scale-[0.99] hover:translate-y-[-1px]"
+                className="theme-note-box flex w-full flex-col items-start gap-3 rounded-[20px] px-4 py-3 text-left transition active:scale-[0.99] hover:-translate-y-px sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
                   <p className="theme-copy text-sm leading-relaxed sm:text-base">
                     {item.dateLabel}
                   </p>
                 </div>
-                <p className="theme-copy shrink-0 text-sm leading-relaxed sm:text-base">
+                <p className="theme-copy text-sm leading-relaxed sm:shrink-0 sm:text-base">
                   {item.quantityLabel}
                 </p>
-                <div className="flex shrink-0 items-center gap-4 text-right sm:gap-5">
+                <div className="flex w-full items-center justify-between gap-4 text-right sm:w-auto sm:shrink-0 sm:gap-5">
                   <p className="theme-heading whitespace-nowrap text-base font-semibold sm:text-lg">
                     {item.salesLabel}
                   </p>
@@ -2227,7 +2227,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <PageShell contentClassName="flex w-full max-w-[34rem] flex-col gap-3 sm:gap-4 sm:max-w-2xl lg:max-w-4xl">
+    <PageShell contentClassName="flex w-full min-w-0 max-w-[34rem] flex-col gap-3 sm:max-w-2xl sm:gap-4 xl:max-w-5xl">
       <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
       <div className="flex w-full flex-col gap-3 sm:gap-4">
         {showSummaryStrip ? (
@@ -2254,10 +2254,10 @@ export default function DashboardPage() {
 
         {isHomeDashboardSection ? (
           <section className="retro-panel rounded-[22px] px-3 py-3 sm:rounded-[24px] sm:px-4 sm:py-3">
-            <div className="grid min-h-[34px] grid-cols-[1fr_auto_1fr] items-center gap-3">
-              <div aria-hidden="true" />
+            <div className="flex flex-col gap-3 sm:grid sm:min-h-[34px] sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+              <div aria-hidden="true" className="hidden sm:block" />
 
-              <div className="flex min-w-0 items-center justify-center gap-2.5 text-center">
+              <div className="flex min-w-0 flex-wrap items-center justify-center gap-2.5 text-center">
                 <p className="retro-title theme-heading text-sm sm:text-base">
                   홈 화면 편집
                 </p>
@@ -2266,7 +2266,7 @@ export default function DashboardPage() {
                 ) : null}
               </div>
 
-              <div className="flex shrink-0 items-center justify-self-end gap-2">
+              <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-self-end">
                 <button
                   type="button"
                   onClick={() =>

@@ -659,25 +659,24 @@ export default function SettingsPage() {
   const loginIdLocked = Boolean(normalizeLoginId(user?.login_id));
 
   return (
-    <PageShell contentClassName="flex w-full max-w-[34rem] flex-col gap-4 sm:max-w-2xl sm:gap-5">
+    <PageShell contentClassName="flex w-full min-w-0 max-w-[34rem] flex-col gap-4 sm:max-w-2xl sm:gap-5">
       <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
       <div className="flex w-full flex-col gap-4 sm:gap-5">
         <div className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">
           <div className="space-y-3">
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-              <div aria-hidden="true" />
+            <div className="flex flex-col gap-3 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-4">
+              <div aria-hidden="true" className="hidden sm:block" />
 
-              <div className="text-center">
+              <div className="text-center sm:col-start-2">
                 <h1 className="retro-title theme-heading text-xl leading-none sm:text-2xl md:text-[1.9rem]">
                   설정
                 </h1>
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-center sm:justify-end">
                 <button
                   onClick={() => router.push("/dashboard")}
-                  className="retro-button min-h-[38px] px-3.5 py-1.5 text-[12px] font-semibold sm:text-xs"
-                  style={{ marginRight: "0.875rem" }}
+                  className="retro-button min-h-[38px] px-3.5 py-1.5 text-[12px] font-semibold sm:mr-[0.875rem] sm:text-xs"
                 >
                   돌아가기
                 </button>

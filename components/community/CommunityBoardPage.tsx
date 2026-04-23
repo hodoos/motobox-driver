@@ -486,7 +486,7 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
   };
 
   return (
-    <PageShell contentClassName="flex w-full max-w-[34rem] flex-col gap-4 sm:max-w-3xl xl:max-w-6xl">
+    <PageShell contentClassName="flex w-full min-w-0 max-w-[34rem] flex-col gap-4 sm:max-w-3xl xl:max-w-6xl">
       <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
 
       <section className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">
@@ -509,26 +509,26 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
       </section>
 
       <section className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
             <p className="theme-kicker text-[11px] sm:text-xs">BOARD POSTS</p>
             <h2 className="retro-title theme-heading mt-2 text-lg sm:text-xl">
               게시글 목록
             </h2>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
             <input
               type="search"
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
               placeholder="제목, 내용, 작성자 검색"
-              className="w-full min-w-[14rem] px-4 py-3 text-sm sm:text-base"
+              className="w-full min-w-0 px-4 py-3 text-sm sm:min-w-[16rem] sm:text-base lg:w-[18rem]"
             />
             <button
               type="button"
               onClick={handleCreateStart}
-              className="retro-button-solid min-h-[44px] px-4 py-2 text-sm font-semibold"
+              className="retro-button-solid min-h-[44px] w-full px-4 py-2 text-sm font-semibold sm:w-auto"
             >
               새 글 작성
             </button>
@@ -537,7 +537,59 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
 
         <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.95fr)]">
           <div className="overflow-hidden rounded-[22px] border border-[var(--border)] bg-[rgba(8,8,10,0.86)]">
-            <div className="overflow-x-auto">
+            <div className="space-y-2.5 p-3 lg:hidden">
+              {filteredPosts.length > 0 ? (
+                filteredPosts.map((post, index) => {
+                  const active = selectedPostId === post.id;
+
+                  return (
+                    <button
+                      key={post.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPostId(post.id);
+                        setEditorMode(null);
+                      }}
+                      className={`theme-note-box w-full rounded-[20px] px-4 py-4 text-left ${
+                        active ? "border-[rgba(255,255,255,0.22)] bg-[rgba(255,255,255,0.11)]" : ""
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] text-[var(--text-muted)]">
+                            No. {filteredPosts.length - index}
+                          </p>
+                          <p className="theme-heading mt-1 text-sm font-semibold leading-snug text-[var(--text-strong)]">
+                            {post.title}
+                          </p>
+                          <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">
+                            {post.body.slice(0, 110)}
+                            {post.body.length > 110 ? "..." : ""}
+                          </p>
+                        </div>
+
+                        <span className="theme-chip-subtle shrink-0 px-2.5 py-1 text-[11px]">
+                          {post.author_level}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-[var(--text-muted)]">
+                        <span>작성자: {post.author_name || post.author_email || "작성자"}</span>
+                        <span>수정: {formatPostTimestamp(post.updated_at)}</span>
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="theme-note-box rounded-[20px] px-4 py-8 text-center text-sm text-[var(--text-muted)]">
+                  {posts.length > 0
+                    ? "검색 조건에 맞는 게시글이 없습니다."
+                    : "아직 등록된 게시글이 없습니다. 첫 글을 작성해보세요."}
+                </div>
+              )}
+            </div>
+
+            <div className="hidden overflow-x-auto lg:block">
               <table className="min-w-[860px] w-full border-collapse text-sm">
                 <thead>
                   <tr className="bg-[rgba(255,255,255,0.09)] text-[var(--text-strong)]">

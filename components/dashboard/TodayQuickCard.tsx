@@ -543,7 +543,7 @@ export default function TodayQuickCard({
         />
 
         <div className="mx-auto w-full max-w-[16rem] space-y-3 sm:max-w-[17rem]">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <p className="theme-copy text-xs font-semibold">
                 총 지출 {formatMoney(expenseTotal)}
               </p>
@@ -552,7 +552,7 @@ export default function TodayQuickCard({
             {expenseItems.map((item, index) => (
               <div
                 key={item.key}
-                className="grid grid-cols-[minmax(0,1fr)_5.5rem_2.25rem] items-center gap-2.5"
+                className="grid grid-cols-[minmax(0,1fr)_4.75rem_2.25rem] items-center gap-2 min-[380px]:grid-cols-[minmax(0,1fr)_5.5rem_2.25rem] min-[380px]:gap-2.5"
               >
                   <input
                     type="text"

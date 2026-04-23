@@ -641,31 +641,31 @@ export default function AppTopBar() {
   const authButtonLabel = authPending ? "처리 중" : isLoggedIn ? "로그아웃" : "로그인";
   const themeButtonLabel =
     themeMode === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환";
-  const topBarWidthClass = isLandingPage ? "max-w-[22rem] sm:max-w-[24rem]" : "max-w-5xl";
+  const topBarWidthClass = isLandingPage ? "max-w-[22rem] sm:max-w-[24rem]" : "max-w-6xl";
   const topBarPanelClass = isLandingPage
     ? "landing-topbar-fx rounded-[22px] px-2.5 py-1.5 sm:rounded-[24px] sm:px-3 sm:py-2"
-    : "rounded-[18px] px-2.5 py-2.5 sm:rounded-[20px] sm:px-3 sm:py-3";
+    : "rounded-[18px] px-2 py-2 sm:rounded-[20px] sm:px-3 sm:py-2.5";
   const topBarLayoutClass = isLandingPage
     ? "flex items-center gap-2.5 sm:gap-3"
-    : "grid grid-cols-[2.25rem_1fr_auto] items-center gap-2 sm:grid-cols-[2.5rem_1fr_auto] sm:gap-2.5";
+    : "grid min-w-0 grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto] sm:gap-2.5";
   const topBarStartClass = isLandingPage
     ? "flex min-w-[2.25rem] shrink-0 items-center justify-start sm:min-w-[2.5rem]"
-    : "relative justify-self-start";
+    : "flex items-center justify-self-start";
   const topBarCenterClass = isLandingPage
     ? "flex min-w-0 flex-1 items-center justify-center"
-    : "justify-self-center";
+    : "flex min-w-0 items-center justify-center px-1";
   const topBarEndClass = isLandingPage
     ? "flex min-w-[2.25rem] shrink-0 items-center justify-end gap-1.5 sm:min-w-[2.5rem] sm:gap-2"
-    : "flex items-center justify-self-end gap-1.5 sm:gap-2";
+    : "flex min-w-0 flex-wrap items-center justify-self-end gap-1.5 sm:gap-2";
   const iconButtonClass = isLandingPage
     ? "landing-nav-button flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[rgba(139,148,255,0.08)] p-0 text-[var(--text-strong)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm active:scale-95 sm:h-[36px] sm:w-[36px]"
-    : "retro-button flex h-[38px] w-[38px] items-center justify-center p-0 text-sm font-semibold transition-all hover:scale-105 active:scale-95 sm:h-[40px] sm:w-[40px]";
+    : "retro-button flex h-[36px] w-[36px] items-center justify-center p-0 text-sm font-semibold transition-all hover:scale-105 active:scale-95 sm:h-[40px] sm:w-[40px]";
   const primaryIconButtonClass = isLandingPage
     ? "landing-nav-button landing-nav-button--solid flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[linear-gradient(180deg,rgba(99,102,241,0.96),rgba(79,70,229,0.88))] p-0 text-white shadow-[0_10px_24px_rgba(79,70,229,0.28)] active:scale-95 sm:h-[36px] sm:w-[36px]"
-    : "retro-button-solid flex h-[38px] w-[38px] items-center justify-center p-0 text-sm font-semibold transition-all hover:scale-105 active:scale-95 sm:h-[40px] sm:w-[40px]";
+    : "retro-button-solid flex h-[36px] w-[36px] items-center justify-center p-0 text-sm font-semibold transition-all hover:scale-105 active:scale-95 sm:h-[40px] sm:w-[40px]";
   const menuPanelClass = isLandingPage
     ? "fixed left-1/2 top-[3.7rem] z-[60] w-[min(calc(100vw-1rem),22rem)] -translate-x-1/2 sm:top-[4.15rem] sm:w-[23rem]"
-    : "fixed left-3 right-3 top-[4rem] z-[60] sm:left-4 sm:right-auto sm:top-[4.5rem] sm:w-[18rem]";
+    : "fixed left-2 right-2 top-[3.95rem] z-[60] sm:left-3 sm:right-auto sm:top-[4.35rem] sm:w-[18rem]";
 
   const showToast = (tone: ToastState["tone"], title: string, message?: string) => {
     setToast(createToastState({ tone, title, message }));
@@ -781,18 +781,14 @@ export default function AppTopBar() {
               <Link
                 href={logoHref}
                 aria-label={logoAriaLabel}
-                className={`transition-transform hover:scale-105 active:scale-95 ${
-                  isLandingPage
-                    ? "landing-logo-link app-topbar-logo app-topbar-logo--animated"
-                    : ""
-                }`}
+                className={`transition-transform hover:scale-105 active:scale-95 app-topbar-logo app-topbar-logo--animated landing-logo-link`}
               >
                 <LogoWordmark
                   mode={themeMode}
                   className={
                     isLandingPage
                       ? "block h-auto w-[124px] sm:w-[136px]"
-                      : "block h-auto w-[172px]"
+                      : "block h-auto w-[136px] sm:w-[156px] lg:w-[172px]"
                   }
                 />
               </Link>
