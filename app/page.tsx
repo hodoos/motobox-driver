@@ -449,7 +449,7 @@ export default function Home() {
   }
 
   return (
-    <PageShell contentClassName="relative flex flex-1 w-full max-w-[28rem] items-center justify-center">
+    <PageShell contentClassName="relative flex flex-1 w-full max-w-[23.5rem] items-center justify-center px-2 sm:max-w-[24.5rem]">
       <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
       <div className="relative flex w-full items-center justify-center">
         <LoginCard

@@ -26,6 +26,7 @@ import {
   queuePendingToast,
   ToastState,
 } from "../../lib/toast";
+import { triggerLandingRipple } from "../../lib/landingRipple";
 import type {
   MenuVisibilityItemKey,
   MenuVisibilitySettings,
@@ -53,7 +54,14 @@ type ThemeMode = "dark" | "light";
 const THEME_STORAGE_KEY = "motobox:theme";
 let lastKnownMenuOpen = false;
 
-function LogoWordmark({ mode }: { mode: ThemeMode }) {
+function LogoWordmark({
+  mode,
+  className,
+}: {
+  mode: ThemeMode;
+  className?: string;
+}) {
+  const wordmarkX = 116;
   const palette =
     mode === "light"
       ? {
@@ -87,7 +95,7 @@ function LogoWordmark({ mode }: { mode: ThemeMode }) {
     <svg
       aria-hidden="true"
       viewBox="0 0 620 202"
-      className="block h-auto w-[172px]"
+      className={className ?? "block h-auto w-[172px]"}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -155,7 +163,7 @@ function LogoWordmark({ mode }: { mode: ThemeMode }) {
       >
         <g transform="translate(26 22) skewX(-9)">
           <text
-            x="18"
+            x={wordmarkX}
             y="138"
             fill="url(#logo-wordmark-depth-face)"
             stroke={palette.backStroke}
@@ -167,7 +175,7 @@ function LogoWordmark({ mode }: { mode: ThemeMode }) {
 
         <g transform="translate(16 12) skewX(-9)">
           <text
-            x="18"
+            x={wordmarkX}
             y="138"
             fill={palette.baseFace}
             stroke={palette.backStroke}
@@ -179,7 +187,7 @@ function LogoWordmark({ mode }: { mode: ThemeMode }) {
 
         <g transform="skewX(-9)">
           <text
-            x="18"
+            x={wordmarkX}
             y="138"
             fill="url(#logo-wordmark-main-face)"
             stroke={palette.frontStroke}
@@ -538,7 +546,9 @@ export default function AppTopBar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [menuOpen, setMenuOpen] = useState(() => lastKnownMenuOpen);
+  const [menuOpen, setMenuOpen] = useState(() =>
+    pathname === "/" ? false : lastKnownMenuOpen
+  );
   const [authPending, setAuthPending] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => readStoredTheme());
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -547,8 +557,8 @@ export default function AppTopBar() {
   );
 
   useEffect(() => {
-    lastKnownMenuOpen = menuOpen;
-  }, [menuOpen]);
+    lastKnownMenuOpen = pathname === "/" ? false : menuOpen;
+  }, [menuOpen, pathname]);
 
   useEffect(() => {
     let isDisposed = false;
@@ -621,14 +631,41 @@ export default function AppTopBar() {
   }, []);
 
   const menuSections = createMenuSections(user, menuVisibility);
+  const isLandingPage = pathname === "/";
   const isDashboardPage = pathname === "/dashboard";
   const isLoggedIn = Boolean(user);
   const logoHref = isLoggedIn ? "/dashboard" : "/";
   const logoAriaLabel = isLoggedIn ? "대시보드로 이동" : "초기화면으로 이동";
   const showDashboardMyPageButton = isLoggedIn && isDashboardPage;
+  const showAuthButton = !isLandingPage || isLoggedIn;
   const authButtonLabel = authPending ? "처리 중" : isLoggedIn ? "로그아웃" : "로그인";
   const themeButtonLabel =
     themeMode === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환";
+  const topBarWidthClass = isLandingPage ? "max-w-[22rem] sm:max-w-[24rem]" : "max-w-5xl";
+  const topBarPanelClass = isLandingPage
+    ? "landing-topbar-fx rounded-[22px] px-2.5 py-1.5 sm:rounded-[24px] sm:px-3 sm:py-2"
+    : "rounded-[18px] px-2.5 py-2.5 sm:rounded-[20px] sm:px-3 sm:py-3";
+  const topBarLayoutClass = isLandingPage
+    ? "flex items-center gap-2.5 sm:gap-3"
+    : "grid grid-cols-[2.25rem_1fr_auto] items-center gap-2 sm:grid-cols-[2.5rem_1fr_auto] sm:gap-2.5";
+  const topBarStartClass = isLandingPage
+    ? "flex min-w-[2.25rem] shrink-0 items-center justify-start sm:min-w-[2.5rem]"
+    : "relative justify-self-start";
+  const topBarCenterClass = isLandingPage
+    ? "flex min-w-0 flex-1 items-center justify-center"
+    : "justify-self-center";
+  const topBarEndClass = isLandingPage
+    ? "flex min-w-[2.25rem] shrink-0 items-center justify-end gap-1.5 sm:min-w-[2.5rem] sm:gap-2"
+    : "flex items-center justify-self-end gap-1.5 sm:gap-2";
+  const iconButtonClass = isLandingPage
+    ? "landing-nav-button flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[rgba(139,148,255,0.08)] p-0 text-[var(--text-strong)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm active:scale-95 sm:h-[36px] sm:w-[36px]"
+    : "retro-button flex h-[38px] w-[38px] items-center justify-center p-0 text-sm font-semibold transition-all hover:scale-105 active:scale-95 sm:h-[40px] sm:w-[40px]";
+  const primaryIconButtonClass = isLandingPage
+    ? "landing-nav-button landing-nav-button--solid flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[linear-gradient(180deg,rgba(99,102,241,0.96),rgba(79,70,229,0.88))] p-0 text-white shadow-[0_10px_24px_rgba(79,70,229,0.28)] active:scale-95 sm:h-[36px] sm:w-[36px]"
+    : "retro-button-solid flex h-[38px] w-[38px] items-center justify-center p-0 text-sm font-semibold transition-all hover:scale-105 active:scale-95 sm:h-[40px] sm:w-[40px]";
+  const menuPanelClass = isLandingPage
+    ? "fixed left-1/2 top-[3.7rem] z-[60] w-[min(calc(100vw-1rem),22rem)] -translate-x-1/2 sm:top-[4.15rem] sm:w-[23rem]"
+    : "fixed left-3 right-3 top-[4rem] z-[60] sm:left-4 sm:right-auto sm:top-[4.5rem] sm:w-[18rem]";
 
   const showToast = (tone: ToastState["tone"], title: string, message?: string) => {
     setToast(createToastState({ tone, title, message }));
@@ -710,10 +747,10 @@ export default function AppTopBar() {
 
   return (
     <div
-      className="fixed z-50 px-3 sm:px-4"
+      className="fixed z-50 px-2 sm:px-3"
       style={{ top: 0, left: 0, right: 0 }}
     >
-      <div className="mx-auto w-full max-w-6xl" style={{ width: "min(72rem, 100%)" }}>
+      <div className={`mx-auto w-full ${topBarWidthClass}`}>
         <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
 
         {menuOpen ? (
@@ -723,36 +760,53 @@ export default function AppTopBar() {
           />
         ) : null}
 
-        <nav className="retro-panel relative z-[60] w-full rounded-[24px] px-3 py-3 sm:px-4 sm:py-4">
-          <div className="grid grid-cols-[3rem_1fr_auto] items-center gap-3 sm:grid-cols-[3.25rem_1fr_auto]">
-            <div className="relative justify-self-start">
+        <nav className={`retro-panel relative z-[60] w-full ${topBarPanelClass}`}>
+          <div className={topBarLayoutClass}>
+            <div className={topBarStartClass}>
               <button
                 type="button"
                 onClick={() => setMenuOpen((current) => !current)}
+                onPointerDown={isLandingPage ? triggerLandingRipple : undefined}
                 aria-label="메뉴 열기"
                 aria-expanded={menuOpen}
                 aria-controls="global-page-menu"
                 title="메뉴"
-                className="retro-button flex h-[42px] w-[42px] items-center justify-center p-0 text-sm font-semibold"
+                className={iconButtonClass}
               >
                 <MenuIcon />
               </button>
             </div>
 
-            <div className="justify-self-center">
-              <Link href={logoHref} aria-label={logoAriaLabel}>
-                <LogoWordmark mode={themeMode} />
+            <div className={topBarCenterClass}>
+              <Link
+                href={logoHref}
+                aria-label={logoAriaLabel}
+                className={`transition-transform hover:scale-105 active:scale-95 ${
+                  isLandingPage
+                    ? "landing-logo-link app-topbar-logo app-topbar-logo--animated"
+                    : ""
+                }`}
+              >
+                <LogoWordmark
+                  mode={themeMode}
+                  className={
+                    isLandingPage
+                      ? "block h-auto w-[124px] sm:w-[136px]"
+                      : "block h-auto w-[172px]"
+                  }
+                />
               </Link>
             </div>
 
-            <div className="flex items-center justify-self-end gap-2">
+            <div className={topBarEndClass}>
               {showDashboardMyPageButton ? (
                 <button
                   type="button"
                   onClick={handleMyPageClick}
+                  onPointerDown={isLandingPage ? triggerLandingRipple : undefined}
                   aria-label="마이페이지"
                   title="마이페이지"
-                  className="retro-button flex h-[42px] w-[42px] items-center justify-center p-0 text-sm font-semibold"
+                  className={iconButtonClass}
                 >
                   <MyPageIcon />
                 </button>
@@ -761,32 +815,33 @@ export default function AppTopBar() {
               <button
                 type="button"
                 onClick={handleThemeToggle}
+                onPointerDown={isLandingPage ? triggerLandingRipple : undefined}
                 aria-label={themeButtonLabel}
                 title={themeButtonLabel}
-                className="retro-button flex h-[42px] w-[42px] items-center justify-center p-0 text-sm font-semibold"
+                className={iconButtonClass}
               >
                 {themeMode === "dark" ? <SunIcon /> : <MoonIcon />}
               </button>
 
-              <button
-                type="button"
-                onClick={handleAuthClick}
-                disabled={authPending}
-                aria-label={authButtonLabel}
-                title={authButtonLabel}
-                className="retro-button-solid flex h-[42px] w-[42px] items-center justify-center p-0 text-sm font-semibold"
-              >
-                {authPending ? <LoadingIcon /> : isLoggedIn ? <LogoutIcon /> : <LoginIcon />}
-              </button>
+              {showAuthButton ? (
+                <button
+                  type="button"
+                  onClick={handleAuthClick}
+                  onPointerDown={isLandingPage ? triggerLandingRipple : undefined}
+                  disabled={authPending}
+                  aria-label={authButtonLabel}
+                  title={authButtonLabel}
+                  className={primaryIconButtonClass}
+                >
+                  {authPending ? <LoadingIcon /> : isLoggedIn ? <LogoutIcon /> : <LoginIcon />}
+                </button>
+              ) : null}
             </div>
           </div>
         </nav>
 
         {menuOpen ? (
-          <div
-            id="global-page-menu"
-            className="fixed left-3 right-3 top-[4rem] z-[60] sm:left-4 sm:right-auto sm:top-[4.5rem] sm:w-[18rem]"
-          >
+          <div id="global-page-menu" className={menuPanelClass}>
             <div className="retro-panel max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-[20px] px-3 py-3">
               <p className="theme-kicker px-2 pb-2 text-[10px]">GLOBAL MENU</p>
 
