@@ -54,6 +54,10 @@ type ThemeMode = "dark" | "light";
 const THEME_STORAGE_KEY = "motobox:theme";
 let lastKnownMenuOpen = false;
 
+function persistMenuOpen(nextOpen: boolean) {
+  lastKnownMenuOpen = nextOpen;
+}
+
 function LogoWordmark({
   mode,
   className,
@@ -557,7 +561,7 @@ export default function AppTopBar() {
   );
 
   useEffect(() => {
-    lastKnownMenuOpen = pathname === "/" ? false : menuOpen;
+    persistMenuOpen(pathname === "/" ? false : menuOpen);
   }, [menuOpen, pathname]);
 
   useEffect(() => {
@@ -646,17 +650,17 @@ export default function AppTopBar() {
     ? "landing-topbar-fx rounded-[22px] px-2.5 py-1.5 sm:rounded-[24px] sm:px-3 sm:py-2"
     : "rounded-[18px] px-2 py-2 sm:rounded-[20px] sm:px-3 sm:py-2.5";
   const topBarLayoutClass = isLandingPage
-    ? "flex items-center gap-2.5 sm:gap-3"
-    : "grid min-w-0 grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto] sm:gap-2.5";
+    ? "relative flex items-center justify-between gap-2.5 sm:gap-3"
+    : "relative flex min-w-0 items-center justify-between gap-2 sm:gap-2.5";
   const topBarStartClass = isLandingPage
-    ? "flex min-w-[2.25rem] shrink-0 items-center justify-start sm:min-w-[2.5rem]"
-    : "flex items-center justify-self-start";
+    ? "relative z-10 flex min-w-[2.25rem] shrink-0 items-center justify-start sm:min-w-[2.5rem]"
+    : "relative z-10 flex min-w-[2.25rem] shrink-0 items-center justify-start sm:min-w-[2.5rem]";
   const topBarCenterClass = isLandingPage
-    ? "flex min-w-0 flex-1 items-center justify-center"
-    : "flex min-w-0 items-center justify-center px-1";
+    ? "pointer-events-none absolute inset-x-0 flex items-center justify-center px-[3.25rem] sm:px-[3.75rem]"
+    : "pointer-events-none absolute inset-x-0 flex items-center justify-center px-[3.25rem] sm:px-[4.75rem]";
   const topBarEndClass = isLandingPage
-    ? "flex min-w-[2.25rem] shrink-0 items-center justify-end gap-1.5 sm:min-w-[2.5rem] sm:gap-2"
-    : "flex min-w-0 flex-wrap items-center justify-self-end gap-1.5 sm:gap-2";
+    ? "relative z-10 flex min-w-[2.25rem] shrink-0 items-center justify-end gap-1.5 sm:min-w-[2.5rem] sm:gap-2"
+    : "relative z-10 flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2";
   const iconButtonClass = isLandingPage
     ? "landing-nav-button flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[rgba(139,148,255,0.08)] p-0 text-[var(--text-strong)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm active:scale-95 sm:h-[36px] sm:w-[36px]"
     : "retro-button flex h-[36px] w-[36px] items-center justify-center p-0 text-sm font-semibold transition-all hover:scale-105 active:scale-95 sm:h-[40px] sm:w-[40px]";
@@ -685,7 +689,14 @@ export default function AppTopBar() {
     router.push("/settings");
   };
 
+  const closeMenu = () => {
+    persistMenuOpen(false);
+    setMenuOpen(false);
+  };
+
   const handleMenuItemSelect = (item: MenuItem) => {
+    closeMenu();
+
     if (item.dashboardSectionId) {
       if (typeof window !== "undefined") {
         if (pathname === "/dashboard") {
@@ -757,6 +768,7 @@ export default function AppTopBar() {
           <div
             aria-hidden="true"
             className="fixed inset-0 z-40 bg-[rgba(4,4,6,0.52)] backdrop-blur-[2px]"
+            onClick={closeMenu}
           />
         ) : null}
 
@@ -781,7 +793,7 @@ export default function AppTopBar() {
               <Link
                 href={logoHref}
                 aria-label={logoAriaLabel}
-                className={`transition-transform hover:scale-105 active:scale-95 app-topbar-logo app-topbar-logo--animated landing-logo-link`}
+                className={`pointer-events-auto transition-transform hover:scale-105 active:scale-95 app-topbar-logo app-topbar-logo--animated landing-logo-link`}
               >
                 <LogoWordmark
                   mode={themeMode}
