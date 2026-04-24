@@ -16,7 +16,63 @@ const PAGE_SHELL_CLASS_NAME =
   "retro-scanlines retro-grid-bg min-h-[100dvh] bg-[var(--bg)] px-2 pb-4 pt-3 text-[var(--text)] sm:px-3 sm:pb-5 sm:pt-4";
 
 const DEFAULT_LOADING_CONTENT_CLASS_NAME =
-  "flex flex-1 w-full max-w-[28rem] items-center justify-center";
+  "flex w-full max-w-[32rem] flex-1 items-center justify-center";
+
+function PageLoadingIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M12 4.5V7.25"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M12 16.75V19.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M19.5 12H16.75"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M7.25 12H4.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M17.3 6.7L15.35 8.65"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8.65 15.35L6.7 17.3"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M17.3 17.3L15.35 15.35"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8.65 8.65L6.7 6.7"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <circle cx="12" cy="12" r="2.6" fill="currentColor" />
+    </svg>
+  );
+}
 
 export default function PageShell({ children, contentClassName }: PageShellProps) {
   return (
@@ -36,7 +92,37 @@ export function PageLoadingShell({
 }: PageLoadingShellProps) {
   return (
     <PageShell contentClassName={contentClassName}>
-      <div className="retro-panel w-full rounded-[28px] px-6 py-5 text-center">{message}</div>
+      <div
+        className="retro-panel retro-loading-panel w-full rounded-[30px] px-4 py-4 sm:px-6 sm:py-5"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        <div className="retro-loading-shell">
+          <div className="retro-loading-shell__signal" aria-hidden="true">
+            <div className="retro-loading-shell__orb">
+              <PageLoadingIcon />
+            </div>
+            <div className="retro-loading-shell__bars">
+              <span />
+              <span />
+              <span />
+            </div>
+          </div>
+
+          <div className="min-w-0 space-y-2 text-center sm:text-left">
+            <p className="retro-title theme-kicker text-[11px] tracking-[0.22em]">
+              SYSTEM LOADING
+            </p>
+            <p className="retro-title theme-heading text-base leading-snug sm:text-lg">
+              {message}
+            </p>
+            <p className="theme-copy text-sm leading-relaxed">
+              잠시만 기다려주세요. 현재 화면과 필요한 데이터를 테마에 맞게 정리하고 있습니다.
+            </p>
+          </div>
+        </div>
+      </div>
     </PageShell>
   );
 }
