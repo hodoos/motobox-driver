@@ -8,6 +8,8 @@ import {
   applyMenuVisibilitySettingsPatch,
   getDefaultMenuVisibilitySettings,
   getMenuAccessLevelLabel,
+  getMenuVisibilityItemParentKey,
+  getMenuVisibilityItemsForCategory,
   getMenuWriteAccessLevelLabel,
   hasWritableMenuChildren,
   MENU_ACCESS_LEVEL_OPTIONS,
@@ -977,6 +979,11 @@ export default function AdminPage() {
       ),
     [menuVisibilitySettings]
   );
+  const menuCategorySelectOptions: MenuSelectOption<MenuVisibilityKey>[] =
+    sortedMenuDefinitions.map((definition) => ({
+      value: definition.key,
+      label: menuVisibilitySettings.categories[definition.key].label,
+    }));
   const sortedManagedUsers = useMemo(
     () =>
       [...managedUsers].sort((left, right) => {
@@ -1492,15 +1499,13 @@ export default function AdminPage() {
     direction: "up" | "down"
   ) => {
     setMenuVisibilitySettings((current) => {
-      const definition = MENU_VISIBILITY_ITEM_DEFINITIONS.find((item) => item.key === key);
+      const parentKey = getMenuVisibilityItemParentKey(key, current);
 
-      if (!definition) {
+      if (!parentKey) {
         return current;
       }
 
-      const siblingKeys = MENU_VISIBILITY_ITEM_DEFINITIONS.filter(
-        (item) => item.parentKey === definition.parentKey
-      )
+      const siblingKeys = getMenuVisibilityItemsForCategory(current, parentKey)
         .sort((left, right) => current.items[left.key].order - current.items[right.key].order)
         .map((item) => item.key);
       const currentIndex = siblingKeys.indexOf(key);
@@ -1524,6 +1529,36 @@ export default function AdminPage() {
           },
           [swapKey]: {
             order: current.items[key].order,
+          },
+        },
+      });
+    });
+  };
+
+  const moveMenuItemToCategoryDraft = (
+    key: MenuVisibilityItemKey,
+    nextParentKey: MenuVisibilityKey
+  ) => {
+    setMenuVisibilitySettings((current) => {
+      const currentParentKey = getMenuVisibilityItemParentKey(key, current);
+
+      if (!currentParentKey || currentParentKey === nextParentKey) {
+        return current;
+      }
+
+      const nextSiblingDefinitions = getMenuVisibilityItemsForCategory(current, nextParentKey).filter(
+        (item) => item.key !== key
+      );
+      const nextOrder =
+        nextSiblingDefinitions.length > 0
+          ? Math.max(...nextSiblingDefinitions.map((item) => current.items[item.key].order)) + 1
+          : 0;
+
+      return applyMenuVisibilitySettingsPatch(current, {
+        items: {
+          [key]: {
+            parent_key: nextParentKey,
+            order: nextOrder,
           },
         },
       });
@@ -1708,10 +1743,9 @@ export default function AdminPage() {
   ) => {
     const definition = MENU_VISIBILITY_ITEM_DEFINITIONS.find((item) => item.key === key);
     const dirtyItemKeys = getDirtyMenuItemKeys();
-    const siblingItemKeys = definition
-      ? MENU_VISIBILITY_ITEM_DEFINITIONS.filter(
-          (item) => item.parentKey === definition.parentKey
-        ).map((item) => item.key)
+    const parentKey = getMenuVisibilityItemParentKey(key, menuVisibilitySettings);
+    const siblingItemKeys = parentKey
+      ? getMenuVisibilityItemsForCategory(menuVisibilitySettings, parentKey).map((item) => item.key)
       : [key];
     const itemKeysToSave = siblingItemKeys.filter((itemKey) => dirtyItemKeys.includes(itemKey));
     const resolvedItemKeysToSave = itemKeysToSave.length > 0 ? itemKeysToSave : [key];
@@ -1814,7 +1848,7 @@ export default function AdminPage() {
       targetType: "system",
       targetId:
         resolvedItemKeysToSave.length > 1
-          ? `menu-visibility:items:${definition?.parentKey ?? "group"}`
+          ? `menu-visibility:items:${parentKey ?? definition?.parentKey ?? "group"}`
           : `menu-visibility:item:${key}`,
       source: "/admin",
       summary: "관리 권한 계정이 하위 메뉴 설정을 변경했습니다.",
@@ -1875,10 +1909,20 @@ export default function AdminPage() {
   };
 
   const cancelMenuItemEdit = (key: MenuVisibilityItemKey) => {
-    const definition = MENU_VISIBILITY_ITEM_DEFINITIONS.find((item) => item.key === key);
-    const siblingItems = MENU_VISIBILITY_ITEM_DEFINITIONS.filter(
-      (item) => item.parentKey === definition?.parentKey
-    ).reduce<
+    const currentParentKey = getMenuVisibilityItemParentKey(key, menuVisibilitySettings);
+    const savedParentKey = getMenuVisibilityItemParentKey(key, savedMenuVisibilitySettings);
+    const relevantParentKeys = [currentParentKey, savedParentKey].filter(
+      (parentKey): parentKey is MenuVisibilityKey => parentKey !== null
+    );
+    const siblingItems = MENU_VISIBILITY_ITEM_DEFINITIONS.filter((item) => {
+      const currentItemParentKey = getMenuVisibilityItemParentKey(item.key, menuVisibilitySettings);
+      const savedItemParentKey = getMenuVisibilityItemParentKey(item.key, savedMenuVisibilitySettings);
+
+      return (
+        (currentItemParentKey !== null && relevantParentKeys.includes(currentItemParentKey)) ||
+        (savedItemParentKey !== null && relevantParentKeys.includes(savedItemParentKey))
+      );
+    }).reduce<
       Partial<Record<MenuVisibilityItemKey, MenuVisibilitySettings["items"][MenuVisibilityItemKey]>>
     >((items, item) => {
       items[item.key] = savedMenuVisibilitySettings.items[item.key];
@@ -1925,10 +1969,11 @@ export default function AdminPage() {
   const activeMenuItemSettings = activeMenuItemEditorKey
     ? menuVisibilityItems[activeMenuItemEditorKey]
     : null;
-  const activeMenuItemSiblingDefinitions = activeMenuItemDefinition
-    ? MENU_VISIBILITY_ITEM_DEFINITIONS.filter(
-        (item) => item.parentKey === activeMenuItemDefinition.parentKey
-      ).sort(
+  const activeMenuItemParentKey = activeMenuItemEditorKey
+    ? getMenuVisibilityItemParentKey(activeMenuItemEditorKey, menuVisibilitySettings)
+    : null;
+  const activeMenuItemSiblingDefinitions = activeMenuItemParentKey
+    ? getMenuVisibilityItemsForCategory(menuVisibilitySettings, activeMenuItemParentKey).sort(
         (left, right) =>
           menuVisibilityItems[left.key].order - menuVisibilityItems[right.key].order
       )
@@ -1938,8 +1983,8 @@ export default function AdminPage() {
         (item) => item.key === activeMenuItemEditorKey
       )
     : -1;
-  const activeMenuItemParentLabel = activeMenuItemDefinition
-    ? menuVisibilitySettings.categories[activeMenuItemDefinition.parentKey].label
+  const activeMenuItemParentLabel = activeMenuItemParentKey
+    ? menuVisibilitySettings.categories[activeMenuItemParentKey].label
     : "";
   const activeMenuItemLabelValue =
     activeMenuItemEditorKey && menuItemLabelDrafts[activeMenuItemEditorKey] !== undefined
@@ -2069,8 +2114,14 @@ export default function AdminPage() {
                 const isDirty =
                   hasMenuCategoryChanges(item.key) || categoryLabelValue !== categorySettings.label;
                 const isCategoryNameEmpty = categoryLabelValue.trim().length === 0;
-                const showCategoryWriteAccess = hasWritableMenuChildren(item.key);
-                const sortedChildItems = [...(item.items ?? [])].sort(
+                const showCategoryWriteAccess = hasWritableMenuChildren(
+                  item.key,
+                  menuVisibilitySettings
+                );
+                const sortedChildItems = getMenuVisibilityItemsForCategory(
+                  menuVisibilitySettings,
+                  item.key
+                ).sort(
                   (left, right) =>
                     menuVisibilityItems[left.key].order - menuVisibilityItems[right.key].order
                 );
@@ -2680,6 +2731,18 @@ export default function AdminPage() {
                     className="w-full px-3 py-2.5 text-sm"
                   />
                 </label>
+
+                  <div className="sm:col-span-2">
+                    <MenuSelectField
+                      label="카테고리 이동"
+                      value={activeMenuItemSettings.parent_key}
+                      disabled={isActiveMenuItemSaving}
+                      options={menuCategorySelectOptions}
+                      onChange={(nextValue) =>
+                        moveMenuItemToCategoryDraft(activeMenuItemEditorKey, nextValue as MenuVisibilityKey)
+                      }
+                    />
+                  </div>
 
                 <div className="sm:col-span-2">
                   <MenuSelectField

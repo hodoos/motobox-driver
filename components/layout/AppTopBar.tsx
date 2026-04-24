@@ -17,6 +17,7 @@ import {
   canUserAccessMenuCategory,
   canUserAccessMenuItem,
   getDefaultMenuVisibilitySettings,
+  getMenuVisibilityItemsForCategory,
   MENU_VISIBILITY_DEFINITIONS,
   MENU_VISIBILITY_UPDATED_EVENT,
 } from "../../lib/menuVisibility";
@@ -142,7 +143,7 @@ function getFallbackMenuHref(user: User | null, menuVisibility: MenuVisibilitySe
       continue;
     }
 
-    const sortedItems = [...(definition.items ?? [])].sort(
+    const sortedItems = getMenuVisibilityItemsForCategory(menuVisibility, definition.key).sort(
       (left, right) => menuVisibility.items[left.key].order - menuVisibility.items[right.key].order
     );
 
@@ -531,7 +532,7 @@ function createMenuSections(
         return null;
       }
 
-      const items = [...(definition.items ?? [])]
+      const items = getMenuVisibilityItemsForCategory(menuVisibility, definition.key)
         .sort(
           (left, right) =>
             menuVisibility.items[left.key].order - menuVisibility.items[right.key].order

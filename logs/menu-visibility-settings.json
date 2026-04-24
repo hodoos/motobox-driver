@@ -52,6 +52,7 @@
     },
     "items": {
       "dashboard": {
+        "parent_key": "basic",
         "visible": true,
         "enabled": true,
         "label": "홈",
@@ -60,6 +61,7 @@
         "write_access_level": "disabled"
       },
       "my-page": {
+        "parent_key": "basic",
         "visible": true,
         "enabled": true,
         "label": "마이페이지",
@@ -68,6 +70,7 @@
         "write_access_level": "disabled"
       },
       "admin": {
+        "parent_key": "admin",
         "visible": true,
         "enabled": true,
         "label": "관리자",
@@ -76,6 +79,7 @@
         "write_access_level": "disabled"
       },
       "today-quick-card": {
+        "parent_key": "dashboard",
         "visible": true,
         "enabled": true,
         "label": "업무 작성",
@@ -84,6 +88,7 @@
         "write_access_level": "disabled"
       },
       "work-summary": {
+        "parent_key": "dashboard",
         "visible": true,
         "enabled": true,
         "label": "근무 통계",
@@ -92,6 +97,7 @@
         "write_access_level": "disabled"
       },
       "stats": {
+        "parent_key": "dashboard",
         "visible": true,
         "enabled": true,
         "label": "매출 통계",
@@ -100,6 +106,7 @@
         "write_access_level": "disabled"
       },
       "daily-sales-list": {
+        "parent_key": "dashboard",
         "visible": true,
         "enabled": true,
         "label": "일별 매출 리스트 형",
@@ -108,6 +115,7 @@
         "write_access_level": "disabled"
       },
       "work-calendar": {
+        "parent_key": "dashboard",
         "visible": true,
         "enabled": true,
         "label": "일별 매출 캘린더 형",
@@ -116,6 +124,7 @@
         "write_access_level": "disabled"
       },
       "jobs": {
+        "parent_key": "community",
         "visible": true,
         "enabled": true,
         "label": "구인 구직",
@@ -124,6 +133,7 @@
         "write_access_level": "authenticated"
       },
       "free-talk": {
+        "parent_key": "community",
         "visible": true,
         "enabled": true,
         "label": "자유",
@@ -132,22 +142,25 @@
         "write_access_level": "authenticated"
       },
       "notice": {
+        "parent_key": "affiliate",
         "visible": true,
         "enabled": true,
-        "label": "공지",
+        "label": "몰",
         "order": 2,
         "access_level": "authenticated",
         "write_access_level": "authenticated"
       },
       "tips": {
+        "parent_key": "affiliate",
         "visible": true,
         "enabled": true,
-        "label": "팁",
-        "order": 3,
+        "label": "카라멜",
+        "order": 1,
         "access_level": "authenticated",
         "write_access_level": "authenticated"
       },
       "affiliate": {
+        "parent_key": "affiliate",
         "visible": true,
         "enabled": true,
         "label": "제휴 게시판",
@@ -156,6 +169,7 @@
         "write_access_level": "Lv3-제휴"
       },
       "vendor-home": {
+        "parent_key": "vendor",
         "visible": true,
         "enabled": true,
         "label": "밴더 전용 페이지",
@@ -165,5 +179,5 @@
       }
     }
   },
-  "updated_at": "2026-04-24T07:25:00.000Z"
+  "updated_at": "2026-04-24T07:45:12.004Z"
 }

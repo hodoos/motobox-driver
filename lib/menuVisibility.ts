@@ -315,8 +315,26 @@ export function getMenuVisibilityItemDefinition(key: MenuVisibilityItemKey) {
   return MENU_VISIBILITY_ITEM_DEFINITIONS.find((definition) => definition.key === key) ?? null;
 }
 
-export function getMenuVisibilityItemParentKey(key: MenuVisibilityItemKey): MenuVisibilityKey | null {
+export function getMenuVisibilityItemParentKey(
+  key: MenuVisibilityItemKey,
+  settings?: Pick<MenuVisibilitySettings, "items"> | null
+): MenuVisibilityKey | null {
+  const configuredParentKey = settings?.items?.[key]?.parent_key;
+
+  if (isMenuVisibilityKey(configuredParentKey)) {
+    return configuredParentKey;
+  }
+
   return getMenuVisibilityItemDefinition(key)?.parentKey ?? null;
+}
+
+export function getMenuVisibilityItemsForCategory(
+  settings: Pick<MenuVisibilitySettings, "items">,
+  key: MenuVisibilityKey
+) {
+  return MENU_VISIBILITY_ITEM_DEFINITIONS.filter(
+    (definition) => getMenuVisibilityItemParentKey(definition.key, settings) === key
+  );
 }
 
 export function isMenuVisibilityKey(value: unknown): value is MenuVisibilityKey {
@@ -359,6 +377,10 @@ function normalizeMenuOrder(value: unknown, fallback: number) {
   return Math.max(0, Math.min(999, Math.round(value)));
 }
 
+function normalizeMenuParentKey(value: unknown, fallback: MenuVisibilityKey) {
+  return isMenuVisibilityKey(value) ? value : fallback;
+}
+
 function getMoreRestrictiveMenuAccessLevel(
   currentLevel: MenuAccessLevel,
   minimumLevel: MenuAccessLevel
@@ -394,6 +416,7 @@ function createDefaultItemSetting(
   definition: MenuVisibilityDefinitionItem
 ): MenuVisibilityItemSettingsEntry {
   return {
+    parent_key: definition.parentKey,
     visible: true,
     enabled: true,
     label: definition.label,
@@ -457,6 +480,7 @@ export function sanitizeMenuVisibilityItemSettings(
     : defaultValue.write_access_level;
 
   return {
+    parent_key: normalizeMenuParentKey(nextValue.parent_key, defaultValue.parent_key),
     visible: typeof nextValue.visible === "boolean" ? nextValue.visible : defaultValue.visible,
     enabled: typeof nextValue.enabled === "boolean" ? nextValue.enabled : defaultValue.enabled,
     label: normalizeMenuLabel(nextValue.label, defaultValue.label),
@@ -502,10 +526,49 @@ function normalizeMenuCategorySettingsPatch(
   return Object.entries(value).reduce<Partial<MenuVisibilityCategorySettingsMap>>(
     (categories, [key, entryValue]) => {
       if (isMenuVisibilityKey(key) && isRecord(entryValue)) {
-        categories[key] = sanitizeMenuVisibilityCategorySettings(
-          key,
-          entryValue as MenuVisibilityCategorySettingsPatch
-        );
+        const definition = getMenuVisibilityDefinition(key);
+
+        if (!definition) {
+          return categories;
+        }
+
+        const nextPatch: MenuVisibilityCategorySettingsPatch = {};
+
+        if (typeof entryValue.visible === "boolean") {
+          nextPatch.visible = entryValue.visible;
+        }
+
+        if (typeof entryValue.enabled === "boolean") {
+          nextPatch.enabled = entryValue.enabled;
+        }
+
+        if (typeof entryValue.label === "string") {
+          nextPatch.label = normalizeMenuLabel(entryValue.label, definition.label);
+        }
+
+        if (typeof entryValue.order === "number" && Number.isFinite(entryValue.order)) {
+          nextPatch.order = normalizeMenuOrder(entryValue.order, definition.defaultOrder);
+        }
+
+        if (isMenuAccessLevel(entryValue.access_level)) {
+          nextPatch.access_level = getMoreRestrictiveMenuAccessLevel(
+            entryValue.access_level,
+            definition.minimumAccessLevel
+          );
+        }
+
+        if (isMenuWriteAccessLevel(entryValue.write_access_level)) {
+          nextPatch.write_access_level = definition.supportsWriteAccess
+            ? getMoreRestrictiveMenuWriteAccessLevel(
+                entryValue.write_access_level,
+                definition.minimumWriteAccessLevel
+              )
+            : "disabled";
+        }
+
+        if (Object.keys(nextPatch).length > 0) {
+          categories[key] = nextPatch as MenuVisibilityCategorySettings;
+        }
       }
 
       return categories;
@@ -522,10 +585,53 @@ function normalizeMenuItemSettingsPatch(value: unknown): Partial<MenuVisibilityI
   return Object.entries(value).reduce<Partial<MenuVisibilityItemSettings>>(
     (items, [key, entryValue]) => {
       if (isMenuVisibilityItemKey(key) && isRecord(entryValue)) {
-        items[key] = sanitizeMenuVisibilityItemSettings(
-          key,
-          entryValue as MenuVisibilityItemSettingsPatch
-        );
+        const definition = getMenuVisibilityItemDefinition(key);
+
+        if (!definition) {
+          return items;
+        }
+
+        const nextPatch: MenuVisibilityItemSettingsPatch = {};
+
+        if (isMenuVisibilityKey(entryValue.parent_key)) {
+          nextPatch.parent_key = entryValue.parent_key;
+        }
+
+        if (typeof entryValue.visible === "boolean") {
+          nextPatch.visible = entryValue.visible;
+        }
+
+        if (typeof entryValue.enabled === "boolean") {
+          nextPatch.enabled = entryValue.enabled;
+        }
+
+        if (typeof entryValue.label === "string") {
+          nextPatch.label = normalizeMenuLabel(entryValue.label, definition.label);
+        }
+
+        if (typeof entryValue.order === "number" && Number.isFinite(entryValue.order)) {
+          nextPatch.order = normalizeMenuOrder(entryValue.order, definition.defaultOrder);
+        }
+
+        if (isMenuAccessLevel(entryValue.access_level)) {
+          nextPatch.access_level = getMoreRestrictiveMenuAccessLevel(
+            entryValue.access_level,
+            definition.minimumAccessLevel
+          );
+        }
+
+        if (isMenuWriteAccessLevel(entryValue.write_access_level)) {
+          nextPatch.write_access_level = definition.supportsWriteAccess
+            ? getMoreRestrictiveMenuWriteAccessLevel(
+                entryValue.write_access_level,
+                definition.minimumWriteAccessLevel
+              )
+            : "disabled";
+        }
+
+        if (Object.keys(nextPatch).length > 0) {
+          items[key] = nextPatch as MenuVisibilityItemSettingsEntry;
+        }
       }
 
       return items;
@@ -687,7 +793,7 @@ export function canUserAccessMenuItem(
   key: MenuVisibilityItemKey,
   user?: Pick<User, "app_metadata" | "user_metadata"> | null
 ) {
-  const parentKey = getMenuVisibilityItemParentKey(key);
+  const parentKey = getMenuVisibilityItemParentKey(key, settings);
   const canPreviewHidden = canAdminPreviewHiddenMenu(user);
 
   if (!parentKey || !canUserAccessMenuCategory(settings, parentKey, user)) {
@@ -709,7 +815,7 @@ export function canUserWriteMenuItem(
   user?: Pick<User, "app_metadata" | "user_metadata"> | null
 ) {
   const itemDefinition = getMenuVisibilityItemDefinition(key);
-  const parentKey = itemDefinition?.parentKey ?? null;
+  const parentKey = getMenuVisibilityItemParentKey(key, settings);
 
   if (!itemDefinition || !parentKey || !itemDefinition.supportsWriteAccess) {
     return false;
@@ -728,8 +834,13 @@ export function canUserWriteMenuItem(
   );
 }
 
-export function hasWritableMenuChildren(key: MenuVisibilityKey) {
-  return MENU_VISIBILITY_ITEM_DEFINITIONS.some(
-    (item) => item.parentKey === key && item.supportsWriteAccess
-  );
+export function hasWritableMenuChildren(
+  key: MenuVisibilityKey,
+  settings?: Pick<MenuVisibilitySettings, "items"> | null
+) {
+  const itemDefinitions = settings
+    ? getMenuVisibilityItemsForCategory(settings, key)
+    : MENU_VISIBILITY_ITEM_DEFINITIONS.filter((item) => item.parentKey === key);
+
+  return itemDefinitions.some((item) => item.supportsWriteAccess);
 }

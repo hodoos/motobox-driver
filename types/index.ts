@@ -209,6 +209,7 @@ export type MenuVisibilityCategorySettingsMap = Record<
 >;
 
 export type MenuVisibilityItemSettingsEntry = {
+  parent_key: MenuVisibilityKey;
   visible: boolean;
   enabled: boolean;
   label: string;
