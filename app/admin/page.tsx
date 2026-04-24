@@ -42,7 +42,6 @@ import type {
   AdminManagedUserRow,
   AdminUserLevelUpdateResponse,
   AdminUsersResponse,
-  MenuAccessLevel,
   MenuVisibilityItemKey,
   MenuVisibilityKey,
   MenuVisibilitySettings,
@@ -130,6 +129,28 @@ const USER_LEVEL_SORT_ORDER = USER_LEVEL_OPTIONS.reduce<Record<UserLevel, number
   },
   {} as Record<UserLevel, number>
 );
+
+const MENU_ACCESS_LEVEL_SELECT_OPTIONS = MENU_ACCESS_LEVEL_OPTIONS.map((option) => ({
+  value: option,
+  label: getMenuAccessLevelLabel(option),
+}));
+
+const MENU_WRITE_ACCESS_LEVEL_SELECT_OPTIONS = MENU_WRITE_ACCESS_LEVEL_OPTIONS.map(
+  (option) => ({
+    value: option,
+    label: getMenuWriteAccessLevelLabel(option),
+  })
+);
+
+const MENU_VISIBLE_SELECT_OPTIONS = [
+  { value: "true", label: "표시" },
+  { value: "false", label: "미표시" },
+] as const;
+
+const MENU_ENABLED_SELECT_OPTIONS = [
+  { value: "true", label: "사용 중" },
+  { value: "false", label: "미사용" },
+] as const;
 
 const USER_LIST_SORT_COLUMNS: readonly UserListSortColumn[] = [
   { key: "driver_name", label: "이름" },
@@ -260,93 +281,46 @@ function AdminFolderSection({
   );
 }
 
-function MenuQuickToggleField({
+type MenuSelectOption<T extends string> = {
+  value: T;
+  label: string;
+};
+
+function MenuSelectField<T extends string>({
   label,
   value,
   onChange,
   disabled,
-  trueLabel,
-  falseLabel,
+  options,
+  className,
 }: {
   label: string;
-  value: boolean;
-  onChange: (nextValue: boolean) => void;
+  value: T;
+  onChange: (nextValue: T) => void;
   disabled: boolean;
-  trueLabel: string;
-  falseLabel: string;
+  options: readonly MenuSelectOption<T>[];
+  className?: string;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-2xl border border-(--border)/70 bg-[rgba(255,255,255,0.05)] px-3 py-3">
+    <label
+      className={`flex flex-col gap-2 rounded-2xl border border-(--border)/70 bg-[rgba(255,255,255,0.05)] px-3 py-3 ${
+        className ?? ""
+      }`}
+    >
       <span className="theme-heading text-xs font-semibold">{label}</span>
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          aria-pressed={value}
-          disabled={disabled}
-          onClick={() => onChange(true)}
-          className={`rounded-xl px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
-            value
-              ? "retro-button-solid"
-              : "retro-button bg-[rgba(255,255,255,0.04)] text-(--text-muted)"
-          }`}
-        >
-          {trueLabel}
-        </button>
-        <button
-          type="button"
-          aria-pressed={!value}
-          disabled={disabled}
-          onClick={() => onChange(false)}
-          className={`rounded-xl px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
-            !value
-              ? "retro-button-solid"
-              : "retro-button bg-[rgba(255,255,255,0.04)] text-(--text-muted)"
-          }`}
-        >
-          {falseLabel}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function MenuAccessQuickField({
-  label,
-  value,
-  onChange,
-  disabled,
-}: {
-  label: string;
-  value: MenuAccessLevel;
-  onChange: (nextValue: MenuAccessLevel) => void;
-  disabled: boolean;
-}) {
-  return (
-    <div className="flex flex-col gap-2 rounded-2xl border border-(--border)/70 bg-[rgba(255,255,255,0.05)] px-3 py-3 sm:col-span-2 xl:col-span-3">
-      <span className="theme-heading text-xs font-semibold">{label}</span>
-      <div className="flex flex-wrap gap-2">
-        {MENU_ACCESS_LEVEL_OPTIONS.map((option) => {
-          const isActive = value === option;
-
-          return (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={isActive}
-              disabled={disabled}
-              onClick={() => onChange(option)}
-              className={`rounded-xl px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                isActive
-                  ? "retro-button-solid"
-                  : "retro-button bg-[rgba(255,255,255,0.04)] text-(--text-muted)"
-              }`}
-            >
-              {getMenuAccessLevelLabel(option)}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value as T)}
+        className="w-full px-3 py-2.5 text-sm"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -388,6 +362,69 @@ function MenuOrderMoveField({
             아래로
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function MenuMiniButton({
+  label,
+  onClick,
+  disabled = false,
+  tone = "default",
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  tone?: "default" | "solid";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`${tone === "solid" ? "retro-button-solid" : "retro-button"} min-h-8 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-45`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function MenuToggleField({
+  label,
+  value,
+  disabled,
+  trueLabel,
+  falseLabel,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  disabled: boolean;
+  trueLabel: string;
+  falseLabel: string;
+  onChange: (nextValue: boolean) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl border border-(--border)/70 bg-[rgba(255,255,255,0.05)] px-3 py-3">
+      <span className="theme-heading text-xs font-semibold">{label}</span>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange(true)}
+          className={`${value ? "retro-button-solid" : "retro-button"} min-h-9 rounded-xl px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40`}
+        >
+          {trueLabel}
+        </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange(false)}
+          className={`${!value ? "retro-button-solid" : "retro-button"} min-h-9 rounded-xl px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40`}
+        >
+          {falseLabel}
+        </button>
       </div>
     </div>
   );
@@ -891,9 +928,17 @@ export default function AdminPage() {
   const [menuVisibilityLoading, setMenuVisibilityLoading] = useState(false);
   const [menuVisibilitySavingKey, setMenuVisibilitySavingKey] =
     useState<MenuVisibilitySavingStateKey | null>(null);
-  const [expandedMenuCategoryKeys, setExpandedMenuCategoryKeys] = useState<
+  const [editingMenuCategoryKeys, setEditingMenuCategoryKeys] = useState<
     MenuVisibilityKey[]
   >([]);
+  const [menuCategoryLabelDrafts, setMenuCategoryLabelDrafts] = useState<
+    Partial<Record<MenuVisibilityKey, string>>
+  >({});
+  const [activeMenuItemEditorKey, setActiveMenuItemEditorKey] =
+    useState<MenuVisibilityItemKey | null>(null);
+  const [menuItemLabelDrafts, setMenuItemLabelDrafts] = useState<
+    Partial<Record<MenuVisibilityItemKey, string>>
+  >({});
   const [toast, setToast] = useState<ToastState | null>(null);
   const [managedUsersError, setManagedUsersError] = useState<string | null>(null);
   const [auditLogsError, setAuditLogsError] = useState<string | null>(null);
@@ -959,14 +1004,6 @@ export default function AdminPage() {
 
   const showToast = (tone: ToastState["tone"], title: string, message?: string) => {
     setToast(createToastState({ tone, title, message }));
-  };
-
-  const toggleMenuCategoryExpanded = (key: MenuVisibilityKey) => {
-    setExpandedMenuCategoryKeys((current) =>
-      current.includes(key)
-        ? current.filter((itemKey) => itemKey !== key)
-        : [...current, key]
-    );
   };
 
   const resetManagedUserDraft = (managedUser: AdminManagedUserRow) => {
@@ -1370,6 +1407,33 @@ export default function AdminPage() {
     );
   };
 
+  const restoreMenuCategoryDraft = (key: MenuVisibilityKey) => {
+    const savedValue = savedMenuVisibilitySettings.categories[key];
+
+    setMenuVisibilitySettings((current) =>
+      applyMenuVisibilitySettingsPatch(current, {
+        categories: {
+          [key]: savedValue,
+        },
+      })
+    );
+  };
+
+  const updateMenuCategoryLabelDraft = (key: MenuVisibilityKey, value: string) => {
+    setMenuCategoryLabelDrafts((current) => ({
+      ...current,
+      [key]: value.slice(0, 40),
+    }));
+  };
+
+  const clearMenuCategoryLabelDraft = (key: MenuVisibilityKey) => {
+    setMenuCategoryLabelDrafts((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  };
+
   const moveMenuCategoryDraft = (
     key: MenuVisibilityKey,
     direction: "up" | "down"
@@ -1421,6 +1485,74 @@ export default function AdminPage() {
     );
   };
 
+  const moveMenuItemDraft = (
+    key: MenuVisibilityItemKey,
+    direction: "up" | "down"
+  ) => {
+    setMenuVisibilitySettings((current) => {
+      const definition = MENU_VISIBILITY_ITEM_DEFINITIONS.find((item) => item.key === key);
+
+      if (!definition) {
+        return current;
+      }
+
+      const siblingKeys = MENU_VISIBILITY_ITEM_DEFINITIONS.filter(
+        (item) => item.parentKey === definition.parentKey
+      )
+        .sort((left, right) => current.items[left.key].order - current.items[right.key].order)
+        .map((item) => item.key);
+      const currentIndex = siblingKeys.indexOf(key);
+
+      if (currentIndex < 0) {
+        return current;
+      }
+
+      const swapIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+
+      if (swapIndex < 0 || swapIndex >= siblingKeys.length) {
+        return current;
+      }
+
+      const swapKey = siblingKeys[swapIndex];
+
+      return applyMenuVisibilitySettingsPatch(current, {
+        items: {
+          [key]: {
+            order: current.items[swapKey].order,
+          },
+          [swapKey]: {
+            order: current.items[key].order,
+          },
+        },
+      });
+    });
+  };
+
+  const restoreMenuItemDrafts = (
+    items: Partial<Record<MenuVisibilityItemKey, MenuVisibilitySettings["items"][MenuVisibilityItemKey]>>
+  ) => {
+    setMenuVisibilitySettings((current) =>
+      applyMenuVisibilitySettingsPatch(current, {
+        items,
+      })
+    );
+  };
+
+  const updateMenuItemLabelDraft = (key: MenuVisibilityItemKey, value: string) => {
+    setMenuItemLabelDrafts((current) => ({
+      ...current,
+      [key]: value.slice(0, 40),
+    }));
+  };
+
+  const clearMenuItemLabelDraft = (key: MenuVisibilityItemKey) => {
+    setMenuItemLabelDrafts((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  };
+
   const hasMenuCategoryChanges = (key: MenuVisibilityKey) => {
     const currentValue = menuVisibilitySettings.categories[key];
     const savedValue = savedMenuVisibilitySettings.categories[key];
@@ -1440,15 +1572,47 @@ export default function AdminPage() {
       hasMenuCategoryChanges(categoryKey)
     );
 
-  const handleMenuCategorySave = async (key: MenuVisibilityKey) => {
+  const getDirtyMenuItemKeys = () =>
+    MENU_VISIBILITY_ITEM_DEFINITIONS.map((definition) => definition.key).filter((itemKey) =>
+      hasMenuItemChanges(itemKey)
+    );
+
+  const handleMenuCategorySave = async (
+    key: MenuVisibilityKey,
+    labelOverride?: string
+  ) => {
     const definition = MENU_VISIBILITY_DEFINITIONS.find((item) => item.key === key);
     const dirtyCategoryKeys = getDirtyMenuCategoryKeys();
     const categoryKeysToSave = dirtyCategoryKeys.length > 0 ? dirtyCategoryKeys : [key];
+    const hasEmptyCategoryLabel = categoryKeysToSave.some((categoryKey) => {
+      const nextLabel =
+        categoryKey === key && typeof labelOverride === "string"
+          ? labelOverride
+          : menuVisibilitySettings.categories[categoryKey].label;
+
+      return nextLabel.trim().length === 0;
+    });
+
+    if (hasEmptyCategoryLabel) {
+      showToast(
+        "error",
+        "카테고리 이름을 확인해주세요",
+        "카테고리 이름은 비워둘 수 없습니다."
+      );
+      return false;
+    }
+
     const patch: MenuVisibilitySettingsPatch = {
       categories: categoryKeysToSave.reduce<
         NonNullable<MenuVisibilitySettingsPatch["categories"]>
       >((categories, categoryKey) => {
-        categories[categoryKey] = menuVisibilitySettings.categories[categoryKey];
+        categories[categoryKey] =
+          categoryKey === key && typeof labelOverride === "string"
+            ? {
+                ...menuVisibilitySettings.categories[categoryKey],
+                label: labelOverride,
+              }
+            : menuVisibilitySettings.categories[categoryKey];
         return categories;
       }, {}),
     };
@@ -1461,7 +1625,7 @@ export default function AdminPage() {
         message: "다시 로그인한 뒤 메뉴 설정을 저장해주세요.",
       });
       router.replace("/");
-      return;
+      return false;
     }
 
     setMenuVisibilitySavingKey(getCategorySavingStateKey(key));
@@ -1477,12 +1641,12 @@ export default function AdminPage() {
         message: updateResult.error || "다시 로그인한 뒤 관리자 페이지를 이용해주세요.",
       });
       router.replace("/");
-      return;
+      return false;
     }
 
     if (updateResult.status === 403) {
       showToast("error", "메뉴 설정 권한이 없습니다", updateResult.error || undefined);
-      return;
+      return false;
     }
 
     if (!updateResult.data?.settings) {
@@ -1491,7 +1655,7 @@ export default function AdminPage() {
         "메뉴 설정 저장 실패",
         updateResult.error || "카테고리 메뉴 설정을 저장하지 못했습니다."
       );
-      return;
+      return false;
     }
 
     const nextMenuVisibilitySettings = updateResult.data.settings;
@@ -1532,15 +1696,61 @@ export default function AdminPage() {
         ? `카테고리 ${categoryKeysToSave.length}개의 정렬 및 설정이 반영되었습니다.`
         : `${definition?.label ?? key} 카테고리 설정이 반영되었습니다.`
     );
+
+    return true;
   };
 
-  const handleMenuItemSave = async (key: MenuVisibilityItemKey) => {
+  const handleMenuItemSave = async (
+    key: MenuVisibilityItemKey,
+    labelOverride?: string
+  ) => {
     const definition = MENU_VISIBILITY_ITEM_DEFINITIONS.find((item) => item.key === key);
-    const previousSavedValue = savedMenuVisibilitySettings.items[key];
+    const dirtyItemKeys = getDirtyMenuItemKeys();
+    const siblingItemKeys = definition
+      ? MENU_VISIBILITY_ITEM_DEFINITIONS.filter(
+          (item) => item.parentKey === definition.parentKey
+        ).map((item) => item.key)
+      : [key];
+    const itemKeysToSave = siblingItemKeys.filter((itemKey) => dirtyItemKeys.includes(itemKey));
+    const resolvedItemKeysToSave = itemKeysToSave.length > 0 ? itemKeysToSave : [key];
+    const hasEmptyItemLabel = resolvedItemKeysToSave.some((itemKey) => {
+      const nextLabel =
+        itemKey === key && typeof labelOverride === "string"
+          ? labelOverride
+          : menuVisibilitySettings.items[itemKey].label;
+
+      return nextLabel.trim().length === 0;
+    });
+
+    if (hasEmptyItemLabel) {
+      showToast(
+        "error",
+        "메뉴 이름을 확인해주세요",
+        "메뉴 이름은 비워둘 수 없습니다."
+      );
+      return false;
+    }
+
+    const previousSavedItems = resolvedItemKeysToSave.reduce<
+      Partial<Record<MenuVisibilityItemKey, MenuVisibilitySettings["items"][MenuVisibilityItemKey]>>
+    >((items, itemKey) => {
+      items[itemKey] = savedMenuVisibilitySettings.items[itemKey];
+      return items;
+    }, {});
     const patch: MenuVisibilitySettingsPatch = {
-      items: {
-        [key]: menuVisibilitySettings.items[key],
-      },
+      items: resolvedItemKeysToSave.reduce<NonNullable<MenuVisibilitySettingsPatch["items"]>>(
+        (items, itemKey) => {
+          items[itemKey] =
+            itemKey === key && typeof labelOverride === "string"
+              ? {
+                  ...menuVisibilitySettings.items[itemKey],
+                  label: labelOverride,
+                }
+              : menuVisibilitySettings.items[itemKey];
+          return items;
+        },
+        {}
+      ),
     };
     const accessToken = await getSupabaseAccessToken();
 
@@ -1551,7 +1761,7 @@ export default function AdminPage() {
         message: "다시 로그인한 뒤 메뉴 설정을 저장해주세요.",
       });
       router.replace("/");
-      return;
+      return false;
     }
 
     setMenuVisibilitySavingKey(getItemSavingStateKey(key));
@@ -1561,35 +1771,37 @@ export default function AdminPage() {
     setMenuVisibilitySavingKey(null);
 
     if (updateResult.status === 401) {
-      updateMenuItemDraft(key, previousSavedValue);
+      restoreMenuItemDrafts(previousSavedItems);
       queuePendingToast({
         tone: "error",
         title: "로그인이 필요합니다",
         message: updateResult.error || "다시 로그인한 뒤 관리자 페이지를 이용해주세요.",
       });
       router.replace("/");
-      return;
+      return false;
     }
 
     if (updateResult.status === 403) {
-      updateMenuItemDraft(key, previousSavedValue);
+      restoreMenuItemDrafts(previousSavedItems);
       showToast("error", "메뉴 설정 권한이 없습니다", updateResult.error || undefined);
-      return;
+      return false;
     }
 
     if (!updateResult.data?.settings) {
-      updateMenuItemDraft(key, previousSavedValue);
+      restoreMenuItemDrafts(previousSavedItems);
       showToast(
         "error",
         "메뉴 설정 저장 실패",
         updateResult.error || "하위 메뉴 설정을 저장하지 못했습니다."
       );
-      return;
+      return false;
     }
 
+    const nextMenuVisibilitySettings = updateResult.data.settings;
+
     setMenuVisibilityError(null);
-    setMenuVisibilitySettings(updateResult.data.settings);
-    setSavedMenuVisibilitySettings(updateResult.data.settings);
+    setMenuVisibilitySettings(nextMenuVisibilitySettings);
+    setSavedMenuVisibilitySettings(nextMenuVisibilitySettings);
 
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event(MENU_VISIBILITY_UPDATED_EVENT));
@@ -1598,21 +1810,149 @@ export default function AdminPage() {
     await recordOperatorAuditLog({
       action: "menu_visibility_updated",
       targetType: "system",
-      targetId: `menu-visibility:item:${key}`,
+      targetId:
+        resolvedItemKeysToSave.length > 1
+          ? `menu-visibility:items:${definition?.parentKey ?? "group"}`
+          : `menu-visibility:item:${key}`,
       source: "/admin",
       summary: "관리 권한 계정이 하위 메뉴 설정을 변경했습니다.",
       details: {
-        key,
-        settings: updateResult.data.settings.items[key],
+        keys: resolvedItemKeysToSave,
+        settings: resolvedItemKeysToSave.reduce<Record<string, MenuVisibilitySettings["items"][MenuVisibilityItemKey]>>(
+          (items, itemKey) => {
+            items[itemKey] = nextMenuVisibilitySettings.items[itemKey];
+            return items;
+          },
+          {}
+        ),
       },
     });
 
     showToast(
       "success",
       "하위 메뉴 설정을 저장했습니다",
-      `${definition?.label ?? key} 메뉴 설정이 반영되었습니다.`
+      resolvedItemKeysToSave.length > 1
+        ? `하위 메뉴 ${resolvedItemKeysToSave.length}개의 정렬 및 설정이 반영되었습니다.`
+        : `${definition?.label ?? key} 메뉴 설정이 반영되었습니다.`
+    );
+
+    return true;
+  };
+
+  const openMenuCategoryEditor = (key: MenuVisibilityKey) => {
+    setEditingMenuCategoryKeys((current) =>
+      current.includes(key) ? current : [...current, key]
     );
   };
+
+  const closeMenuCategoryEditor = (key: MenuVisibilityKey) => {
+    setEditingMenuCategoryKeys((current) => current.filter((itemKey) => itemKey !== key));
+  };
+
+  const cancelMenuCategoryEdit = (key: MenuVisibilityKey) => {
+    restoreMenuCategoryDraft(key);
+    clearMenuCategoryLabelDraft(key);
+    closeMenuCategoryEditor(key);
+  };
+
+  const saveMenuCategoryEdit = async (key: MenuVisibilityKey) => {
+    const didSave = await handleMenuCategorySave(key, menuCategoryLabelDrafts[key]);
+
+    if (didSave) {
+      clearMenuCategoryLabelDraft(key);
+      closeMenuCategoryEditor(key);
+    }
+  };
+
+  const openMenuItemEditor = (key: MenuVisibilityItemKey) => {
+    setActiveMenuItemEditorKey(key);
+  };
+
+  const closeMenuItemEditor = () => {
+    setActiveMenuItemEditorKey(null);
+  };
+
+  const cancelMenuItemEdit = (key: MenuVisibilityItemKey) => {
+    const definition = MENU_VISIBILITY_ITEM_DEFINITIONS.find((item) => item.key === key);
+    const siblingItems = MENU_VISIBILITY_ITEM_DEFINITIONS.filter(
+      (item) => item.parentKey === definition?.parentKey
+    ).reduce<
+      Partial<Record<MenuVisibilityItemKey, MenuVisibilitySettings["items"][MenuVisibilityItemKey]>>
+    >((items, item) => {
+      items[item.key] = savedMenuVisibilitySettings.items[item.key];
+      return items;
+    }, {});
+
+    restoreMenuItemDrafts(
+      Object.keys(siblingItems).length > 0
+        ? siblingItems
+        : {
+            [key]: savedMenuVisibilitySettings.items[key],
+          }
+    );
+    clearMenuItemLabelDraft(key);
+    closeMenuItemEditor();
+  };
+
+  const saveMenuItemEdit = async (key: MenuVisibilityItemKey) => {
+    const didSave = await handleMenuItemSave(key, menuItemLabelDrafts[key]);
+
+    if (didSave) {
+      clearMenuItemLabelDraft(key);
+      closeMenuItemEditor();
+    }
+  };
+
+  const deleteMenuItem = async (key: MenuVisibilityItemKey) => {
+    updateMenuItemDraft(key, {
+      visible: false,
+      enabled: false,
+    });
+
+    const didSave = await handleMenuItemSave(key);
+
+    if (didSave) {
+      clearMenuItemLabelDraft(key);
+      closeMenuItemEditor();
+    }
+  };
+
+  const activeMenuItemDefinition = activeMenuItemEditorKey
+    ? MENU_VISIBILITY_ITEM_DEFINITIONS.find((item) => item.key === activeMenuItemEditorKey) ?? null
+    : null;
+  const activeMenuItemSettings = activeMenuItemEditorKey
+    ? menuVisibilityItems[activeMenuItemEditorKey]
+    : null;
+  const activeMenuItemSiblingDefinitions = activeMenuItemDefinition
+    ? MENU_VISIBILITY_ITEM_DEFINITIONS.filter(
+        (item) => item.parentKey === activeMenuItemDefinition.parentKey
+      ).sort(
+        (left, right) =>
+          menuVisibilityItems[left.key].order - menuVisibilityItems[right.key].order
+      )
+    : [];
+  const activeMenuItemIndex = activeMenuItemEditorKey
+    ? activeMenuItemSiblingDefinitions.findIndex(
+        (item) => item.key === activeMenuItemEditorKey
+      )
+    : -1;
+  const activeMenuItemParentLabel = activeMenuItemDefinition
+    ? menuVisibilitySettings.categories[activeMenuItemDefinition.parentKey].label
+    : "";
+  const activeMenuItemLabelValue =
+    activeMenuItemEditorKey && menuItemLabelDrafts[activeMenuItemEditorKey] !== undefined
+      ? menuItemLabelDrafts[activeMenuItemEditorKey] ?? ""
+      : activeMenuItemSettings?.label ?? "";
+  const isActiveMenuItemSaving = activeMenuItemEditorKey
+    ? menuVisibilitySavingKey === getItemSavingStateKey(activeMenuItemEditorKey)
+    : false;
+  const isActiveMenuItemDirty = activeMenuItemEditorKey
+    ? hasMenuItemChanges(activeMenuItemEditorKey) ||
+      activeMenuItemLabelValue !== (activeMenuItemSettings?.label ?? "")
+    : false;
+  const isActiveMenuItemNameEmpty = activeMenuItemLabelValue
+    ? activeMenuItemLabelValue.trim().length === 0
+    : true;
 
   const handleUserListSortChange = (key: UserListSortKey) => {
     setUserListSort((current) => {
@@ -1717,10 +2057,16 @@ export default function AdminPage() {
             <div className="mt-4 space-y-3">
               {sortedMenuDefinitions.map((item, itemIndex) => {
                 const categorySettings = menuVisibilitySettings.categories[item.key];
+                const categoryLabelValue =
+                  menuCategoryLabelDrafts[item.key] !== undefined
+                    ? menuCategoryLabelDrafts[item.key] ?? ""
+                    : categorySettings.label;
                 const isSaving =
                   menuVisibilitySavingKey === getCategorySavingStateKey(item.key);
-                const isExpanded = expandedMenuCategoryKeys.includes(item.key);
-                const isDirty = hasMenuCategoryChanges(item.key);
+                const isEditingCategory = editingMenuCategoryKeys.includes(item.key);
+                const isDirty =
+                  hasMenuCategoryChanges(item.key) || categoryLabelValue !== categorySettings.label;
+                const isCategoryNameEmpty = categoryLabelValue.trim().length === 0;
                 const showCategoryWriteAccess = hasWritableMenuChildren(item.key);
                 const sortedChildItems = [...(item.items ?? [])].sort(
                   (left, right) =>
@@ -1728,40 +2074,100 @@ export default function AdminPage() {
                 );
 
                 return (
-                  <div
-                    key={item.key}
-                    className="theme-note-box rounded-[22px] px-4 py-4 sm:px-5"
-                  >
-                    <div
-                      className={`flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between ${
-                        isExpanded ? "border-b border-(--border)/70 pb-4" : ""
-                      }`}
-                    >
-                      <div className="min-w-0 space-y-1">
-                        <p className="theme-heading text-sm font-semibold leading-relaxed sm:text-base">
-                          {categorySettings.label}
-                        </p>
-                        <p className="theme-copy text-xs leading-relaxed sm:text-sm">
-                          {item.description}
-                        </p>
-                        <p className="theme-copy text-[11px] uppercase tracking-[0.2em]">
-                          key: {item.key}
-                        </p>
+                  <div key={item.key} className="space-y-3">
+                    <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <p className="theme-kicker text-[11px] tracking-[0.18em]">카테고리</p>
+                        {isEditingCategory ? (
+                          <label className="mt-2 block max-w-md">
+                            <input
+                              type="text"
+                              maxLength={40}
+                              value={categoryLabelValue}
+                              disabled={isSaving}
+                              onChange={(event) =>
+                                updateMenuCategoryLabelDraft(item.key, event.target.value)
+                              }
+                              className="w-full px-3 py-2 text-sm"
+                            />
+                          </label>
+                        ) : (
+                          <p className="theme-heading mt-2 text-sm font-semibold leading-relaxed sm:text-base">
+                            {categorySettings.label}
+                          </p>
+                        )}
                       </div>
 
+                      <div className="flex items-center gap-2 self-start">
+                        {isEditingCategory ? (
+                          <>
+                            <MenuMiniButton
+                              label="취소"
+                              onClick={() => cancelMenuCategoryEdit(item.key)}
+                              disabled={isSaving}
+                            />
+                            <MenuMiniButton
+                              label={isSaving ? "저장 중" : "저장"}
+                              onClick={() => {
+                                void saveMenuCategoryEdit(item.key);
+                              }}
+                              disabled={isSaving || isCategoryNameEmpty || !isDirty}
+                              tone="solid"
+                            />
+                          </>
+                        ) : (
+                          <MenuMiniButton
+                            label="수정"
+                            onClick={() => openMenuCategoryEditor(item.key)}
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-[22px] border border-(--border)/70 bg-[rgba(255,255,255,0.04)] px-4 py-4 sm:px-5">
+                      <p className="theme-kicker text-[11px] tracking-[0.18em]">하위 메뉴</p>
+                      {sortedChildItems.length ? (
+                        <div className="mt-3 space-y-2 border-l border-(--accent)/40 pl-4">
+                          {sortedChildItems.map((childItem) => {
+                            const childSettings = menuVisibilityItems[childItem.key];
+
+                            return (
+                              <div
+                                key={childItem.key}
+                                className="rounded-xl border border-(--border)/60 bg-[rgba(255,255,255,0.03)] px-3 py-3"
+                              >
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="theme-heading text-sm font-medium leading-relaxed">
+                                      {childSettings.label}
+                                    </p>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 self-start sm:self-center">
+                                    <MenuMiniButton
+                                      label="수정"
+                                      onClick={() => openMenuItemEditor(childItem.key)}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="theme-copy mt-3 text-sm leading-relaxed">
+                          등록된 하위 메뉴가 없습니다.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="hidden">
                       <div className="flex items-center gap-2 self-start">
                         {isDirty ? (
                           <span className="theme-copy rounded-full border border-[rgba(244,176,75,0.34)] bg-[rgba(244,176,75,0.12)] px-2.5 py-1 text-[11px] font-semibold">
                             저장 필요
                           </span>
                         ) : null}
-                        <button
-                          type="button"
-                          onClick={() => toggleMenuCategoryExpanded(item.key)}
-                          className="retro-button min-h-10 px-3.5 py-2 text-xs font-semibold"
-                        >
-                          {isExpanded ? "접기" : "펼치기"}
-                        </button>
                         <button
                           type="button"
                           onClick={() => void handleMenuCategorySave(item.key)}
@@ -1771,260 +2177,233 @@ export default function AdminPage() {
                           {isSaving ? "저장 중..." : "카테고리 저장"}
                         </button>
                       </div>
-                    </div>
 
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <span className="theme-chip-subtle px-3 py-1.5 text-[11px] sm:text-xs">
-                        {categorySettings.visible ? "표시" : "숨김"}
-                      </span>
-                      <span className="theme-chip-subtle px-3 py-1.5 text-[11px] sm:text-xs">
-                        {categorySettings.enabled ? "사용 중" : "사용 중지"}
-                      </span>
-                      <span className="theme-chip-subtle px-3 py-1.5 text-[11px] sm:text-xs">
-                        진입: {getMenuAccessLevelLabel(categorySettings.access_level)}
-                      </span>
-                      {showCategoryWriteAccess ? (
-                        <span className="theme-chip-subtle px-3 py-1.5 text-[11px] sm:text-xs">
-                          작성: {getMenuWriteAccessLevelLabel(categorySettings.write_access_level)}
-                        </span>
-                      ) : null}
-                      <span className="theme-chip-subtle px-3 py-1.5 text-[11px] sm:text-xs">
-                        하위 메뉴 {sortedChildItems.length}개
-                      </span>
-                    </div>
-
-                    {isExpanded ? (
-                      <>
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                          <label className="flex flex-col gap-2">
-                            <span className="theme-heading text-xs font-semibold">카테고리 이름</span>
-                            <input
-                              type="text"
-                              maxLength={40}
-                              value={categorySettings.label}
-                              disabled={menuVisibilitySavingKey !== null}
-                              onChange={(event) =>
-                                updateMenuCategoryDraft(item.key, { label: event.target.value })
-                              }
-                              className="w-full px-3 py-2.5 text-sm"
-                            />
-                          </label>
-
-                          <MenuOrderMoveField
-                            position={itemIndex}
-                            canMoveUp={itemIndex > 0}
-                            canMoveDown={itemIndex < sortedMenuDefinitions.length - 1}
-                            disabled={menuVisibilitySavingKey !== null}
-                            onMoveUp={() => moveMenuCategoryDraft(item.key, "up")}
-                            onMoveDown={() => moveMenuCategoryDraft(item.key, "down")}
-                          />
-
-                          <MenuAccessQuickField
-                            label="진입 권한"
-                            value={categorySettings.access_level}
-                            disabled={menuVisibilitySavingKey !== null}
-                            onChange={(nextValue) =>
-                              updateMenuCategoryDraft(item.key, {
-                                access_level: nextValue,
-                              })
-                            }
-                          />
-
+                      <div>
+                        <div className="hidden">
+                          <span className="theme-chip-subtle px-3 py-1.5 text-[11px] sm:text-xs">
+                            {categorySettings.visible ? "표시" : "숨김"}
+                          </span>
+                          <span className="theme-chip-subtle px-3 py-1.5 text-[11px] sm:text-xs">
+                            {categorySettings.enabled ? "사용 중" : "사용 중지"}
+                          </span>
+                          <span className="theme-chip-subtle px-3 py-1.5 text-[11px] sm:text-xs">
+                            진입: {getMenuAccessLevelLabel(categorySettings.access_level)}
+                          </span>
                           {showCategoryWriteAccess ? (
-                            <label className="flex flex-col gap-2">
-                              <span className="theme-heading text-xs font-semibold">글 작성 권한</span>
-                              <select
-                                value={categorySettings.write_access_level}
-                                disabled={menuVisibilitySavingKey !== null}
-                                onChange={(event) =>
-                                  updateMenuCategoryDraft(item.key, {
-                                    write_access_level: event.target.value as MenuWriteAccessLevel,
-                                  })
-                                }
-                                className="w-full px-3 py-2.5 text-sm"
-                              >
-                                {MENU_WRITE_ACCESS_LEVEL_OPTIONS.map((option) => (
-                                  <option key={option} value={option}>
-                                    {getMenuWriteAccessLevelLabel(option)}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
+                            <span className="theme-chip-subtle px-3 py-1.5 text-[11px] sm:text-xs">
+                              작성: {getMenuWriteAccessLevelLabel(categorySettings.write_access_level)}
+                            </span>
                           ) : null}
-
-                          <MenuQuickToggleField
-                            label="표시"
-                            value={categorySettings.visible}
-                            disabled={menuVisibilitySavingKey !== null}
-                            trueLabel="표시"
-                            falseLabel="미표시"
-                            onChange={(nextValue) =>
-                              updateMenuCategoryDraft(item.key, { visible: nextValue })
-                            }
-                          />
-
-                          <MenuQuickToggleField
-                            label="사용"
-                            value={categorySettings.enabled}
-                            disabled={menuVisibilitySavingKey !== null}
-                            trueLabel="사용 중"
-                            falseLabel="미사용"
-                            onChange={(nextValue) =>
-                              updateMenuCategoryDraft(item.key, { enabled: nextValue })
-                            }
-                          />
+                          <span className="theme-chip-subtle px-3 py-1.5 text-[11px] sm:text-xs">
+                            하위 메뉴 {sortedChildItems.length}개
+                          </span>
                         </div>
 
-                        {sortedChildItems.length ? (
-                          <div className="mt-4 space-y-3 border-t border-(--border)/70 pt-4">
-                            {sortedChildItems.map((childItem) => {
-                              const childSettings = menuVisibilityItems[childItem.key];
-                              const isChildSaving =
-                                menuVisibilitySavingKey === getItemSavingStateKey(childItem.key);
-                              const isChildDirty = hasMenuItemChanges(childItem.key);
+                        <div className="hidden">
+                          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                            <label className="flex flex-col gap-2">
+                              <span className="theme-heading text-xs font-semibold">카테고리 이름</span>
+                              <input
+                                type="text"
+                                maxLength={40}
+                                value={categorySettings.label}
+                                disabled={menuVisibilitySavingKey !== null}
+                                onChange={(event) =>
+                                  updateMenuCategoryDraft(item.key, { label: event.target.value })
+                                }
+                                className="w-full px-3 py-2.5 text-sm"
+                              />
+                            </label>
 
-                              return (
-                                <div
-                                  key={childItem.key}
-                                  className="rounded-2xl border border-(--border)/70 bg-[rgba(255,255,255,0.04)] px-3 py-3.5"
-                                >
-                                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                    <div className="min-w-0 space-y-1">
-                                      <p className="theme-heading text-sm font-semibold leading-relaxed">
-                                        {childSettings.label}
-                                      </p>
-                                      <p className="theme-copy text-[11px] leading-relaxed sm:text-xs">
-                                        {childItem.description}
-                                      </p>
-                                      <p className="theme-copy text-[11px] uppercase tracking-[0.18em]">
-                                        key: {childItem.key}
-                                      </p>
+                            <MenuOrderMoveField
+                              position={itemIndex}
+                              canMoveUp={itemIndex > 0}
+                              canMoveDown={itemIndex < sortedMenuDefinitions.length - 1}
+                              disabled={menuVisibilitySavingKey !== null}
+                              onMoveUp={() => moveMenuCategoryDraft(item.key, "up")}
+                              onMoveDown={() => moveMenuCategoryDraft(item.key, "down")}
+                            />
+
+                            <MenuSelectField
+                              label="진입 권한"
+                              value={categorySettings.access_level}
+                              disabled={menuVisibilitySavingKey !== null}
+                              options={MENU_ACCESS_LEVEL_SELECT_OPTIONS}
+                              className="sm:col-span-2 xl:col-span-3"
+                              onChange={(nextValue) =>
+                                updateMenuCategoryDraft(item.key, {
+                                  access_level: nextValue,
+                                })
+                              }
+                            />
+
+                            {showCategoryWriteAccess ? (
+                              <MenuSelectField
+                                label="글 작성 권한"
+                                value={categorySettings.write_access_level}
+                                disabled={menuVisibilitySavingKey !== null}
+                                options={MENU_WRITE_ACCESS_LEVEL_SELECT_OPTIONS}
+                                onChange={(nextValue) =>
+                                  updateMenuCategoryDraft(item.key, {
+                                    write_access_level: nextValue as MenuWriteAccessLevel,
+                                  })
+                                }
+                              />
+                            ) : null}
+
+                            <MenuSelectField
+                              label="표시"
+                              value={String(categorySettings.visible) as "true" | "false"}
+                              disabled={menuVisibilitySavingKey !== null}
+                              options={MENU_VISIBLE_SELECT_OPTIONS}
+                              onChange={(nextValue) =>
+                                updateMenuCategoryDraft(item.key, {
+                                  visible: nextValue === "true",
+                                })
+                              }
+                            />
+
+                            <MenuSelectField
+                              label="사용"
+                              value={String(categorySettings.enabled) as "true" | "false"}
+                              disabled={menuVisibilitySavingKey !== null}
+                              options={MENU_ENABLED_SELECT_OPTIONS}
+                              onChange={(nextValue) =>
+                                updateMenuCategoryDraft(item.key, {
+                                  enabled: nextValue === "true",
+                                })
+                              }
+                            />
+                          </div>
+
+                          {sortedChildItems.length ? (
+                            <div className="mt-4 space-y-3 border-t border-(--border)/70 pt-4">
+                              {sortedChildItems.map((childItem, childIndex) => {
+                                const childSettings = menuVisibilityItems[childItem.key];
+                                const isChildSaving =
+                                  menuVisibilitySavingKey === getItemSavingStateKey(childItem.key);
+                                const isChildDirty = hasMenuItemChanges(childItem.key);
+
+                                return (
+                                  <div
+                                    key={childItem.key}
+                                    className="rounded-2xl border border-(--border)/70 bg-[rgba(255,255,255,0.04)] px-3 py-3.5"
+                                  >
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                      <div className="min-w-0 space-y-1">
+                                        <p className="theme-heading text-sm font-semibold leading-relaxed">
+                                          {childSettings.label}
+                                        </p>
+                                        <p className="theme-copy text-[11px] leading-relaxed sm:text-xs">
+                                          {childItem.description}
+                                        </p>
+                                        <p className="theme-copy text-[11px] uppercase tracking-[0.18em]">
+                                          key: {childItem.key}
+                                        </p>
+                                      </div>
+
+                                      <div className="flex items-center gap-2 self-start">
+                                        {isChildDirty ? (
+                                          <span className="theme-copy rounded-full border border-[rgba(244,176,75,0.34)] bg-[rgba(244,176,75,0.12)] px-2.5 py-1 text-[11px] font-semibold">
+                                            저장 필요
+                                          </span>
+                                        ) : null}
+                                        <button
+                                          type="button"
+                                          onClick={() => void handleMenuItemSave(childItem.key)}
+                                          disabled={menuVisibilitySavingKey !== null || !isChildDirty}
+                                          className="retro-button min-h-10 px-4 py-2 text-xs font-semibold disabled:opacity-50"
+                                        >
+                                          {isChildSaving ? "저장 중..." : "하위 메뉴 저장"}
+                                        </button>
+                                      </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2 self-start">
-                                      {isChildDirty ? (
-                                        <span className="theme-copy rounded-full border border-[rgba(244,176,75,0.34)] bg-[rgba(244,176,75,0.12)] px-2.5 py-1 text-[11px] font-semibold">
-                                          저장 필요
-                                        </span>
-                                      ) : null}
-                                      <button
-                                        type="button"
-                                        onClick={() => void handleMenuItemSave(childItem.key)}
-                                        disabled={menuVisibilitySavingKey !== null || !isChildDirty}
-                                        className="retro-button min-h-10 px-4 py-2 text-xs font-semibold disabled:opacity-50"
-                                      >
-                                        {isChildSaving ? "저장 중..." : "하위 메뉴 저장"}
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                  <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                                    <label className="flex flex-col gap-2">
-                                      <span className="theme-heading text-xs font-semibold">메뉴 이름</span>
-                                      <input
-                                        type="text"
-                                        maxLength={40}
-                                        value={childSettings.label}
-                                        disabled={menuVisibilitySavingKey !== null}
-                                        onChange={(event) =>
-                                          updateMenuItemDraft(childItem.key, {
-                                            label: event.target.value,
-                                          })
-                                        }
-                                        className="w-full px-3 py-2.5 text-sm"
-                                      />
-                                    </label>
-
-                                    <label className="flex flex-col gap-2">
-                                      <span className="theme-heading text-xs font-semibold">정렬 순서</span>
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        max={999}
-                                        step={1}
-                                        inputMode="numeric"
-                                        value={childSettings.order}
-                                        disabled={menuVisibilitySavingKey !== null}
-                                        onChange={(event) =>
-                                          updateMenuItemDraft(childItem.key, {
-                                            order: Number.isNaN(
-                                              Number.parseInt(event.target.value, 10)
-                                            )
-                                              ? 0
-                                              : Number.parseInt(event.target.value, 10),
-                                          })
-                                        }
-                                        className="w-full px-3 py-2.5 text-sm"
-                                      />
-                                    </label>
-
-                                    <MenuAccessQuickField
-                                      label="진입 권한"
-                                      value={childSettings.access_level}
-                                      disabled={menuVisibilitySavingKey !== null}
-                                      onChange={(nextValue) =>
-                                        updateMenuItemDraft(childItem.key, {
-                                          access_level: nextValue,
-                                        })
-                                      }
-                                    />
-
-                                    {childItem.supportsWriteAccess ? (
+                                    <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                                       <label className="flex flex-col gap-2">
-                                        <span className="theme-heading text-xs font-semibold">글 작성 권한</span>
-                                        <select
-                                          value={childSettings.write_access_level}
+                                        <span className="theme-heading text-xs font-semibold">메뉴 이름</span>
+                                        <input
+                                          type="text"
+                                          maxLength={40}
+                                          value={childSettings.label}
                                           disabled={menuVisibilitySavingKey !== null}
                                           onChange={(event) =>
                                             updateMenuItemDraft(childItem.key, {
-                                              write_access_level:
-                                                event.target.value as MenuWriteAccessLevel,
+                                              label: event.target.value,
                                             })
                                           }
                                           className="w-full px-3 py-2.5 text-sm"
-                                        >
-                                          {MENU_WRITE_ACCESS_LEVEL_OPTIONS.map((option) => (
-                                            <option key={option} value={option}>
-                                              {getMenuWriteAccessLevelLabel(option)}
-                                            </option>
-                                          ))}
-                                        </select>
+                                        />
                                       </label>
-                                    ) : null}
 
-                                    <MenuQuickToggleField
-                                      label="표시"
-                                      value={childSettings.visible}
-                                      disabled={menuVisibilitySavingKey !== null}
-                                      trueLabel="표시"
-                                      falseLabel="미표시"
-                                      onChange={(nextValue) =>
-                                        updateMenuItemDraft(childItem.key, {
-                                          visible: nextValue,
-                                        })
-                                      }
-                                    />
+                                      <MenuOrderMoveField
+                                        position={childIndex}
+                                        canMoveUp={childIndex > 0}
+                                        canMoveDown={childIndex < sortedChildItems.length - 1}
+                                        disabled={menuVisibilitySavingKey !== null}
+                                        onMoveUp={() => moveMenuItemDraft(childItem.key, "up")}
+                                        onMoveDown={() => moveMenuItemDraft(childItem.key, "down")}
+                                      />
 
-                                    <MenuQuickToggleField
-                                      label="사용"
-                                      value={childSettings.enabled}
-                                      disabled={menuVisibilitySavingKey !== null}
-                                      trueLabel="사용 중"
-                                      falseLabel="미사용"
-                                      onChange={(nextValue) =>
-                                        updateMenuItemDraft(childItem.key, {
-                                          enabled: nextValue,
-                                        })
-                                      }
-                                    />
+                                      <MenuSelectField
+                                        label="진입 권한"
+                                        value={childSettings.access_level}
+                                        disabled={menuVisibilitySavingKey !== null}
+                                        options={MENU_ACCESS_LEVEL_SELECT_OPTIONS}
+                                        className="sm:col-span-2 xl:col-span-3"
+                                        onChange={(nextValue) =>
+                                          updateMenuItemDraft(childItem.key, {
+                                            access_level: nextValue,
+                                          })
+                                        }
+                                      />
+
+                                      {childItem.supportsWriteAccess ? (
+                                        <MenuSelectField
+                                          label="글 작성 권한"
+                                          value={childSettings.write_access_level}
+                                          disabled={menuVisibilitySavingKey !== null}
+                                          options={MENU_WRITE_ACCESS_LEVEL_SELECT_OPTIONS}
+                                          onChange={(nextValue) =>
+                                            updateMenuItemDraft(childItem.key, {
+                                              write_access_level: nextValue as MenuWriteAccessLevel,
+                                            })
+                                          }
+                                        />
+                                      ) : null}
+
+                                      <MenuSelectField
+                                        label="표시"
+                                        value={String(childSettings.visible) as "true" | "false"}
+                                        disabled={menuVisibilitySavingKey !== null}
+                                        options={MENU_VISIBLE_SELECT_OPTIONS}
+                                        onChange={(nextValue) =>
+                                          updateMenuItemDraft(childItem.key, {
+                                            visible: nextValue === "true",
+                                          })
+                                        }
+                                      />
+
+                                      <MenuSelectField
+                                        label="사용"
+                                        value={String(childSettings.enabled) as "true" | "false"}
+                                        disabled={menuVisibilitySavingKey !== null}
+                                        options={MENU_ENABLED_SELECT_OPTIONS}
+                                        onChange={(nextValue) =>
+                                          updateMenuItemDraft(childItem.key, {
+                                            enabled: nextValue === "true",
+                                          })
+                                        }
+                                      />
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : null}
-                      </>
-                    ) : null}
+                                );
+                              })}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 );
               })}
@@ -2250,6 +2629,145 @@ export default function AdminPage() {
           </AdminFolderSection>
         ) : null}
       </div>
+
+      {activeMenuItemEditorKey && activeMenuItemSettings && activeMenuItemDefinition ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+          <button
+            type="button"
+            aria-label="하위 메뉴 수정 팝업 닫기"
+            onClick={() => cancelMenuItemEdit(activeMenuItemEditorKey)}
+            className="absolute inset-0 bg-[rgba(7,10,18,0.7)] backdrop-blur-sm"
+          />
+
+          <div className="retro-panel relative z-10 flex w-full max-w-2xl flex-col gap-4 rounded-[28px] px-4 py-4 sm:px-6 sm:py-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="theme-kicker text-[11px] tracking-[0.18em]">하위 메뉴 수정</p>
+                <p className="theme-heading mt-2 text-base font-semibold leading-relaxed sm:text-lg">
+                  {activeMenuItemLabelValue || activeMenuItemDefinition.label}
+                </p>
+                <p className="theme-copy mt-2 text-sm leading-relaxed">
+                  상위 카테고리: {activeMenuItemParentLabel}
+                </p>
+              </div>
+
+              <MenuMiniButton
+                label="닫기"
+                onClick={() => cancelMenuItemEdit(activeMenuItemEditorKey)}
+                disabled={isActiveMenuItemSaving}
+              />
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-2 rounded-2xl border border-(--border)/70 bg-[rgba(255,255,255,0.05)] px-3 py-3 sm:col-span-2">
+                <span className="theme-heading text-xs font-semibold">메뉴 이름 수정</span>
+                <input
+                  type="text"
+                  maxLength={40}
+                  value={activeMenuItemLabelValue}
+                  disabled={isActiveMenuItemSaving}
+                  onChange={(event) =>
+                    updateMenuItemLabelDraft(activeMenuItemEditorKey, event.target.value)
+                  }
+                  className="w-full px-3 py-2.5 text-sm"
+                />
+              </label>
+
+              <div className="sm:col-span-2">
+                <MenuSelectField
+                  label="메뉴 진입 권한"
+                  value={activeMenuItemSettings.access_level}
+                  disabled={isActiveMenuItemSaving}
+                  options={MENU_ACCESS_LEVEL_SELECT_OPTIONS}
+                  onChange={(nextValue) =>
+                    updateMenuItemDraft(activeMenuItemEditorKey, {
+                      access_level: nextValue,
+                    })
+                  }
+                />
+                <p className="theme-copy mt-2 px-1 text-xs leading-relaxed">
+                  현재 구조에서는 메뉴를 볼 수 있는 권한도 이 진입 권한과 동일하게 적용됩니다.
+                </p>
+              </div>
+
+              <MenuToggleField
+                label="메뉴 보이기 / 숨기기"
+                value={activeMenuItemSettings.visible}
+                disabled={isActiveMenuItemSaving}
+                trueLabel="보이기"
+                falseLabel="숨기기"
+                onChange={(nextValue) =>
+                  updateMenuItemDraft(activeMenuItemEditorKey, {
+                    visible: nextValue,
+                  })
+                }
+              />
+
+              <MenuToggleField
+                label="메뉴 사용 상태"
+                value={activeMenuItemSettings.enabled}
+                disabled={isActiveMenuItemSaving}
+                trueLabel="사용"
+                falseLabel="중지"
+                onChange={(nextValue) =>
+                  updateMenuItemDraft(activeMenuItemEditorKey, {
+                    enabled: nextValue,
+                  })
+                }
+              />
+
+              <div className="sm:col-span-2">
+                <MenuOrderMoveField
+                  position={activeMenuItemIndex}
+                  canMoveUp={activeMenuItemIndex > 0}
+                  canMoveDown={activeMenuItemIndex < activeMenuItemSiblingDefinitions.length - 1}
+                  disabled={isActiveMenuItemSaving}
+                  onMoveUp={() => moveMenuItemDraft(activeMenuItemEditorKey, "up")}
+                  onMoveDown={() => moveMenuItemDraft(activeMenuItemEditorKey, "down")}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-(--border)/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void deleteMenuItem(activeMenuItemEditorKey);
+                  }}
+                  disabled={isActiveMenuItemSaving}
+                  className="min-h-9 rounded-xl border border-[rgba(255,97,97,0.45)] bg-[rgba(255,97,97,0.12)] px-3 py-2 text-xs font-semibold text-(--text-strong) transition hover:bg-[rgba(255,97,97,0.18)] disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  메뉴 삭제
+                </button>
+                <p className="theme-copy mt-2 text-xs leading-relaxed">
+                  삭제를 누르면 이 메뉴는 숨김 + 사용 중지 상태로 저장됩니다.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <MenuMiniButton
+                  label="취소"
+                  onClick={() => cancelMenuItemEdit(activeMenuItemEditorKey)}
+                  disabled={isActiveMenuItemSaving}
+                />
+                <MenuMiniButton
+                  label={isActiveMenuItemSaving ? "저장 중" : "저장"}
+                  onClick={() => {
+                    void saveMenuItemEdit(activeMenuItemEditorKey);
+                  }}
+                  disabled={
+                    isActiveMenuItemSaving ||
+                    isActiveMenuItemNameEmpty ||
+                    !isActiveMenuItemDirty
+                  }
+                  tone="solid"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </PageShell>
   );
 }
