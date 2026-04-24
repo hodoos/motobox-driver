@@ -93,7 +93,7 @@ export default function VendorPage() {
   }, [router]);
 
   if (loading) {
-    return <PageLoadingShell message="밴더 전용 페이지 확인 중..." />;
+    return <PageLoadingShell message="밴더 페이지 확인 중..." />;
   }
 
   return (
@@ -103,13 +103,13 @@ export default function VendorPage() {
       <section className="retro-panel rounded-[24px] px-4 py-5 sm:rounded-[28px] sm:px-6 sm:py-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <p className="theme-kicker text-[11px] sm:text-xs">VENDOR ONLY</p>
+            <p className="theme-kicker text-[11px] sm:text-xs">VENDOR SPACE</p>
             <h1 className="retro-title theme-heading mt-2 text-lg sm:text-xl">
               밴더 전용 페이지
             </h1>
             <p className="theme-copy mt-3 text-sm leading-relaxed">
-              벤더Lv 이상 또는 기존 관리자 권한 계정만 접근할 수 있는 전용 영역입니다. 이후
-              밴더용 기능과 메뉴를 이 화면을 기준으로 확장할 수 있습니다.
+              현재는 로그인한 계정이면 누구나 확인할 수 있도록 열려 있습니다. 이후 밴더용
+              기능과 메뉴를 이 화면을 기준으로 확장할 수 있습니다.
             </p>
           </div>
 
@@ -143,7 +143,7 @@ export default function VendorPage() {
               벤더 공지, 정산 공유, 기사 배정 관련 기능을 이 영역에 추가할 수 있습니다.
             </div>
             <div className="theme-note-box rounded-[20px] px-4 py-4 text-sm leading-relaxed">
-              현재는 접근 권한과 전용 진입 경로를 실제로 연결한 초기 페이지입니다.
+              현재는 공개된 진입 경로를 기준으로 밴더 관련 기능을 확장할 수 있는 초기 페이지입니다.
             </div>
           </div>
         </div>

@@ -38,7 +38,7 @@
         "enabled": true,
         "label": "제휴 전용",
         "order": 4,
-        "access_level": "Lv3-제휴",
+        "access_level": "authenticated",
         "write_access_level": "Lv3-제휴"
       },
       "vendor": {
@@ -46,7 +46,7 @@
         "enabled": true,
         "label": "밴더 전용",
         "order": 5,
-        "access_level": "벤더Lv",
+        "access_level": "authenticated",
         "write_access_level": "disabled"
       }
     },
@@ -134,7 +134,7 @@
       "notice": {
         "visible": true,
         "enabled": true,
-        "label": "구현중..",
+        "label": "공지",
         "order": 2,
         "access_level": "authenticated",
         "write_access_level": "authenticated"
@@ -142,7 +142,7 @@
       "tips": {
         "visible": true,
         "enabled": true,
-        "label": "구현중..",
+        "label": "팁",
         "order": 3,
         "access_level": "authenticated",
         "write_access_level": "authenticated"
@@ -152,7 +152,7 @@
         "enabled": true,
         "label": "제휴 게시판",
         "order": 0,
-        "access_level": "Lv3-제휴",
+        "access_level": "authenticated",
         "write_access_level": "Lv3-제휴"
       },
       "vendor-home": {
@@ -165,5 +165,5 @@
       }
     }
   },
-  "updated_at": "2026-04-24T06:42:48.072Z"
+  "updated_at": "2026-04-24T07:25:00.000Z"
 }
