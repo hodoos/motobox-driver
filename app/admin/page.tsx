@@ -342,9 +342,9 @@ function MenuOrderMoveField({
   return (
     <div className="flex flex-col gap-2 rounded-2xl border border-(--border)/70 bg-[rgba(255,255,255,0.05)] px-3 py-3">
       <span className="theme-heading text-xs font-semibold">정렬 순서</span>
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <span className="theme-copy text-xs">현재 {position + 1}번째</span>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <button
             type="button"
             disabled={disabled || !canMoveUp}
@@ -372,18 +372,20 @@ function MenuMiniButton({
   onClick,
   disabled = false,
   tone = "default",
+  className,
 }: {
   label: string;
   onClick: () => void;
   disabled?: boolean;
   tone?: "default" | "solid";
+  className?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`${tone === "solid" ? "retro-button-solid" : "retro-button"} min-h-8 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-45`}
+      className={`${tone === "solid" ? "retro-button-solid" : "retro-button"} inline-flex min-h-8 items-center justify-center rounded-lg px-2.5 py-1.5 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-45 ${className ?? ""}`}
     >
       {label}
     </button>
@@ -2098,13 +2100,14 @@ export default function AdminPage() {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 self-start">
+                      <div className="flex w-full flex-wrap items-center gap-2 self-start sm:w-auto sm:justify-end">
                         {isEditingCategory ? (
                           <>
                             <MenuMiniButton
                               label="취소"
                               onClick={() => cancelMenuCategoryEdit(item.key)}
                               disabled={isSaving}
+                              className="w-full sm:w-auto"
                             />
                             <MenuMiniButton
                               label={isSaving ? "저장 중" : "저장"}
@@ -2113,12 +2116,14 @@ export default function AdminPage() {
                               }}
                               disabled={isSaving || isCategoryNameEmpty || !isDirty}
                               tone="solid"
+                              className="w-full sm:w-auto"
                             />
                           </>
                         ) : (
                           <MenuMiniButton
                             label="수정"
                             onClick={() => openMenuCategoryEditor(item.key)}
+                            className="w-full sm:w-auto"
                           />
                         )}
                       </div>
@@ -2143,10 +2148,11 @@ export default function AdminPage() {
                                     </p>
                                   </div>
 
-                                  <div className="flex items-center gap-2 self-start sm:self-center">
+                                  <div className="flex w-full flex-wrap items-center gap-2 self-start sm:w-auto sm:self-center sm:justify-end">
                                     <MenuMiniButton
                                       label="수정"
                                       onClick={() => openMenuItemEditor(childItem.key)}
+                                      className="w-full sm:w-auto"
                                     />
                                   </div>
                                 </div>
@@ -2631,7 +2637,7 @@ export default function AdminPage() {
       </div>
 
       {activeMenuItemEditorKey && activeMenuItemSettings && activeMenuItemDefinition ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-4 sm:items-center sm:px-6 sm:py-6">
           <button
             type="button"
             aria-label="하위 메뉴 수정 팝업 닫기"
@@ -2639,8 +2645,8 @@ export default function AdminPage() {
             className="absolute inset-0 bg-[rgba(7,10,18,0.7)] backdrop-blur-sm"
           />
 
-          <div className="retro-panel relative z-10 flex w-full max-w-2xl flex-col gap-4 rounded-[28px] px-4 py-4 sm:px-6 sm:py-5">
-            <div className="flex items-start justify-between gap-3">
+          <div className="retro-panel relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col gap-4 overflow-hidden rounded-[28px] px-4 py-4 sm:max-h-[calc(100dvh-3rem)] sm:px-6 sm:py-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <p className="theme-kicker text-[11px] tracking-[0.18em]">하위 메뉴 수정</p>
                 <p className="theme-heading mt-2 text-base font-semibold leading-relaxed sm:text-lg">
@@ -2655,88 +2661,91 @@ export default function AdminPage() {
                 label="닫기"
                 onClick={() => cancelMenuItemEdit(activeMenuItemEditorKey)}
                 disabled={isActiveMenuItemSaving}
+                className="w-full sm:w-auto"
               />
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex flex-col gap-2 rounded-2xl border border-(--border)/70 bg-[rgba(255,255,255,0.05)] px-3 py-3 sm:col-span-2">
-                <span className="theme-heading text-xs font-semibold">메뉴 이름 수정</span>
-                <input
-                  type="text"
-                  maxLength={40}
-                  value={activeMenuItemLabelValue}
-                  disabled={isActiveMenuItemSaving}
-                  onChange={(event) =>
-                    updateMenuItemLabelDraft(activeMenuItemEditorKey, event.target.value)
-                  }
-                  className="w-full px-3 py-2.5 text-sm"
-                />
-              </label>
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex flex-col gap-2 rounded-2xl border border-(--border)/70 bg-[rgba(255,255,255,0.05)] px-3 py-3 sm:col-span-2">
+                  <span className="theme-heading text-xs font-semibold">메뉴 이름 수정</span>
+                  <input
+                    type="text"
+                    maxLength={40}
+                    value={activeMenuItemLabelValue}
+                    disabled={isActiveMenuItemSaving}
+                    onChange={(event) =>
+                      updateMenuItemLabelDraft(activeMenuItemEditorKey, event.target.value)
+                    }
+                    className="w-full px-3 py-2.5 text-sm"
+                  />
+                </label>
 
-              <div className="sm:col-span-2">
-                <MenuSelectField
-                  label="메뉴 진입 권한"
-                  value={activeMenuItemSettings.access_level}
+                <div className="sm:col-span-2">
+                  <MenuSelectField
+                    label="메뉴 진입 권한"
+                    value={activeMenuItemSettings.access_level}
+                    disabled={isActiveMenuItemSaving}
+                    options={MENU_ACCESS_LEVEL_SELECT_OPTIONS}
+                    onChange={(nextValue) =>
+                      updateMenuItemDraft(activeMenuItemEditorKey, {
+                        access_level: nextValue,
+                      })
+                    }
+                  />
+                  <p className="theme-copy mt-2 px-1 text-xs leading-relaxed">
+                    현재 구조에서는 메뉴를 볼 수 있는 권한도 이 진입 권한과 동일하게 적용됩니다.
+                  </p>
+                </div>
+
+                <MenuToggleField
+                  label="메뉴 보이기 / 숨기기"
+                  value={activeMenuItemSettings.visible}
                   disabled={isActiveMenuItemSaving}
-                  options={MENU_ACCESS_LEVEL_SELECT_OPTIONS}
+                  trueLabel="보이기"
+                  falseLabel="숨기기"
                   onChange={(nextValue) =>
                     updateMenuItemDraft(activeMenuItemEditorKey, {
-                      access_level: nextValue,
+                      visible: nextValue,
                     })
                   }
                 />
-                <p className="theme-copy mt-2 px-1 text-xs leading-relaxed">
-                  현재 구조에서는 메뉴를 볼 수 있는 권한도 이 진입 권한과 동일하게 적용됩니다.
-                </p>
-              </div>
 
-              <MenuToggleField
-                label="메뉴 보이기 / 숨기기"
-                value={activeMenuItemSettings.visible}
-                disabled={isActiveMenuItemSaving}
-                trueLabel="보이기"
-                falseLabel="숨기기"
-                onChange={(nextValue) =>
-                  updateMenuItemDraft(activeMenuItemEditorKey, {
-                    visible: nextValue,
-                  })
-                }
-              />
-
-              <MenuToggleField
-                label="메뉴 사용 상태"
-                value={activeMenuItemSettings.enabled}
-                disabled={isActiveMenuItemSaving}
-                trueLabel="사용"
-                falseLabel="중지"
-                onChange={(nextValue) =>
-                  updateMenuItemDraft(activeMenuItemEditorKey, {
-                    enabled: nextValue,
-                  })
-                }
-              />
-
-              <div className="sm:col-span-2">
-                <MenuOrderMoveField
-                  position={activeMenuItemIndex}
-                  canMoveUp={activeMenuItemIndex > 0}
-                  canMoveDown={activeMenuItemIndex < activeMenuItemSiblingDefinitions.length - 1}
+                <MenuToggleField
+                  label="메뉴 사용 상태"
+                  value={activeMenuItemSettings.enabled}
                   disabled={isActiveMenuItemSaving}
-                  onMoveUp={() => moveMenuItemDraft(activeMenuItemEditorKey, "up")}
-                  onMoveDown={() => moveMenuItemDraft(activeMenuItemEditorKey, "down")}
+                  trueLabel="사용"
+                  falseLabel="중지"
+                  onChange={(nextValue) =>
+                    updateMenuItemDraft(activeMenuItemEditorKey, {
+                      enabled: nextValue,
+                    })
+                  }
                 />
+
+                <div className="sm:col-span-2">
+                  <MenuOrderMoveField
+                    position={activeMenuItemIndex}
+                    canMoveUp={activeMenuItemIndex > 0}
+                    canMoveDown={activeMenuItemIndex < activeMenuItemSiblingDefinitions.length - 1}
+                    disabled={isActiveMenuItemSaving}
+                    onMoveUp={() => moveMenuItemDraft(activeMenuItemEditorKey, "up")}
+                    onMoveDown={() => moveMenuItemDraft(activeMenuItemEditorKey, "down")}
+                  />
+                </div>
               </div>
             </div>
 
             <div className="flex flex-col gap-3 border-t border-(--border)/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
+              <div className="w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => {
                     void deleteMenuItem(activeMenuItemEditorKey);
                   }}
                   disabled={isActiveMenuItemSaving}
-                  className="min-h-9 rounded-xl border border-[rgba(255,97,97,0.45)] bg-[rgba(255,97,97,0.12)] px-3 py-2 text-xs font-semibold text-(--text-strong) transition hover:bg-[rgba(255,97,97,0.18)] disabled:cursor-not-allowed disabled:opacity-45"
+                  className="min-h-9 w-full rounded-xl border border-[rgba(255,97,97,0.45)] bg-[rgba(255,97,97,0.12)] px-3 py-2 text-xs font-semibold text-(--text-strong) transition hover:bg-[rgba(255,97,97,0.18)] disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto"
                 >
                   메뉴 삭제
                 </button>
@@ -2745,11 +2754,12 @@ export default function AdminPage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 self-end sm:self-auto">
+              <div className="flex w-full flex-col gap-2 self-end sm:w-auto sm:flex-row sm:self-auto">
                 <MenuMiniButton
                   label="취소"
                   onClick={() => cancelMenuItemEdit(activeMenuItemEditorKey)}
                   disabled={isActiveMenuItemSaving}
+                  className="w-full sm:w-auto"
                 />
                 <MenuMiniButton
                   label={isActiveMenuItemSaving ? "저장 중" : "저장"}
@@ -2762,6 +2772,7 @@ export default function AdminPage() {
                     !isActiveMenuItemDirty
                   }
                   tone="solid"
+                  className="w-full sm:w-auto"
                 />
               </div>
             </div>
