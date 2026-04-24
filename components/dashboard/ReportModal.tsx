@@ -203,8 +203,8 @@ export default function ReportModal({
           </button>
         </div>
 
-        <div className="space-y-2.5">
-          <div className="grid grid-cols-[1fr_auto] items-end gap-2">
+        <div className="space-y-3">
+          <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
             <div className="space-y-1">
               <label className="theme-label block text-xs font-semibold">단가</label>
               <input
@@ -217,7 +217,7 @@ export default function ReportModal({
                 className="no-spinner h-10 px-3 py-2 text-left text-sm disabled:opacity-60"
               />
             </div>
-            <label className="theme-note-box theme-label flex h-10 items-center gap-2 rounded-xl px-3 text-xs font-semibold">
+            <label className="theme-note-box theme-label flex h-10 items-center gap-2 rounded-xl px-3 text-xs font-semibold sm:justify-self-end">
               <input
                 id="dayoff"
                 type="checkbox"
@@ -241,7 +241,7 @@ export default function ReportModal({
             </label>
           </div>
 
-          <div className="grid grid-cols-[minmax(0,5.25rem)_minmax(0,5.25rem)_minmax(0,1fr)] items-start gap-2">
+          <div className="grid gap-3 sm:grid-cols-3 sm:items-start">
             <div className="space-y-1">
               <label className="theme-label block text-[11px] font-semibold">배송</label>
               <input
@@ -270,54 +270,52 @@ export default function ReportModal({
 
             <div className="space-y-1">
               <label className="theme-label block text-[11px] font-semibold">취소</label>
-              <div className="flex items-start gap-2">
-                <input
-                  type="number"
-                  name="canceled_count"
-                  value={reportForm.canceled_count}
-                  onChange={handleReportChange}
-                  disabled={reportForm.is_day_off}
-                  placeholder="취소"
-                  className="no-spinner h-10 w-full max-w-[4.75rem] px-2 py-2 text-center text-sm disabled:opacity-60"
-                />
-                <div className="flex min-w-0 flex-col gap-1 pt-1 text-[10px]">
-                  <label className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      checked={reportForm.include_canceled_in_sales}
-                      disabled={reportForm.is_day_off}
-                      onChange={(event) => {
-                        if (!event.target.checked) {
-                          return;
-                        }
+              <input
+                type="number"
+                name="canceled_count"
+                value={reportForm.canceled_count}
+                onChange={handleReportChange}
+                disabled={reportForm.is_day_off}
+                placeholder="취소"
+                className="no-spinner h-10 w-full px-2 py-2 text-center text-sm disabled:opacity-60"
+              />
+              <div className="mt-2 grid w-full gap-2 text-[10px]">
+                <label className="flex w-full min-w-0 items-center justify-between gap-3 rounded-[14px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 py-2 text-left">
+                  <input
+                    type="checkbox"
+                    checked={reportForm.include_canceled_in_sales}
+                    disabled={reportForm.is_day_off}
+                    onChange={(event) => {
+                      if (!event.target.checked) {
+                        return;
+                      }
 
-                        setReportForm((prev) => ({
-                          ...prev,
-                          include_canceled_in_sales: true,
-                        }));
-                      }}
-                    />
-                    취소건 포함
-                  </label>
-                  <label className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      checked={!reportForm.include_canceled_in_sales}
-                      disabled={reportForm.is_day_off}
-                      onChange={(event) => {
-                        if (!event.target.checked) {
-                          return;
-                        }
+                      setReportForm((prev) => ({
+                        ...prev,
+                        include_canceled_in_sales: true,
+                      }));
+                    }}
+                  />
+                  <span className="theme-copy min-w-0 font-medium leading-tight">취소건 포함</span>
+                </label>
+                <label className="flex w-full min-w-0 items-center justify-between gap-3 rounded-[14px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 py-2 text-left">
+                  <input
+                    type="checkbox"
+                    checked={!reportForm.include_canceled_in_sales}
+                    disabled={reportForm.is_day_off}
+                    onChange={(event) => {
+                      if (!event.target.checked) {
+                        return;
+                      }
 
-                        setReportForm((prev) => ({
-                          ...prev,
-                          include_canceled_in_sales: false,
-                        }));
-                      }}
-                    />
-                    취소건 미포함
-                  </label>
-                </div>
+                      setReportForm((prev) => ({
+                        ...prev,
+                        include_canceled_in_sales: false,
+                      }));
+                    }}
+                  />
+                  <span className="theme-copy min-w-0 font-medium leading-tight">취소건 미포함</span>
+                </label>
               </div>
             </div>
           </div>
@@ -423,11 +421,11 @@ export default function ReportModal({
               </p>
             </div>
 
-            <div className="mx-auto w-full max-w-[16rem] space-y-2">
+            <div className="w-full space-y-2">
                 {expenseItems.map((item, index) => (
                   <div
                     key={item.key}
-                    className="grid grid-cols-[minmax(0,1fr)_5.5rem_2.25rem] items-center gap-2.5"
+                    className="grid grid-cols-[minmax(0,1fr)_4.75rem_2.25rem] items-center gap-2 min-[380px]:grid-cols-[minmax(0,1fr)_5.5rem_2.25rem] min-[380px]:gap-2.5"
                   >
                     <input
                       type="text"

@@ -22,6 +22,10 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import {
+  canUserAccessMenuItem,
+  getDefaultMenuVisibilitySettings,
+} from "../../lib/menuVisibility";
 import { supabase } from "../../lib/supabase";
 import {
   consumePendingToast,
@@ -50,6 +54,8 @@ import {
   DriverSettings,
   ExpenseItemForm,
   FreshbackRecoveryItemForm,
+  MenuVisibilitySettings,
+  MenuVisibilitySettingsResponse,
   ReportForm,
   UserType,
 } from "../../types";
@@ -294,6 +300,83 @@ function normalizeDashboardHomeLayout(value: unknown) {
 
 function readDashboardHomeLayout(user?: Pick<User, "user_metadata"> | null) {
   return normalizeDashboardHomeLayout(user?.user_metadata?.dashboard_home_layout);
+}
+
+async function loadClientMenuVisibilitySettings() {
+  const response = await fetch("/api/menu-visibility", {
+    method: "GET",
+    cache: "no-store",
+  });
+  const responseBody = (await response.json().catch(() => null)) as
+    | MenuVisibilitySettingsResponse
+    | { error?: string }
+    | null;
+
+  if (!response.ok || !responseBody || !("settings" in responseBody) || !responseBody.settings) {
+    return getDefaultMenuVisibilitySettings();
+  }
+
+  return responseBody.settings;
+}
+
+function canAccessDashboardSection(
+  section: DashboardSectionId,
+  menuVisibilitySettings: MenuVisibilitySettings,
+  user?: Pick<User, "app_metadata" | "user_metadata"> | null
+) {
+  if (section === "home") {
+    return canUserAccessMenuItem(menuVisibilitySettings, "dashboard", user);
+  }
+
+  if (section === "work-summary") {
+    return canUserAccessMenuItem(menuVisibilitySettings, "work-summary", user);
+  }
+
+  if (section === "stats") {
+    return canUserAccessMenuItem(menuVisibilitySettings, "stats", user);
+  }
+
+  return canUserAccessMenuItem(menuVisibilitySettings, section, user);
+}
+
+function canAccessDashboardHomeLayoutItem(
+  itemId: DashboardHomeLayoutSectionId,
+  menuVisibilitySettings: MenuVisibilitySettings,
+  user?: Pick<User, "app_metadata" | "user_metadata"> | null
+) {
+  if (itemId.startsWith("work-summary-")) {
+    return canUserAccessMenuItem(menuVisibilitySettings, "work-summary", user);
+  }
+
+  if (itemId.startsWith("sales-stat-")) {
+    return canUserAccessMenuItem(menuVisibilitySettings, "stats", user);
+  }
+
+  if (itemId === "weather-card") {
+    return true;
+  }
+
+  return canUserAccessMenuItem(menuVisibilitySettings, itemId, user);
+}
+
+function getFirstAccessibleDashboardSection(
+  menuVisibilitySettings: MenuVisibilitySettings,
+  user?: Pick<User, "app_metadata" | "user_metadata"> | null
+) {
+  const orderedSections: DashboardSectionId[] = [
+    "home",
+    "today-quick-card",
+    "work-summary",
+    "stats",
+    "daily-sales-list",
+    "work-calendar",
+  ];
+
+  return (
+    orderedSections.find((section) =>
+      canAccessDashboardSection(section, menuVisibilitySettings, user)
+    ) ?? "home"
+  );
 }
 
 type DashboardHomeLayoutEditorItemProps = {
@@ -904,6 +987,7 @@ export default function DashboardPage() {
   );
   const [dashboardSection, setDashboardSection] = useState<DashboardSectionId>("home");
 
+  const [authUser, setAuthUser] = useState<User | null>(null);
   const [user, setUser] = useState<UserType | null>(null);
   const [loading, setLoading] = useState(true);
   const [reportsLoading, setReportsLoading] = useState(false);
@@ -912,6 +996,9 @@ export default function DashboardPage() {
   const [dashboardHomeLayout, setDashboardHomeLayout] = useState<
     DashboardHomeLayoutItem[]
   >(DEFAULT_DASHBOARD_HOME_LAYOUT);
+  const [menuVisibilitySettings, setMenuVisibilitySettings] = useState<MenuVisibilitySettings>(
+    () => getDefaultMenuVisibilitySettings()
+  );
   const [dashboardHomeLayoutDraft, setDashboardHomeLayoutDraft] = useState<
     DashboardHomeLayoutItem[]
   >(DEFAULT_DASHBOARD_HOME_LAYOUT);
@@ -1039,21 +1126,31 @@ export default function DashboardPage() {
   }, []);
 
   const isHomeDashboardSection = dashboardSection === "home";
-  const visibleDashboardHomeLayout = dashboardHomeLayout.filter((item) => item.visible);
+  const visibleDashboardHomeLayout = dashboardHomeLayout.filter(
+    (item) =>
+      item.visible &&
+      canAccessDashboardHomeLayoutItem(item.id, menuVisibilitySettings, authUser)
+  );
   const visibleDashboardHomeLayoutDraft = dashboardHomeLayoutDraft.filter(
-    (item) => item.visible
+    (item) =>
+      item.visible &&
+      canAccessDashboardHomeLayoutItem(item.id, menuVisibilitySettings, authUser)
   );
   const activeHomeDashboardLayout = visibleDashboardHomeLayoutDraft;
   const activeHomeDashboardLayoutIds = activeHomeDashboardLayout.map((item) => item.id);
   const dashboardHomeLayoutEditorItems = useMemo(
     () =>
-      [...dashboardHomeLayoutDraft].sort((leftItem, rightItem) =>
+      [...dashboardHomeLayoutDraft]
+        .filter((item) =>
+          canAccessDashboardHomeLayoutItem(item.id, menuVisibilitySettings, authUser)
+        )
+        .sort((leftItem, rightItem) =>
         DASHBOARD_HOME_LAYOUT_LABELS[leftItem.id].localeCompare(
           DASHBOARD_HOME_LAYOUT_LABELS[rightItem.id],
           "ko"
         )
       ),
-    [dashboardHomeLayoutDraft]
+    [authUser, dashboardHomeLayoutDraft, menuVisibilitySettings]
   );
   const isQuickEntryVisibleOnHome = visibleDashboardHomeLayout.some(
     (item) => item.id === "today-quick-card"
@@ -1064,16 +1161,23 @@ export default function DashboardPage() {
   const isCalendarVisibleOnHome = visibleDashboardHomeLayout.some(
     (item) => item.id === "work-calendar"
   );
-  const showSummaryStrip = dashboardSection === "work-summary";
+  const showSummaryStrip =
+    dashboardSection === "work-summary" &&
+    canAccessDashboardSection("work-summary", menuVisibilitySettings, authUser);
   const showQuickEntrySection =
-    dashboardSection === "today-quick-card" ||
+    (dashboardSection === "today-quick-card" &&
+      canAccessDashboardSection("today-quick-card", menuVisibilitySettings, authUser)) ||
     (isHomeDashboardSection && isQuickEntryVisibleOnHome);
-  const showStatsSection = dashboardSection === "stats";
+  const showStatsSection =
+    dashboardSection === "stats" &&
+    canAccessDashboardSection("stats", menuVisibilitySettings, authUser);
   const showDailySalesListSection =
-    dashboardSection === "daily-sales-list" ||
+    (dashboardSection === "daily-sales-list" &&
+      canAccessDashboardSection("daily-sales-list", menuVisibilitySettings, authUser)) ||
     (isHomeDashboardSection && isDailySalesListVisibleOnHome);
   const showCalendarSection =
-    dashboardSection === "work-calendar" ||
+    (dashboardSection === "work-calendar" &&
+      canAccessDashboardSection("work-calendar", menuVisibilitySettings, authUser)) ||
     (isHomeDashboardSection && isCalendarVisibleOnHome);
 
   useEffect(() => {
@@ -1210,12 +1314,21 @@ export default function DashboardPage() {
 
       const profileSeed = extractDriverProfileSeed(user);
       const nextDashboardHomeLayout = readDashboardHomeLayout(user);
+      const nextMenuVisibilitySettings = await loadClientMenuVisibilitySettings();
+
+      if (!canUserAccessMenuItem(nextMenuVisibilitySettings, "dashboard", user)) {
+        router.replace("/");
+        return;
+      }
+
+      setAuthUser(user);
       setUser({
         id: user.id,
         email: user.email,
         driver_name: profileSeed.driverName,
         phone_number: profileSeed.phoneNumber,
       });
+      setMenuVisibilitySettings(nextMenuVisibilitySettings);
       setDashboardHomeLayout(nextDashboardHomeLayout);
       setDashboardHomeLayoutDraft(nextDashboardHomeLayout);
 
@@ -1230,6 +1343,32 @@ export default function DashboardPage() {
 
     init();
   }, [router]);
+
+  useEffect(() => {
+    if (!authUser) {
+      return;
+    }
+
+    if (!canUserAccessMenuItem(menuVisibilitySettings, "dashboard", authUser)) {
+      router.replace("/");
+      return;
+    }
+
+    if (canAccessDashboardSection(dashboardSection, menuVisibilitySettings, authUser)) {
+      return;
+    }
+
+    const nextDashboardSection = getFirstAccessibleDashboardSection(
+      menuVisibilitySettings,
+      authUser
+    );
+    const timeoutId = window.setTimeout(() => {
+      setDashboardSection(nextDashboardSection);
+      setReportListScrollDate(null);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [authUser, dashboardSection, menuVisibilitySettings, router]);
 
   useEffect(() => {
     if (user) {

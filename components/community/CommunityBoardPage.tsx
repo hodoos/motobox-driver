@@ -8,11 +8,17 @@ import ToastViewport from "../ui/ToastViewport";
 import { isAdminUser } from "../../lib/admin";
 import {
   canAccessCommunityBoard,
-  getCommunityBoardAccessScopeLabel,
   getCommunityBoardDefinition,
   type CommunityBoardKey,
 } from "../../lib/communityBoards";
 import { extractDriverProfileSeed } from "../../lib/driverSettings";
+import {
+  canUserAccessMenuItem,
+  canUserWriteMenuItem,
+  getDefaultMenuVisibilitySettings,
+  getMenuAccessLevelLabel,
+  getMenuWriteAccessLevelLabel,
+} from "../../lib/menuVisibility";
 import { supabase } from "../../lib/supabase";
 import {
   createToastState,
@@ -26,6 +32,8 @@ import type {
   CommunityPostRow,
   CommunityPostsResponse,
   CommunityPostStorageMode,
+  MenuVisibilitySettings,
+  MenuVisibilitySettingsResponse,
   UserType,
 } from "../../types";
 
@@ -118,6 +126,23 @@ async function getSupabaseAccessToken() {
   return session?.access_token ?? null;
 }
 
+async function loadClientMenuVisibilitySettings() {
+  const response = await fetch("/api/menu-visibility", {
+    method: "GET",
+    cache: "no-store",
+  });
+  const responseBody = (await response.json().catch(() => null)) as
+    | MenuVisibilitySettingsResponse
+    | { error?: string }
+    | null;
+
+  if (!response.ok || !responseBody || !("settings" in responseBody) || !responseBody.settings) {
+    return getDefaultMenuVisibilitySettings();
+  }
+
+  return responseBody.settings;
+}
+
 async function requestBoardPosts(
   boardKey: CommunityBoardKey,
   accessToken: string
@@ -145,13 +170,15 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [viewer, setViewer] = useState<UserType | null>(null);
   const [userLevel, setUserLevel] = useState("");
-  const [accessScope, setAccessScope] = useState("");
   const [posts, setPosts] = useState<CommunityPostRow[]>([]);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [editorMode, setEditorMode] = useState<EditorMode>(null);
   const [formState, setFormState] = useState<PostFormState>(EMPTY_POST_FORM);
   const [keyword, setKeyword] = useState("");
   const [storage, setStorage] = useState<CommunityPostStorageMode | null>(null);
+  const [menuVisibilitySettings, setMenuVisibilitySettings] = useState<MenuVisibilitySettings>(() =>
+    getDefaultMenuVisibilitySettings()
+  );
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -174,6 +201,20 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
   const canManageSelectedPost =
     Boolean(selectedPost && authUser) &&
     (selectedPost?.author_user_id === authUser?.id || isAdminUser(authUser));
+  const boardItemSettings = board ? menuVisibilitySettings.items[board.key] : null;
+  const accessScope = boardItemSettings
+    ? getMenuAccessLevelLabel(boardItemSettings.access_level)
+    : "불러오는 중";
+  const writeScope = boardItemSettings
+    ? getMenuWriteAccessLevelLabel(boardItemSettings.write_access_level)
+    : "불러오는 중";
+  const canWritePosts = Boolean(authUser && board) &&
+    (isAdminUser(authUser) || canUserWriteMenuItem(menuVisibilitySettings, board.key, authUser));
+  const canEditOrDeleteSelectedPost =
+    Boolean(selectedPost && authUser && board) &&
+    (isAdminUser(authUser) ||
+      (selectedPost?.author_user_id === authUser?.id &&
+        canUserWriteMenuItem(menuVisibilitySettings, board.key, authUser)));
 
   const showToast = (tone: ToastState["tone"], title: string, message?: string) => {
     setToast(createToastState({ tone, title, message }));
@@ -212,9 +253,29 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
     }
 
     const { response, responseBody } = await requestBoardPosts(board.key, accessToken);
-  const postsResponse = isCommunityPostsResponse(responseBody) ? responseBody : null;
+    const postsResponse = isCommunityPostsResponse(responseBody) ? responseBody : null;
 
     if (!response.ok) {
+      if (response.status === 401) {
+        queuePendingToast({
+          tone: "error",
+          title: "로그인이 필요합니다",
+          message: "다시 로그인한 뒤 게시판을 이용해주세요.",
+        });
+        router.replace("/");
+        return;
+      }
+
+      if (response.status === 403) {
+        queuePendingToast({
+          tone: "error",
+          title: "게시판 권한이 없습니다",
+          message: `${board.title} 접근 권한을 다시 확인해주세요.`,
+        });
+        router.replace("/dashboard");
+        return;
+      }
+
       showToast(
         "error",
         "게시글을 불러오지 못했습니다",
@@ -265,6 +326,17 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
       }
 
       const profileSeed = extractDriverProfileSeed(currentUser);
+      const nextMenuVisibilitySettings = await loadClientMenuVisibilitySettings();
+
+      if (!canUserAccessMenuItem(nextMenuVisibilitySettings, board.key, currentUser)) {
+        queuePendingToast({
+          tone: "error",
+          title: "게시판 권한이 없습니다",
+          message: `${board.title} 접근 권한을 관리자 설정에서 확인해주세요.`,
+        });
+        router.replace("/dashboard");
+        return;
+      }
 
       if (!isDisposed) {
         setAuthUser(currentUser);
@@ -275,7 +347,7 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
           phone_number: profileSeed.phoneNumber,
         });
         setUserLevel(getUserLevel(currentUser));
-        setAccessScope(getCommunityBoardAccessScopeLabel(board, currentUser));
+        setMenuVisibilitySettings(nextMenuVisibilitySettings);
       }
 
       const accessToken = await getSupabaseAccessToken();
@@ -330,12 +402,20 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
   }
 
   const handleCreateStart = () => {
+    if (!canWritePosts) {
+      showToast("error", "글 작성 권한이 없습니다", `${board.title} 글 작성 권한을 확인해주세요.`);
+      return;
+    }
+
     setEditorMode("create");
     setFormState(EMPTY_POST_FORM);
   };
 
   const handleEditStart = () => {
-    if (!selectedPost) {
+    if (!selectedPost || !canEditOrDeleteSelectedPost) {
+      if (selectedPost) {
+        showToast("error", "게시글 수정 권한이 없습니다", "현재 계정은 이 게시글을 수정할 수 없습니다.");
+      }
       return;
     }
 
@@ -353,6 +433,11 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
 
   const handleSubmit = async () => {
     if (!board) {
+      return;
+    }
+
+    if (!canWritePosts) {
+      showToast("error", "글 작성 권한이 없습니다", `${board.title} 글 작성 권한을 확인해주세요.`);
       return;
     }
 
@@ -429,7 +514,10 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
   };
 
   const handleDelete = async () => {
-    if (!selectedPost) {
+    if (!selectedPost || !canEditOrDeleteSelectedPost) {
+      if (selectedPost) {
+        showToast("error", "게시글 삭제 권한이 없습니다", "현재 계정은 이 게시글을 삭제할 수 없습니다.");
+      }
       return;
     }
 
@@ -500,6 +588,7 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
           <div className="flex flex-wrap gap-2 text-xs sm:text-sm">
             <span className="theme-chip-subtle px-3 py-1.5">현재 등급: {userLevel}</span>
             <span className="theme-chip-subtle px-3 py-1.5">접근 기준: {accessScope}</span>
+            <span className="theme-chip-subtle px-3 py-1.5">작성 기준: {writeScope}</span>
             <span className="theme-chip-subtle px-3 py-1.5">
               사용자: {viewer?.driver_name || viewer?.email || "사용자"}
             </span>
@@ -528,9 +617,10 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
             <button
               type="button"
               onClick={handleCreateStart}
-              className="retro-button-solid min-h-[44px] w-full px-4 py-2 text-sm font-semibold sm:w-auto"
+              disabled={!canWritePosts}
+              className="retro-button-solid min-h-[44px] w-full px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
-              새 글 작성
+              {canWritePosts ? "새 글 작성" : "글 작성 권한 없음"}
             </button>
           </div>
         </div>
@@ -765,6 +855,7 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
                     <button
                       type="button"
                       onClick={handleEditStart}
+                      disabled={!canEditOrDeleteSelectedPost}
                       className="retro-button-solid min-h-[42px] px-4 py-2 text-sm font-semibold"
                     >
                       글 수정
@@ -772,7 +863,7 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
                     <button
                       type="button"
                       onClick={() => void handleDelete()}
-                      disabled={deleting}
+                      disabled={deleting || !canEditOrDeleteSelectedPost}
                       className="retro-button min-h-[42px] px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {deleting ? "삭제 중..." : "글 삭제"}
@@ -795,9 +886,10 @@ export default function CommunityBoardPage({ boardKey }: CommunityBoardPageProps
                 <button
                   type="button"
                   onClick={handleCreateStart}
-                  className="retro-button-solid min-h-[42px] px-4 py-2 text-sm font-semibold"
+                  disabled={!canWritePosts}
+                  className="retro-button-solid min-h-[42px] px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  첫 글 작성
+                  {canWritePosts ? "첫 글 작성" : "글 작성 권한 없음"}
                 </button>
               </div>
             )}

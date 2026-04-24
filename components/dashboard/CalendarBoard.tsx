@@ -26,23 +26,22 @@ export default function CalendarBoard({
   onDateClick,
 }: Props) {
   return (
-    <div className="overflow-x-auto">
-      <div className="retro-card min-w-[560px] rounded-[28px] p-3 sm:p-4 md:rounded-[32px] md:p-5">
-        <div className="mb-2 grid grid-cols-7 gap-2">
+    <div className="retro-card rounded-[24px] p-2.5 sm:p-4 md:rounded-[32px] md:p-5">
+      <div className="mb-2 grid grid-cols-7 gap-1 sm:gap-2">
           {["일", "월", "화", "수", "목", "금", "토"].map((label) => (
             <div
               key={label}
-              className="rounded-2xl bg-[rgba(255,255,255,0.05)] px-2 py-2 text-center text-xs font-bold text-[var(--text-muted)] md:py-3 md:text-sm"
+              className="rounded-[16px] bg-[rgba(255,255,255,0.05)] px-1 py-1.5 text-center text-[11px] font-bold text-[var(--text-muted)] sm:rounded-2xl sm:px-2 sm:py-2 sm:text-xs md:py-3 md:text-sm"
             >
               {label}
             </div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {calendarCells.map((cell, index) => {
             if (!cell) {
-              return <div key={`empty-${index}`} className="min-h-[88px] md:min-h-[120px]" />;
+              return <div key={`empty-${index}`} className="min-h-[72px] sm:min-h-[88px] md:min-h-[120px]" />;
             }
 
             const dateKey = toDateString(cell);
@@ -67,7 +66,7 @@ export default function CalendarBoard({
               <button
                 key={dateKey}
                 onClick={() => onDateClick(dateKey)}
-                className={`min-h-[88px] rounded-[24px] border p-2.5 text-left transition hover:translate-y-[-1px] md:min-h-[120px] md:rounded-3xl md:p-3 ${
+                className={`min-h-[72px] rounded-[18px] border p-1.5 text-left transition hover:-translate-y-px sm:min-h-[88px] sm:rounded-[24px] sm:p-2 md:min-h-[120px] md:rounded-3xl md:p-3 ${
                   isBiweeklyAnchor
                     ? "border-[var(--border-strong)] bg-[rgba(255,255,255,0.08)]"
                     : isToday
@@ -75,17 +74,17 @@ export default function CalendarBoard({
                     : "border-[var(--border)] bg-[rgba(255,255,255,0.02)]"
                 }`}
               >
-                <div className="theme-heading text-sm font-bold md:text-base">
+                <div className="theme-heading text-xs font-bold sm:text-sm md:text-base">
                   {cell.getDate()}
                 </div>
 
                 {isBiweeklyAnchor ? (
-                  <div className="theme-kicker mt-1 text-[10px] font-semibold">
+                  <div className="theme-kicker mt-1 text-[9px] font-semibold sm:text-[10px]">
                     격주 기준일
                   </div>
                 ) : null}
 
-                <div className="mt-2 space-y-1 text-[11px] md:text-xs">
+                <div className="mt-1.5 space-y-0.5 text-[10px] sm:mt-2 sm:space-y-1 sm:text-[11px] md:text-xs">
                   {hasWorked && report ? (
                     <>
                       <div className="theme-copy">배송 {report.delivered_count}</div>
@@ -104,7 +103,6 @@ export default function CalendarBoard({
               </button>
             );
           })}
-        </div>
       </div>
     </div>
   );

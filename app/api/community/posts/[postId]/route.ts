@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
+import { isAdminUser } from "../../../../../lib/admin";
 import { canAccessCommunityBoard, getCommunityBoardDefinition } from "../../../../../lib/communityBoards";
+import {
+  canUserAccessMenuItem,
+  canUserWriteMenuItem,
+} from "../../../../../lib/menuVisibility";
+import { readMenuVisibilitySettings } from "../../../../../lib/menuVisibilitySettings";
 import {
   canManageCommunityPost,
   deleteStoredCommunityPost,
@@ -39,6 +45,26 @@ function getAccessToken(request: Request) {
 
 function getOptionalAdminClient() {
   return getSupabaseAdminConfigurationError() ? null : createSupabaseAdminClient();
+}
+
+async function loadMenuVisibilitySettings() {
+  try {
+    return {
+      settings: (await readMenuVisibilitySettings()).settings,
+      error: null,
+    };
+  } catch (readError) {
+    return {
+      settings: null,
+      error: createErrorResponse(
+        getKoreanErrorMessage(
+          readError instanceof Error ? readError.message : undefined,
+          "메뉴 접근 설정을 불러오지 못했습니다."
+        ),
+        500
+      ),
+    };
+  }
 }
 
 async function getAuthorizedUser(request: Request) {
@@ -100,6 +126,20 @@ export async function PATCH(request: Request, context: RouteContext) {
     return createErrorResponse("현재 계정은 이 게시판에 접근할 수 없습니다.", 403);
   }
 
+  const { settings, error: settingsError } = await loadMenuVisibilitySettings();
+
+  if (settingsError || !settings) {
+    return settingsError;
+  }
+
+  if (!canUserAccessMenuItem(settings, board.key, user)) {
+    return createErrorResponse("현재 계정은 이 게시판에 접근할 수 없습니다.", 403);
+  }
+
+  if (!isAdminUser(user) && !canUserWriteMenuItem(settings, board.key, user)) {
+    return createErrorResponse("현재 계정은 이 게시판의 게시글을 수정할 수 없습니다.", 403);
+  }
+
   if (!canManageCommunityPost(user, storedPostResult.post)) {
     return createErrorResponse("작성자 또는 관리자만 게시글을 수정할 수 있습니다.", 403);
   }
@@ -138,6 +178,20 @@ export async function DELETE(request: Request, context: RouteContext) {
 
   if (!board || !canAccessCommunityBoard(board, user)) {
     return createErrorResponse("현재 계정은 이 게시판에 접근할 수 없습니다.", 403);
+  }
+
+  const { settings, error: settingsError } = await loadMenuVisibilitySettings();
+
+  if (settingsError || !settings) {
+    return settingsError;
+  }
+
+  if (!canUserAccessMenuItem(settings, board.key, user)) {
+    return createErrorResponse("현재 계정은 이 게시판에 접근할 수 없습니다.", 403);
+  }
+
+  if (!isAdminUser(user) && !canUserWriteMenuItem(settings, board.key, user)) {
+    return createErrorResponse("현재 계정은 이 게시판의 게시글을 삭제할 수 없습니다.", 403);
   }
 
   if (!canManageCommunityPost(user, storedPostResult.post)) {

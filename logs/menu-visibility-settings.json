@@ -1,26 +1,169 @@
 {
   "settings": {
-    "basic": true,
-    "admin": true,
-    "dashboard": true,
-    "community": true,
-    "affiliate": true,
-    "vendor": true,
+    "categories": {
+      "basic": {
+        "visible": true,
+        "enabled": true,
+        "label": "기본 메뉴",
+        "order": 0,
+        "access_level": "authenticated",
+        "write_access_level": "disabled"
+      },
+      "admin": {
+        "visible": true,
+        "enabled": true,
+        "label": "관리자 메뉴",
+        "order": 1,
+        "access_level": "관리자Lv",
+        "write_access_level": "disabled"
+      },
+      "dashboard": {
+        "visible": true,
+        "enabled": true,
+        "label": "대시보드 카테고리",
+        "order": 2,
+        "access_level": "authenticated",
+        "write_access_level": "disabled"
+      },
+      "community": {
+        "visible": true,
+        "enabled": true,
+        "label": "커뮤니티 카테고리",
+        "order": 3,
+        "access_level": "authenticated",
+        "write_access_level": "authenticated"
+      },
+      "affiliate": {
+        "visible": true,
+        "enabled": true,
+        "label": "제휴 전용 카테고리",
+        "order": 4,
+        "access_level": "authenticated",
+        "write_access_level": "Lv3-제휴"
+      },
+      "vendor": {
+        "visible": true,
+        "enabled": true,
+        "label": "밴더 전용 카테고리",
+        "order": 5,
+        "access_level": "authenticated",
+        "write_access_level": "disabled"
+      }
+    },
     "items": {
-      "dashboard": true,
-      "my-page": true,
-      "today-quick-card": true,
-      "work-summary": true,
-      "stats": true,
-      "daily-sales-list": true,
-      "work-calendar": true,
-      "jobs": true,
-      "free-talk": true,
-      "notice": true,
-      "tips": true,
-      "affiliate": true,
-      "vendor-home": true
+      "dashboard": {
+        "visible": true,
+        "enabled": true,
+        "label": "홈",
+        "order": 0,
+        "access_level": "authenticated",
+        "write_access_level": "disabled"
+      },
+      "my-page": {
+        "visible": true,
+        "enabled": true,
+        "label": "마이페이지",
+        "order": 1,
+        "access_level": "authenticated",
+        "write_access_level": "disabled"
+      },
+      "admin": {
+        "visible": true,
+        "enabled": true,
+        "label": "관리자",
+        "order": 0,
+        "access_level": "관리자Lv",
+        "write_access_level": "disabled"
+      },
+      "today-quick-card": {
+        "visible": true,
+        "enabled": true,
+        "label": "업무 작성",
+        "order": 0,
+        "access_level": "authenticated",
+        "write_access_level": "disabled"
+      },
+      "work-summary": {
+        "visible": true,
+        "enabled": true,
+        "label": "근무 통계",
+        "order": 1,
+        "access_level": "authenticated",
+        "write_access_level": "disabled"
+      },
+      "stats": {
+        "visible": true,
+        "enabled": true,
+        "label": "매출 통계",
+        "order": 2,
+        "access_level": "authenticated",
+        "write_access_level": "disabled"
+      },
+      "daily-sales-list": {
+        "visible": true,
+        "enabled": true,
+        "label": "일별 매출 리스트 형",
+        "order": 3,
+        "access_level": "authenticated",
+        "write_access_level": "disabled"
+      },
+      "work-calendar": {
+        "visible": true,
+        "enabled": true,
+        "label": "일별 매출 캘린더 형",
+        "order": 4,
+        "access_level": "authenticated",
+        "write_access_level": "disabled"
+      },
+      "jobs": {
+        "visible": true,
+        "enabled": true,
+        "label": "구인 구직",
+        "order": 0,
+        "access_level": "authenticated",
+        "write_access_level": "authenticated"
+      },
+      "free-talk": {
+        "visible": true,
+        "enabled": true,
+        "label": "자유",
+        "order": 1,
+        "access_level": "authenticated",
+        "write_access_level": "authenticated"
+      },
+      "notice": {
+        "visible": true,
+        "enabled": true,
+        "label": "구현중..",
+        "order": 2,
+        "access_level": "authenticated",
+        "write_access_level": "authenticated"
+      },
+      "tips": {
+        "visible": true,
+        "enabled": true,
+        "label": "구현중..",
+        "order": 3,
+        "access_level": "authenticated",
+        "write_access_level": "authenticated"
+      },
+      "affiliate": {
+        "visible": true,
+        "enabled": true,
+        "label": "제휴 게시판",
+        "order": 0,
+        "access_level": "Lv3-제휴",
+        "write_access_level": "Lv3-제휴"
+      },
+      "vendor-home": {
+        "visible": true,
+        "enabled": true,
+        "label": "밴더 전용 페이지",
+        "order": 0,
+        "access_level": "authenticated",
+        "write_access_level": "disabled"
+      }
     }
   },
-  "updated_at": "2026-04-22T14:44:24.543Z"
+  "updated_at": "2026-04-24T01:41:05.510Z"
 }

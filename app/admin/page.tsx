@@ -7,8 +7,13 @@ import { recordOperatorAuditLog } from "../../lib/operatorAuditLogClient";
 import {
   applyMenuVisibilitySettingsPatch,
   getDefaultMenuVisibilitySettings,
+  getMenuAccessLevelLabel,
+  getMenuWriteAccessLevelLabel,
+  hasWritableMenuChildren,
+  MENU_ACCESS_LEVEL_OPTIONS,
   MENU_VISIBILITY_DEFINITIONS,
   MENU_VISIBILITY_ITEM_DEFINITIONS,
+  MENU_WRITE_ACCESS_LEVEL_OPTIONS,
   MENU_VISIBILITY_UPDATED_EVENT,
 } from "../../lib/menuVisibility";
 import { supabase } from "../../lib/supabase";
@@ -37,11 +42,13 @@ import type {
   AdminManagedUserRow,
   AdminUserLevelUpdateResponse,
   AdminUsersResponse,
+  MenuAccessLevel,
   MenuVisibilityItemKey,
   MenuVisibilityKey,
   MenuVisibilitySettings,
   MenuVisibilitySettingsPatch,
   MenuVisibilitySettingsResponse,
+  MenuWriteAccessLevel,
   StaffAuditLogResponse,
   StaffAuditLogRow,
 } from "../../types";
@@ -250,6 +257,139 @@ function AdminFolderSection({
 
       {isOpen ? <div className="mt-1">{children}</div> : null}
     </section>
+  );
+}
+
+function MenuQuickToggleField({
+  label,
+  value,
+  onChange,
+  disabled,
+  trueLabel,
+  falseLabel,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (nextValue: boolean) => void;
+  disabled: boolean;
+  trueLabel: string;
+  falseLabel: string;
+}) {
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl border border-(--border)/70 bg-[rgba(255,255,255,0.05)] px-3 py-3">
+      <span className="theme-heading text-xs font-semibold">{label}</span>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          aria-pressed={value}
+          disabled={disabled}
+          onClick={() => onChange(true)}
+          className={`rounded-xl px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+            value
+              ? "retro-button-solid"
+              : "retro-button bg-[rgba(255,255,255,0.04)] text-(--text-muted)"
+          }`}
+        >
+          {trueLabel}
+        </button>
+        <button
+          type="button"
+          aria-pressed={!value}
+          disabled={disabled}
+          onClick={() => onChange(false)}
+          className={`rounded-xl px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+            !value
+              ? "retro-button-solid"
+              : "retro-button bg-[rgba(255,255,255,0.04)] text-(--text-muted)"
+          }`}
+        >
+          {falseLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MenuAccessQuickField({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: MenuAccessLevel;
+  onChange: (nextValue: MenuAccessLevel) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl border border-(--border)/70 bg-[rgba(255,255,255,0.05)] px-3 py-3 sm:col-span-2 xl:col-span-3">
+      <span className="theme-heading text-xs font-semibold">{label}</span>
+      <div className="flex flex-wrap gap-2">
+        {MENU_ACCESS_LEVEL_OPTIONS.map((option) => {
+          const isActive = value === option;
+
+          return (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={isActive}
+              disabled={disabled}
+              onClick={() => onChange(option)}
+              className={`rounded-xl px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                isActive
+                  ? "retro-button-solid"
+                  : "retro-button bg-[rgba(255,255,255,0.04)] text-(--text-muted)"
+              }`}
+            >
+              {getMenuAccessLevelLabel(option)}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function MenuOrderMoveField({
+  position,
+  canMoveUp,
+  canMoveDown,
+  onMoveUp,
+  onMoveDown,
+  disabled,
+}: {
+  position: number;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl border border-(--border)/70 bg-[rgba(255,255,255,0.05)] px-3 py-3">
+      <span className="theme-heading text-xs font-semibold">정렬 순서</span>
+      <div className="flex items-center justify-between gap-3">
+        <span className="theme-copy text-xs">현재 {position + 1}번째</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={disabled || !canMoveUp}
+            onClick={onMoveUp}
+            className="retro-button min-h-9 rounded-xl px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            위로
+          </button>
+          <button
+            type="button"
+            disabled={disabled || !canMoveDown}
+            onClick={onMoveDown}
+            className="retro-button min-h-9 rounded-xl px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            아래로
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -751,6 +891,9 @@ export default function AdminPage() {
   const [menuVisibilityLoading, setMenuVisibilityLoading] = useState(false);
   const [menuVisibilitySavingKey, setMenuVisibilitySavingKey] =
     useState<MenuVisibilitySavingStateKey | null>(null);
+  const [expandedMenuCategoryKeys, setExpandedMenuCategoryKeys] = useState<
+    MenuVisibilityKey[]
+  >([]);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [managedUsersError, setManagedUsersError] = useState<string | null>(null);
   const [auditLogsError, setAuditLogsError] = useState<string | null>(null);
@@ -759,6 +902,8 @@ export default function AdminPage() {
   const [managedUsers, setManagedUsers] = useState<AdminManagedUserRow[]>([]);
   const [auditLogs, setAuditLogs] = useState<StaffAuditLogRow[]>([]);
   const [menuVisibilitySettings, setMenuVisibilitySettings] =
+    useState<MenuVisibilitySettings>(() => getDefaultMenuVisibilitySettings());
+  const [savedMenuVisibilitySettings, setSavedMenuVisibilitySettings] =
     useState<MenuVisibilitySettings>(() => getDefaultMenuVisibilitySettings());
   const [currentSessionTimeoutMinutes, setCurrentSessionTimeoutMinutes] = useState(
     DEFAULT_SESSION_TIMEOUT_MINUTES
@@ -775,8 +920,16 @@ export default function AdminPage() {
   });
 
   const isOperatorView = isOperatorUser(authUser);
-  const menuVisibilityItems =
-    menuVisibilitySettings.items ?? getDefaultMenuVisibilitySettings().items;
+  const menuVisibilityItems = menuVisibilitySettings.items;
+  const sortedMenuDefinitions = useMemo(
+    () =>
+      [...MENU_VISIBILITY_DEFINITIONS].sort(
+        (left, right) =>
+          menuVisibilitySettings.categories[left.key].order -
+          menuVisibilitySettings.categories[right.key].order
+      ),
+    [menuVisibilitySettings]
+  );
   const sortedManagedUsers = useMemo(
     () =>
       [...managedUsers].sort((left, right) => {
@@ -806,6 +959,14 @@ export default function AdminPage() {
 
   const showToast = (tone: ToastState["tone"], title: string, message?: string) => {
     setToast(createToastState({ tone, title, message }));
+  };
+
+  const toggleMenuCategoryExpanded = (key: MenuVisibilityKey) => {
+    setExpandedMenuCategoryKeys((current) =>
+      current.includes(key)
+        ? current.filter((itemKey) => itemKey !== key)
+        : [...current, key]
+    );
   };
 
   const resetManagedUserDraft = (managedUser: AdminManagedUserRow) => {
@@ -963,6 +1124,7 @@ export default function AdminPage() {
 
       if (menuVisibilityResult.data?.settings) {
         setMenuVisibilitySettings(menuVisibilityResult.data.settings);
+        setSavedMenuVisibilitySettings(menuVisibilityResult.data.settings);
       }
 
       if (menuVisibilityResult.error) {
@@ -1195,26 +1357,113 @@ export default function AdminPage() {
     );
   };
 
-  const handleMenuVisibilityToggle = async (
+  const updateMenuCategoryDraft = (
     key: MenuVisibilityKey,
-    nextVisible: boolean
+    patch: NonNullable<MenuVisibilitySettingsPatch["categories"]>[MenuVisibilityKey]
   ) => {
+    setMenuVisibilitySettings((current) =>
+      applyMenuVisibilitySettingsPatch(current, {
+        categories: {
+          [key]: patch,
+        },
+      })
+    );
+  };
+
+  const moveMenuCategoryDraft = (
+    key: MenuVisibilityKey,
+    direction: "up" | "down"
+  ) => {
+    setMenuVisibilitySettings((current) => {
+      const sortedCategoryKeys = [...MENU_VISIBILITY_DEFINITIONS]
+        .sort(
+          (left, right) =>
+            current.categories[left.key].order - current.categories[right.key].order
+        )
+        .map((definition) => definition.key);
+      const currentIndex = sortedCategoryKeys.indexOf(key);
+
+      if (currentIndex < 0) {
+        return current;
+      }
+
+      const swapIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+
+      if (swapIndex < 0 || swapIndex >= sortedCategoryKeys.length) {
+        return current;
+      }
+
+      const swapKey = sortedCategoryKeys[swapIndex];
+
+      return applyMenuVisibilitySettingsPatch(current, {
+        categories: {
+          [key]: {
+            order: current.categories[swapKey].order,
+          },
+          [swapKey]: {
+            order: current.categories[key].order,
+          },
+        },
+      });
+    });
+  };
+
+  const updateMenuItemDraft = (
+    key: MenuVisibilityItemKey,
+    patch: NonNullable<MenuVisibilitySettingsPatch["items"]>[MenuVisibilityItemKey]
+  ) => {
+    setMenuVisibilitySettings((current) =>
+      applyMenuVisibilitySettingsPatch(current, {
+        items: {
+          [key]: patch,
+        },
+      })
+    );
+  };
+
+  const hasMenuCategoryChanges = (key: MenuVisibilityKey) => {
+    const currentValue = menuVisibilitySettings.categories[key];
+    const savedValue = savedMenuVisibilitySettings.categories[key];
+
+    return JSON.stringify(currentValue) !== JSON.stringify(savedValue);
+  };
+
+  const hasMenuItemChanges = (key: MenuVisibilityItemKey) => {
+    const currentValue = menuVisibilitySettings.items[key];
+    const savedValue = savedMenuVisibilitySettings.items[key];
+
+    return JSON.stringify(currentValue) !== JSON.stringify(savedValue);
+  };
+
+  const getDirtyMenuCategoryKeys = () =>
+    MENU_VISIBILITY_DEFINITIONS.map((definition) => definition.key).filter((categoryKey) =>
+      hasMenuCategoryChanges(categoryKey)
+    );
+
+  const handleMenuCategorySave = async (key: MenuVisibilityKey) => {
     const definition = MENU_VISIBILITY_DEFINITIONS.find((item) => item.key === key);
-    const patch = { [key]: nextVisible } as MenuVisibilitySettingsPatch;
-    const previousSettings = menuVisibilitySettings;
+    const dirtyCategoryKeys = getDirtyMenuCategoryKeys();
+    const categoryKeysToSave = dirtyCategoryKeys.length > 0 ? dirtyCategoryKeys : [key];
+    const patch: MenuVisibilitySettingsPatch = {
+      categories: categoryKeysToSave.reduce<
+        NonNullable<MenuVisibilitySettingsPatch["categories"]>
+      >((categories, categoryKey) => {
+        categories[categoryKey] = menuVisibilitySettings.categories[categoryKey];
+        return categories;
+      }, {}),
+    };
     const accessToken = await getSupabaseAccessToken();
 
     if (!accessToken) {
       queuePendingToast({
         tone: "error",
         title: "로그인이 필요합니다",
-        message: "다시 로그인한 뒤 메뉴 표시 설정을 변경해주세요.",
+        message: "다시 로그인한 뒤 메뉴 설정을 저장해주세요.",
       });
       router.replace("/");
       return;
     }
 
-    setMenuVisibilitySettings((current) => applyMenuVisibilitySettingsPatch(current, patch));
     setMenuVisibilitySavingKey(getCategorySavingStateKey(key));
 
     const updateResult = await updateMenuVisibilitySettings(accessToken, patch);
@@ -1222,7 +1471,6 @@ export default function AdminPage() {
     setMenuVisibilitySavingKey(null);
 
     if (updateResult.status === 401) {
-      setMenuVisibilitySettings(previousSettings);
       queuePendingToast({
         tone: "error",
         title: "로그인이 필요합니다",
@@ -1233,27 +1481,22 @@ export default function AdminPage() {
     }
 
     if (updateResult.status === 403) {
-      setMenuVisibilitySettings(previousSettings);
-      showToast(
-        "error",
-        "메뉴 표시 설정 권한이 없습니다",
-        updateResult.error || undefined
-      );
+      showToast("error", "메뉴 설정 권한이 없습니다", updateResult.error || undefined);
       return;
     }
 
     if (!updateResult.data?.settings) {
-      setMenuVisibilitySettings(previousSettings);
       showToast(
         "error",
-        "메뉴 표시 설정 저장 실패",
-        updateResult.error || "메뉴 표시 설정을 저장하지 못했습니다."
+        "메뉴 설정 저장 실패",
+        updateResult.error || "카테고리 메뉴 설정을 저장하지 못했습니다."
       );
       return;
     }
 
     setMenuVisibilityError(null);
     setMenuVisibilitySettings(updateResult.data.settings);
+    setSavedMenuVisibilitySettings(updateResult.data.settings);
 
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event(MENU_VISIBILITY_UPDATED_EVENT));
@@ -1262,46 +1505,53 @@ export default function AdminPage() {
     await recordOperatorAuditLog({
       action: "menu_visibility_updated",
       targetType: "system",
-      targetId: `menu-visibility:${key}`,
+      targetId:
+        categoryKeysToSave.length > 1
+          ? "menu-visibility:categories"
+          : `menu-visibility:category:${key}`,
       source: "/admin",
-      summary: "관리 권한 계정이 메뉴 표시 설정을 변경했습니다.",
+      summary: "관리 권한 계정이 카테고리 메뉴 설정을 변경했습니다.",
       details: {
-        key,
-        visible: nextVisible,
+        keys: categoryKeysToSave,
+        settings: categoryKeysToSave.reduce<Record<string, MenuVisibilitySettings["categories"][MenuVisibilityKey]>>(
+          (settings, categoryKey) => {
+            settings[categoryKey] = updateResult.data.settings.categories[categoryKey];
+            return settings;
+          },
+          {}
+        ),
       },
     });
 
     showToast(
       "success",
-      "메뉴 표시 설정을 저장했습니다",
-      `${definition?.label ?? key} 항목을 ${nextVisible ? "보이기" : "숨기기"}로 변경했습니다.`
+      "카테고리 메뉴 설정을 저장했습니다",
+      categoryKeysToSave.length > 1
+        ? `카테고리 ${categoryKeysToSave.length}개의 정렬 및 설정이 반영되었습니다.`
+        : `${definition?.label ?? key} 카테고리 설정이 반영되었습니다.`
     );
   };
 
-  const handleMenuVisibilityItemToggle = async (
-    key: MenuVisibilityItemKey,
-    nextVisible: boolean
-  ) => {
+  const handleMenuItemSave = async (key: MenuVisibilityItemKey) => {
     const definition = MENU_VISIBILITY_ITEM_DEFINITIONS.find((item) => item.key === key);
-    const patch = {
+    const previousSavedValue = savedMenuVisibilitySettings.items[key];
+    const patch: MenuVisibilitySettingsPatch = {
       items: {
-        [key]: nextVisible,
+        [key]: menuVisibilitySettings.items[key],
       },
-    } as MenuVisibilitySettingsPatch;
-    const previousSettings = menuVisibilitySettings;
+    };
     const accessToken = await getSupabaseAccessToken();
 
     if (!accessToken) {
       queuePendingToast({
         tone: "error",
         title: "로그인이 필요합니다",
-        message: "다시 로그인한 뒤 메뉴 표시 설정을 변경해주세요.",
+        message: "다시 로그인한 뒤 메뉴 설정을 저장해주세요.",
       });
       router.replace("/");
       return;
     }
 
-    setMenuVisibilitySettings((current) => applyMenuVisibilitySettingsPatch(current, patch));
     setMenuVisibilitySavingKey(getItemSavingStateKey(key));
 
     const updateResult = await updateMenuVisibilitySettings(accessToken, patch);
@@ -1309,7 +1559,7 @@ export default function AdminPage() {
     setMenuVisibilitySavingKey(null);
 
     if (updateResult.status === 401) {
-      setMenuVisibilitySettings(previousSettings);
+      updateMenuItemDraft(key, previousSavedValue);
       queuePendingToast({
         tone: "error",
         title: "로그인이 필요합니다",
@@ -1320,27 +1570,24 @@ export default function AdminPage() {
     }
 
     if (updateResult.status === 403) {
-      setMenuVisibilitySettings(previousSettings);
-      showToast(
-        "error",
-        "메뉴 표시 설정 권한이 없습니다",
-        updateResult.error || undefined
-      );
+      updateMenuItemDraft(key, previousSavedValue);
+      showToast("error", "메뉴 설정 권한이 없습니다", updateResult.error || undefined);
       return;
     }
 
     if (!updateResult.data?.settings) {
-      setMenuVisibilitySettings(previousSettings);
+      updateMenuItemDraft(key, previousSavedValue);
       showToast(
         "error",
-        "메뉴 표시 설정 저장 실패",
-        updateResult.error || "메뉴 표시 설정을 저장하지 못했습니다."
+        "메뉴 설정 저장 실패",
+        updateResult.error || "하위 메뉴 설정을 저장하지 못했습니다."
       );
       return;
     }
 
     setMenuVisibilityError(null);
     setMenuVisibilitySettings(updateResult.data.settings);
+    setSavedMenuVisibilitySettings(updateResult.data.settings);
 
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event(MENU_VISIBILITY_UPDATED_EVENT));
@@ -1351,17 +1598,17 @@ export default function AdminPage() {
       targetType: "system",
       targetId: `menu-visibility:item:${key}`,
       source: "/admin",
-      summary: "관리 권한 계정이 하위 메뉴 표시 설정을 변경했습니다.",
+      summary: "관리 권한 계정이 하위 메뉴 설정을 변경했습니다.",
       details: {
         key,
-        visible: nextVisible,
+        settings: updateResult.data.settings.items[key],
       },
     });
 
     showToast(
       "success",
-      "메뉴 표시 설정을 저장했습니다",
-      `${definition?.label ?? key} 하위 메뉴를 ${nextVisible ? "보이기" : "숨기기"}로 변경했습니다.`
+      "하위 메뉴 설정을 저장했습니다",
+      `${definition?.label ?? key} 메뉴 설정이 반영되었습니다.`
     );
   };
 
@@ -1451,7 +1698,7 @@ export default function AdminPage() {
 
         <AdminFolderSection
           title="MENU MANAGEMENT"
-          description="상단 메뉴에서 카테고리와 하위 메뉴를 관리자 페이지에서 직접 숨기거나 다시 보이게 할 수 있습니다."
+          description="카테고리와 하위 메뉴의 노출 여부, 진입 권한, 글 작성 권한, 이름, 순서를 사용자 Lv 기준으로 직접 편집합니다."
         >
 
           {menuVisibilityError ? (
@@ -1465,91 +1712,316 @@ export default function AdminPage() {
               메뉴 표시 설정을 불러오는 중...
             </div>
           ) : (
-            <div className="mt-4 space-y-2.5">
-              {MENU_VISIBILITY_DEFINITIONS.map((item) => {
-                const isVisible = menuVisibilitySettings[item.key];
+            <div className="mt-4 space-y-3">
+              {sortedMenuDefinitions.map((item, itemIndex) => {
+                const categorySettings = menuVisibilitySettings.categories[item.key];
                 const isSaving =
                   menuVisibilitySavingKey === getCategorySavingStateKey(item.key);
+                const isExpanded = expandedMenuCategoryKeys.includes(item.key);
+                const isDirty = hasMenuCategoryChanges(item.key);
+                const showCategoryWriteAccess = hasWritableMenuChildren(item.key);
+                const sortedChildItems = [...(item.items ?? [])].sort(
+                  (left, right) =>
+                    menuVisibilityItems[left.key].order - menuVisibilityItems[right.key].order
+                );
 
                 return (
                   <div
                     key={item.key}
-                    className="theme-note-box rounded-[20px] px-4 py-3"
+                    className="theme-note-box rounded-[22px] px-4 py-4 sm:px-5"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="theme-heading text-sm font-semibold leading-relaxed">
-                          {item.label}
+                    <div
+                      className={`flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between ${
+                        isExpanded ? "border-b border-(--border)/70 pb-4" : ""
+                      }`}
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <p className="theme-heading text-sm font-semibold leading-relaxed sm:text-base">
+                          {categorySettings.label}
                         </p>
-                        <p className="theme-copy mt-1 text-xs leading-relaxed sm:text-sm">
+                        <p className="theme-copy text-xs leading-relaxed sm:text-sm">
                           {item.description}
                         </p>
+                        <p className="theme-copy text-[11px] uppercase tracking-[0.2em]">
+                          key: {item.key}
+                        </p>
                       </div>
 
-                      <label className="flex shrink-0 cursor-pointer items-center gap-2 pt-0.5">
-                        {isSaving ? (
-                          <span className="theme-copy text-xs leading-none">저장 중</span>
+                      <div className="flex items-center gap-2 self-start">
+                        {isDirty ? (
+                          <span className="theme-copy rounded-full border border-[rgba(244,176,75,0.34)] bg-[rgba(244,176,75,0.12)] px-2.5 py-1 text-[11px] font-semibold">
+                            저장 필요
+                          </span>
                         ) : null}
-                        <span className="theme-copy text-xs font-semibold leading-none">
-                          {isVisible ? "보임" : "숨김"}
-                        </span>
-                        <input
-                          type="checkbox"
-                          checked={isVisible}
-                          disabled={menuVisibilitySavingKey !== null}
-                          onChange={(event) =>
-                            void handleMenuVisibilityToggle(item.key, event.target.checked)
-                          }
-                          className="h-4 w-4 shrink-0 cursor-pointer accent-[rgb(244,176,75)]"
-                        />
-                      </label>
+                        <button
+                          type="button"
+                          onClick={() => toggleMenuCategoryExpanded(item.key)}
+                          className="retro-button min-h-10 px-3.5 py-2 text-xs font-semibold"
+                        >
+                          {isExpanded ? "접기" : "펼치기"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleMenuCategorySave(item.key)}
+                          disabled={menuVisibilitySavingKey !== null || !isDirty}
+                          className="retro-button-solid min-h-10 px-4 py-2 text-xs font-semibold disabled:opacity-50"
+                        >
+                          {isSaving ? "저장 중..." : "카테고리 저장"}
+                        </button>
+                      </div>
                     </div>
 
-                    {item.items?.length ? (
-                      <div className="mt-3 space-y-2 border-t border-[var(--border)]/70 pt-3">
-                        {item.items.map((childItem) => {
-                          const isChildVisible = menuVisibilityItems[childItem.key];
-                          const isChildSaving =
-                            menuVisibilitySavingKey === getItemSavingStateKey(childItem.key);
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="theme-chip-subtle px-3 py-1.5 text-[11px] sm:text-xs">
+                        {categorySettings.visible ? "표시" : "숨김"}
+                      </span>
+                      <span className="theme-chip-subtle px-3 py-1.5 text-[11px] sm:text-xs">
+                        {categorySettings.enabled ? "사용 중" : "사용 중지"}
+                      </span>
+                      <span className="theme-chip-subtle px-3 py-1.5 text-[11px] sm:text-xs">
+                        진입: {getMenuAccessLevelLabel(categorySettings.access_level)}
+                      </span>
+                      {showCategoryWriteAccess ? (
+                        <span className="theme-chip-subtle px-3 py-1.5 text-[11px] sm:text-xs">
+                          작성: {getMenuWriteAccessLevelLabel(categorySettings.write_access_level)}
+                        </span>
+                      ) : null}
+                      <span className="theme-chip-subtle px-3 py-1.5 text-[11px] sm:text-xs">
+                        하위 메뉴 {sortedChildItems.length}개
+                      </span>
+                    </div>
 
-                          return (
-                            <label
-                              key={childItem.key}
-                              className="flex cursor-pointer items-start justify-between gap-3 rounded-[16px] bg-[rgba(255,255,255,0.03)] px-3 py-2.5"
-                            >
-                              <div className="min-w-0">
-                                <p className="theme-heading text-sm font-semibold leading-relaxed">
-                                  {childItem.label}
-                                </p>
-                                <p className="theme-copy mt-1 text-[11px] leading-relaxed sm:text-xs">
-                                  {childItem.description}
-                                </p>
-                              </div>
+                    {isExpanded ? (
+                      <>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                          <label className="flex flex-col gap-2">
+                            <span className="theme-heading text-xs font-semibold">카테고리 이름</span>
+                            <input
+                              type="text"
+                              maxLength={40}
+                              value={categorySettings.label}
+                              disabled={menuVisibilitySavingKey !== null}
+                              onChange={(event) =>
+                                updateMenuCategoryDraft(item.key, { label: event.target.value })
+                              }
+                              className="w-full px-3 py-2.5 text-sm"
+                            />
+                          </label>
 
-                              <div className="flex shrink-0 items-center gap-2 pt-0.5">
-                                {isChildSaving ? (
-                                  <span className="theme-copy text-xs leading-none">저장 중</span>
-                                ) : null}
-                                <span className="theme-copy text-xs font-semibold leading-none">
-                                  {isChildVisible ? "보임" : "숨김"}
-                                </span>
-                                <input
-                                  type="checkbox"
-                                  checked={isChildVisible}
-                                  disabled={menuVisibilitySavingKey !== null}
-                                  onChange={(event) =>
-                                    void handleMenuVisibilityItemToggle(
-                                      childItem.key,
-                                      event.target.checked
-                                    )
-                                  }
-                                  className="h-4 w-4 shrink-0 cursor-pointer accent-[rgb(244,176,75)]"
-                                />
-                              </div>
+                          <MenuOrderMoveField
+                            position={itemIndex}
+                            canMoveUp={itemIndex > 0}
+                            canMoveDown={itemIndex < sortedMenuDefinitions.length - 1}
+                            disabled={menuVisibilitySavingKey !== null}
+                            onMoveUp={() => moveMenuCategoryDraft(item.key, "up")}
+                            onMoveDown={() => moveMenuCategoryDraft(item.key, "down")}
+                          />
+
+                          <MenuAccessQuickField
+                            label="진입 권한"
+                            value={categorySettings.access_level}
+                            disabled={menuVisibilitySavingKey !== null}
+                            onChange={(nextValue) =>
+                              updateMenuCategoryDraft(item.key, {
+                                access_level: nextValue,
+                              })
+                            }
+                          />
+
+                          {showCategoryWriteAccess ? (
+                            <label className="flex flex-col gap-2">
+                              <span className="theme-heading text-xs font-semibold">글 작성 권한</span>
+                              <select
+                                value={categorySettings.write_access_level}
+                                disabled={menuVisibilitySavingKey !== null}
+                                onChange={(event) =>
+                                  updateMenuCategoryDraft(item.key, {
+                                    write_access_level: event.target.value as MenuWriteAccessLevel,
+                                  })
+                                }
+                                className="w-full px-3 py-2.5 text-sm"
+                              >
+                                {MENU_WRITE_ACCESS_LEVEL_OPTIONS.map((option) => (
+                                  <option key={option} value={option}>
+                                    {getMenuWriteAccessLevelLabel(option)}
+                                  </option>
+                                ))}
+                              </select>
                             </label>
-                          );
-                        })}
-                      </div>
+                          ) : null}
+
+                          <MenuQuickToggleField
+                            label="표시"
+                            value={categorySettings.visible}
+                            disabled={menuVisibilitySavingKey !== null}
+                            trueLabel="표시"
+                            falseLabel="미표시"
+                            onChange={(nextValue) =>
+                              updateMenuCategoryDraft(item.key, { visible: nextValue })
+                            }
+                          />
+
+                          <MenuQuickToggleField
+                            label="사용"
+                            value={categorySettings.enabled}
+                            disabled={menuVisibilitySavingKey !== null}
+                            trueLabel="사용 중"
+                            falseLabel="미사용"
+                            onChange={(nextValue) =>
+                              updateMenuCategoryDraft(item.key, { enabled: nextValue })
+                            }
+                          />
+                        </div>
+
+                        {sortedChildItems.length ? (
+                          <div className="mt-4 space-y-3 border-t border-(--border)/70 pt-4">
+                            {sortedChildItems.map((childItem) => {
+                              const childSettings = menuVisibilityItems[childItem.key];
+                              const isChildSaving =
+                                menuVisibilitySavingKey === getItemSavingStateKey(childItem.key);
+                              const isChildDirty = hasMenuItemChanges(childItem.key);
+
+                              return (
+                                <div
+                                  key={childItem.key}
+                                  className="rounded-2xl border border-(--border)/70 bg-[rgba(255,255,255,0.04)] px-3 py-3.5"
+                                >
+                                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="min-w-0 space-y-1">
+                                      <p className="theme-heading text-sm font-semibold leading-relaxed">
+                                        {childSettings.label}
+                                      </p>
+                                      <p className="theme-copy text-[11px] leading-relaxed sm:text-xs">
+                                        {childItem.description}
+                                      </p>
+                                      <p className="theme-copy text-[11px] uppercase tracking-[0.18em]">
+                                        key: {childItem.key}
+                                      </p>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 self-start">
+                                      {isChildDirty ? (
+                                        <span className="theme-copy rounded-full border border-[rgba(244,176,75,0.34)] bg-[rgba(244,176,75,0.12)] px-2.5 py-1 text-[11px] font-semibold">
+                                          저장 필요
+                                        </span>
+                                      ) : null}
+                                      <button
+                                        type="button"
+                                        onClick={() => void handleMenuItemSave(childItem.key)}
+                                        disabled={menuVisibilitySavingKey !== null || !isChildDirty}
+                                        className="retro-button min-h-10 px-4 py-2 text-xs font-semibold disabled:opacity-50"
+                                      >
+                                        {isChildSaving ? "저장 중..." : "하위 메뉴 저장"}
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                    <label className="flex flex-col gap-2">
+                                      <span className="theme-heading text-xs font-semibold">메뉴 이름</span>
+                                      <input
+                                        type="text"
+                                        maxLength={40}
+                                        value={childSettings.label}
+                                        disabled={menuVisibilitySavingKey !== null}
+                                        onChange={(event) =>
+                                          updateMenuItemDraft(childItem.key, {
+                                            label: event.target.value,
+                                          })
+                                        }
+                                        className="w-full px-3 py-2.5 text-sm"
+                                      />
+                                    </label>
+
+                                    <label className="flex flex-col gap-2">
+                                      <span className="theme-heading text-xs font-semibold">정렬 순서</span>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={999}
+                                        step={1}
+                                        inputMode="numeric"
+                                        value={childSettings.order}
+                                        disabled={menuVisibilitySavingKey !== null}
+                                        onChange={(event) =>
+                                          updateMenuItemDraft(childItem.key, {
+                                            order: Number.isNaN(
+                                              Number.parseInt(event.target.value, 10)
+                                            )
+                                              ? 0
+                                              : Number.parseInt(event.target.value, 10),
+                                          })
+                                        }
+                                        className="w-full px-3 py-2.5 text-sm"
+                                      />
+                                    </label>
+
+                                    <MenuAccessQuickField
+                                      label="진입 권한"
+                                      value={childSettings.access_level}
+                                      disabled={menuVisibilitySavingKey !== null}
+                                      onChange={(nextValue) =>
+                                        updateMenuItemDraft(childItem.key, {
+                                          access_level: nextValue,
+                                        })
+                                      }
+                                    />
+
+                                    {childItem.supportsWriteAccess ? (
+                                      <label className="flex flex-col gap-2">
+                                        <span className="theme-heading text-xs font-semibold">글 작성 권한</span>
+                                        <select
+                                          value={childSettings.write_access_level}
+                                          disabled={menuVisibilitySavingKey !== null}
+                                          onChange={(event) =>
+                                            updateMenuItemDraft(childItem.key, {
+                                              write_access_level:
+                                                event.target.value as MenuWriteAccessLevel,
+                                            })
+                                          }
+                                          className="w-full px-3 py-2.5 text-sm"
+                                        >
+                                          {MENU_WRITE_ACCESS_LEVEL_OPTIONS.map((option) => (
+                                            <option key={option} value={option}>
+                                              {getMenuWriteAccessLevelLabel(option)}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </label>
+                                    ) : null}
+
+                                    <MenuQuickToggleField
+                                      label="표시"
+                                      value={childSettings.visible}
+                                      disabled={menuVisibilitySavingKey !== null}
+                                      trueLabel="표시"
+                                      falseLabel="미표시"
+                                      onChange={(nextValue) =>
+                                        updateMenuItemDraft(childItem.key, {
+                                          visible: nextValue,
+                                        })
+                                      }
+                                    />
+
+                                    <MenuQuickToggleField
+                                      label="사용"
+                                      value={childSettings.enabled}
+                                      disabled={menuVisibilitySavingKey !== null}
+                                      trueLabel="사용 중"
+                                      falseLabel="미사용"
+                                      onChange={(nextValue) =>
+                                        updateMenuItemDraft(childItem.key, {
+                                          enabled: nextValue,
+                                        })
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </>
                     ) : null}
                   </div>
                 );

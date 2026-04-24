@@ -1,8 +1,13 @@
 "use client";
 
+import type { User } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isLegacyAdminUser, isVendorUser } from "../../lib/admin";
+import {
+  canUserAccessMenuItem,
+  getDefaultMenuVisibilitySettings,
+  getMenuAccessLevelLabel,
+} from "../../lib/menuVisibility";
 import { extractDriverProfileSeed } from "../../lib/driverSettings";
 import PageShell, { PageLoadingShell } from "../../components/layout/PageShell";
 import { supabase } from "../../lib/supabase";
@@ -12,7 +17,27 @@ import {
 } from "../../lib/toast";
 import { getUserLevel } from "../../lib/userLevel";
 import ToastViewport from "../../components/ui/ToastViewport";
-import type { UserType } from "../../types";
+import type {
+  MenuVisibilitySettingsResponse,
+  UserType,
+} from "../../types";
+
+async function loadClientMenuVisibilitySettings() {
+  const response = await fetch("/api/menu-visibility", {
+    method: "GET",
+    cache: "no-store",
+  });
+  const responseBody = (await response.json().catch(() => null)) as
+    | MenuVisibilitySettingsResponse
+    | { error?: string }
+    | null;
+
+  if (!response.ok || !responseBody || !("settings" in responseBody) || !responseBody.settings) {
+    return getDefaultMenuVisibilitySettings();
+  }
+
+  return responseBody.settings;
+}
 
 export default function VendorPage() {
   const router = useRouter();
@@ -38,12 +63,13 @@ export default function VendorPage() {
         return;
       }
 
-      if (!isVendorUser(user)) {
+      const menuVisibilitySettings = await loadClientMenuVisibilitySettings();
+
+      if (!canUserAccessMenuItem(menuVisibilitySettings, "vendor-home", user as User)) {
         queuePendingToast({
           tone: "error",
           title: "밴더 권한이 없습니다",
-          message:
-            "벤더Lv 이상 또는 기존 관리자 권한 계정만 밴더 전용 페이지에 접근할 수 있습니다.",
+          message: "밴더 전용 페이지 접근 권한을 관리자 설정에서 확인해주세요.",
         });
         router.replace("/dashboard");
         return;
@@ -59,11 +85,7 @@ export default function VendorPage() {
         phone_number: profileSeed.phoneNumber,
       });
       setUserLevel(nextUserLevel);
-      setAccessScope(
-        isLegacyAdminUser(user) && nextUserLevel === "기사Lv"
-          ? "레거시 관리자 권한"
-          : "벤더Lv 이상"
-      );
+      setAccessScope(getMenuAccessLevelLabel(menuVisibilitySettings.items["vendor-home"].access_level));
       setLoading(false);
     };
 

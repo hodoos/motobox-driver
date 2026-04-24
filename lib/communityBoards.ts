@@ -64,7 +64,7 @@ export const COMMUNITY_BOARD_DEFINITIONS = [
     description: "제휴 등급 사용자와 상위 권한 계정이 확인하는 전용 게시판입니다.",
     heroKicker: "AFFILIATE ONLY",
     sectionTitle: "제휴 전용",
-    accessLevel: "Lv3-제휴",
+    accessLevel: "authenticated",
   },
 ] as const satisfies readonly CommunityBoardDefinition[];
 

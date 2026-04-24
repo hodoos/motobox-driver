@@ -174,7 +174,12 @@ export type MenuVisibilityKey =
   | "affiliate"
   | "vendor";
 
+export type MenuAccessLevel = "authenticated" | AdminUserLevel;
+
+export type MenuWriteAccessLevel = "disabled" | MenuAccessLevel;
+
 export type MenuVisibilityItemKey =
+  | "admin"
   | "dashboard"
   | "my-page"
   | "today-quick-card"
@@ -189,14 +194,46 @@ export type MenuVisibilityItemKey =
   | "affiliate"
   | "vendor-home";
 
-export type MenuVisibilityItemSettings = Record<MenuVisibilityItemKey, boolean>;
+export type MenuVisibilityCategorySettings = {
+  visible: boolean;
+  enabled: boolean;
+  label: string;
+  order: number;
+  access_level: MenuAccessLevel;
+  write_access_level: MenuWriteAccessLevel;
+};
 
-export type MenuVisibilitySettings = Record<MenuVisibilityKey, boolean> & {
+export type MenuVisibilityCategorySettingsMap = Record<
+  MenuVisibilityKey,
+  MenuVisibilityCategorySettings
+>;
+
+export type MenuVisibilityItemSettingsEntry = {
+  visible: boolean;
+  enabled: boolean;
+  label: string;
+  order: number;
+  access_level: MenuAccessLevel;
+  write_access_level: MenuWriteAccessLevel;
+};
+
+export type MenuVisibilityItemSettings = Record<
+  MenuVisibilityItemKey,
+  MenuVisibilityItemSettingsEntry
+>;
+
+export type MenuVisibilitySettings = {
+  categories: MenuVisibilityCategorySettingsMap;
   items: MenuVisibilityItemSettings;
 };
 
-export type MenuVisibilitySettingsPatch = Partial<Record<MenuVisibilityKey, boolean>> & {
-  items?: Partial<MenuVisibilityItemSettings>;
+export type MenuVisibilityCategorySettingsPatch = Partial<MenuVisibilityCategorySettings>;
+
+export type MenuVisibilityItemSettingsPatch = Partial<MenuVisibilityItemSettingsEntry>;
+
+export type MenuVisibilitySettingsPatch = {
+  categories?: Partial<Record<MenuVisibilityKey, MenuVisibilityCategorySettingsPatch>>;
+  items?: Partial<Record<MenuVisibilityItemKey, MenuVisibilityItemSettingsPatch>>;
 };
 
 export type MenuVisibilitySettingsResponse = {

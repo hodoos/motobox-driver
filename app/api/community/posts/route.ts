@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { canAccessCommunityBoard, getCommunityBoardDefinition } from "../../../../lib/communityBoards";
 import {
+  canUserAccessMenuItem,
+  canUserWriteMenuItem,
+} from "../../../../lib/menuVisibility";
+import { readMenuVisibilitySettings } from "../../../../lib/menuVisibilitySettings";
+import {
   createStoredCommunityPost,
   listCommunityPosts,
   normalizeCreateCommunityPostInput,
@@ -31,6 +36,26 @@ function getAccessToken(request: Request) {
 
 function getOptionalAdminClient() {
   return getSupabaseAdminConfigurationError() ? null : createSupabaseAdminClient();
+}
+
+async function loadMenuVisibilitySettings() {
+  try {
+    return {
+      settings: (await readMenuVisibilitySettings()).settings,
+      error: null,
+    };
+  } catch (readError) {
+    return {
+      settings: null,
+      error: createErrorResponse(
+        getKoreanErrorMessage(
+          readError instanceof Error ? readError.message : undefined,
+          "메뉴 접근 설정을 불러오지 못했습니다."
+        ),
+        500
+      ),
+    };
+  }
 }
 
 async function getAuthorizedUser(request: Request) {
@@ -84,6 +109,16 @@ export async function GET(request: Request) {
     return createErrorResponse("현재 계정은 이 게시판에 접근할 수 없습니다.", 403);
   }
 
+  const { settings, error: settingsError } = await loadMenuVisibilitySettings();
+
+  if (settingsError || !settings) {
+    return settingsError;
+  }
+
+  if (!canUserAccessMenuItem(settings, board.key, user)) {
+    return createErrorResponse("현재 계정은 이 게시판에 접근할 수 없습니다.", 403);
+  }
+
   const adminClient = getOptionalAdminClient();
   const { posts, storage } = await listCommunityPosts(adminClient, board.key);
 
@@ -116,6 +151,16 @@ export async function POST(request: Request) {
   }
 
   if (!canAccessCommunityBoard(board, user)) {
+    return createErrorResponse("현재 계정은 이 게시판에 글을 작성할 수 없습니다.", 403);
+  }
+
+  const { settings, error: settingsError } = await loadMenuVisibilitySettings();
+
+  if (settingsError || !settings) {
+    return settingsError;
+  }
+
+  if (!canUserWriteMenuItem(settings, board.key, user)) {
     return createErrorResponse("현재 계정은 이 게시판에 글을 작성할 수 없습니다.", 403);
   }
 

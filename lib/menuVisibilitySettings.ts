@@ -5,6 +5,8 @@ import {
   getDefaultMenuVisibilitySettings,
   MENU_VISIBILITY_ITEM_KEYS,
   MENU_VISIBILITY_KEYS,
+  sanitizeMenuVisibilityCategorySettings,
+  sanitizeMenuVisibilityItemSettings,
 } from "./menuVisibility";
 import type {
   MenuVisibilitySettings,
@@ -29,27 +31,50 @@ function normalizeMenuVisibilitySettings(value: unknown): MenuVisibilitySettings
 
   const defaultSettings = getDefaultMenuVisibilitySettings();
   const storedSettings = value.settings;
-  const storedItemSettings = isRecord(storedSettings.items)
-    ? storedSettings.items
+  const storedCategories = isRecord(storedSettings.categories)
+    ? storedSettings.categories
     : null;
+  const storedItemSettings = isRecord(storedSettings.items) ? storedSettings.items : null;
+  const nextCategories = MENU_VISIBILITY_KEYS.reduce<MenuVisibilitySettings["categories"]>(
+    (categories, key) => {
+      const storedCategoryValue =
+        storedCategories && isRecord(storedCategories[key]) ? storedCategories[key] : null;
+      const legacyVisibleValue = typeof storedSettings[key] === "boolean" ? storedSettings[key] : undefined;
+
+      categories[key] = sanitizeMenuVisibilityCategorySettings(key, {
+        ...defaultSettings.categories[key],
+        ...(legacyVisibleValue === undefined ? {} : { visible: legacyVisibleValue }),
+        ...(storedCategoryValue ?? {}),
+      });
+      return categories;
+    },
+    { ...defaultSettings.categories }
+  );
   const nextItemSettings = MENU_VISIBILITY_ITEM_KEYS.reduce<MenuVisibilitySettings["items"]>(
     (items, key) => {
-      items[key] =
+      const storedItemValue =
+        storedItemSettings && isRecord(storedItemSettings[key])
+          ? storedItemSettings[key]
+          : null;
+      const legacyItemVisibleValue =
         storedItemSettings && typeof storedItemSettings[key] === "boolean"
-          ? (storedItemSettings[key] as boolean)
-          : defaultSettings.items[key];
+          ? storedItemSettings[key]
+          : undefined;
+
+      items[key] = sanitizeMenuVisibilityItemSettings(key, {
+        ...defaultSettings.items[key],
+        ...(legacyItemVisibleValue === undefined ? {} : { visible: legacyItemVisibleValue }),
+        ...(storedItemValue ?? {}),
+      });
 
       return items;
     },
     { ...defaultSettings.items }
   );
-  const nextSettings = MENU_VISIBILITY_KEYS.reduce<MenuVisibilitySettings>((settings, key) => {
-    settings[key] =
-      typeof storedSettings[key] === "boolean"
-        ? (storedSettings[key] as boolean)
-        : defaultSettings[key];
-    return settings;
-  }, { ...defaultSettings, items: nextItemSettings });
+  const nextSettings: MenuVisibilitySettings = {
+    categories: nextCategories,
+    items: nextItemSettings,
+  };
 
   return {
     settings: nextSettings,

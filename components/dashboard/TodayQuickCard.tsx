@@ -11,7 +11,6 @@ const freshbackRecoveryPriceOptions = ["100", "150", "200"] as const;
 
 const compactInputStyle = {
   width: "100%",
-  maxWidth: "8rem",
 } as CSSProperties;
 
 const inlineInputStyle = {
@@ -258,7 +257,7 @@ export default function TodayQuickCard({
             {/* 입력 날짜 */}
           </label>
           <div
-            className="theme-label mx-auto flex w-full max-w-[20rem] items-center justify-center gap-5 text-[16px] font-semibold"
+            className="theme-label flex w-full flex-wrap items-center justify-center gap-3 text-sm font-semibold sm:text-[16px]"
             style={{ marginTop: "12px", marginBottom: "12px" }}
           >
             <label className="flex items-center gap-2">
@@ -284,7 +283,7 @@ export default function TodayQuickCard({
               추가 휴무
             </label>
           </div>
-          <div className="mx-auto flex w-full max-w-[24rem] flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex w-full flex-col gap-2.5 md:flex-row md:items-center">
             <div className="flex flex-1 items-center justify-between gap-2 rounded-[18px] border border-[var(--border)] bg-[var(--field-bg)] px-2 py-2.5">
               <button
                 type="button"
@@ -315,7 +314,7 @@ export default function TodayQuickCard({
               type="button"
               onClick={handleAddAdditionalWork}
               disabled={reportForm.is_day_off}
-              className="retro-button min-h-[42px] w-full shrink-0 whitespace-nowrap px-3 py-2 text-xs font-semibold disabled:cursor-default disabled:opacity-40 sm:w-auto sm:text-sm"
+              className="retro-button min-h-[42px] w-full shrink-0 whitespace-nowrap px-3 py-2 text-xs font-semibold disabled:cursor-default disabled:opacity-40 md:w-auto md:text-sm"
             >
               추가 업무
             </button>
@@ -325,9 +324,9 @@ export default function TodayQuickCard({
           </p>
         </div>
 
-        <div className="mx-auto grid w-full max-w-[20rem] grid-cols-1 justify-items-center gap-x-3 gap-y-4 min-[360px]:grid-cols-2 sm:gap-x-4">
-          <div className="flex w-full max-w-[8rem] flex-col items-center space-y-2">
-            <label className="theme-label block text-center text-sm font-semibold">
+        <div className="grid w-full gap-4 min-[360px]:grid-cols-2 sm:gap-x-4">
+          <div className="flex w-full min-w-0 flex-col gap-2">
+            <label className="theme-label block text-left text-sm font-semibold sm:text-center">
               단가
             </label>
             <input
@@ -342,12 +341,12 @@ export default function TodayQuickCard({
                   : "직접입력"
               }
               className="no-spinner px-4 py-3 text-center disabled:opacity-60"
-              style={{ ...compactInputStyle, marginBottom: "12px" }}
+              style={compactInputStyle}
             />
           </div>
 
-          <div className="flex w-full max-w-[8rem] flex-col items-center space-y-2">
-            <label className="theme-label block text-center text-sm font-semibold">
+          <div className="flex w-full min-w-0 flex-col gap-2">
+            <label className="theme-label block text-left text-sm font-semibold sm:text-center">
               배송
             </label>
             <input
@@ -358,20 +357,20 @@ export default function TodayQuickCard({
               disabled={reportForm.is_day_off}
               placeholder="배송"
               className="no-spinner px-4 py-3 text-center disabled:opacity-60"
-              style={{ ...compactInputStyle, marginBottom: "12px" }}
+              style={compactInputStyle}
             />
           </div>
         </div>
 
         <div
           aria-hidden="true"
-          className="mx-auto h-px w-full max-w-[20rem]"
+          className="h-px w-full"
           style={{ backgroundColor: "var(--border-strong)" }}
         />
 
-        <div className="mx-auto grid w-full max-w-[20rem] grid-cols-[minmax(0,6.8rem)_minmax(0,1fr)] items-start gap-3">
-          <div className="flex w-full min-w-0 flex-col items-center space-y-2">
-            <label className="theme-label block text-center text-sm font-semibold">
+        <div className="grid w-full grid-cols-2 gap-3 sm:gap-4">
+          <div className="flex w-full min-w-0 flex-col gap-2">
+            <label className="theme-label block text-left text-sm font-semibold sm:text-center">
               반품
             </label>
             <input
@@ -382,81 +381,79 @@ export default function TodayQuickCard({
               disabled={reportForm.is_day_off}
               placeholder="반품"
               className="no-spinner px-4 py-3 text-center disabled:opacity-60"
-              style={{ ...compactInputStyle, marginBottom: "12px" }}
+              style={compactInputStyle}
             />
           </div>
 
-          <div className="flex w-full min-w-0 flex-col items-center space-y-2">
-            <label className="theme-label block w-full text-center text-sm font-semibold">
+          <div className="flex w-full min-w-0 flex-col gap-2">
+            <label className="theme-label block text-left text-sm font-semibold sm:text-center">
               취소
             </label>
-            <div className="flex w-full min-w-0 items-start gap-2">
-              <input
-                type="number"
-                name="canceled_count"
-                value={reportForm.canceled_count}
-                onChange={handleReportChange}
-                disabled={reportForm.is_day_off}
-                placeholder="취소"
-                className="no-spinner w-full min-w-0 max-w-[6.5rem] px-4 py-3 text-center disabled:opacity-60"
-              />
-              <div className="flex min-w-0 flex-col items-start gap-1 pt-1 text-[11px]">
-                <label className="flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
-                    checked={reportForm.include_canceled_in_sales}
-                    disabled={reportForm.is_day_off}
-                    onChange={(event) => {
-                      if (!event.target.checked) {
-                        return;
-                      }
+            <input
+              type="number"
+              name="canceled_count"
+              value={reportForm.canceled_count}
+              onChange={handleReportChange}
+              disabled={reportForm.is_day_off}
+              placeholder="취소"
+              className="no-spinner w-full min-w-0 px-4 py-3 text-center disabled:opacity-60"
+            />
+            <div className="grid w-full gap-2 text-[11px]">
+              <label className="flex w-full min-w-0 items-center justify-between gap-3 rounded-[14px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 py-2 text-left">
+                <input
+                  type="checkbox"
+                  checked={reportForm.include_canceled_in_sales}
+                  disabled={reportForm.is_day_off}
+                  onChange={(event) => {
+                    if (!event.target.checked) {
+                      return;
+                    }
 
-                      setReportForm((prev) => ({
-                        ...prev,
-                        include_canceled_in_sales: true,
-                      }));
-                    }}
-                  />
-                  취소건 포함
-                </label>
-                <label className="flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
-                    checked={!reportForm.include_canceled_in_sales}
-                    disabled={reportForm.is_day_off}
-                    onChange={(event) => {
-                      if (!event.target.checked) {
-                        return;
-                      }
+                    setReportForm((prev) => ({
+                      ...prev,
+                      include_canceled_in_sales: true,
+                    }));
+                  }}
+                />
+                <span className="theme-copy min-w-0 font-medium leading-tight">취소건 포함</span>
+              </label>
+              <label className="flex w-full min-w-0 items-center justify-between gap-3 rounded-[14px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 py-2 text-left">
+                <input
+                  type="checkbox"
+                  checked={!reportForm.include_canceled_in_sales}
+                  disabled={reportForm.is_day_off}
+                  onChange={(event) => {
+                    if (!event.target.checked) {
+                      return;
+                    }
 
-                      setReportForm((prev) => ({
-                        ...prev,
-                        include_canceled_in_sales: false,
-                      }));
-                    }}
-                  />
-                  취소건 미포함
-                </label>
-              </div>
+                    setReportForm((prev) => ({
+                      ...prev,
+                      include_canceled_in_sales: false,
+                    }));
+                  }}
+                />
+                <span className="theme-copy min-w-0 font-medium leading-tight">취소건 미포함</span>
+              </label>
             </div>
           </div>
         </div>
 
         <div
           aria-hidden="true"
-          className="mx-auto h-px w-full max-w-[20rem]"
+          className="h-px w-full"
           style={{ backgroundColor: "var(--border-strong)" }}
         />
 
-        <div className="mx-auto w-full max-w-[20rem] space-y-2">
-          <label className="theme-label block text-center text-sm font-semibold">
+        <div className="w-full space-y-2">
+          <label className="theme-label block text-left text-sm font-semibold sm:text-center">
             프레쉬백 회수
           </label>
           <div className="space-y-2.5">
             {freshbackRecoveryItems.map((item, index) => (
               <div
                 key={item.key}
-                className="grid grid-cols-2 items-end gap-2 min-[360px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_5rem]"
+                className="grid grid-cols-1 items-end gap-2.5 min-[360px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
               >
                   <div className="space-y-1">
                     <label className="theme-label block text-center text-[11px] font-semibold">
@@ -503,7 +500,7 @@ export default function TodayQuickCard({
                     />
                   </div>
 
-                  <div className="col-span-2 flex justify-end gap-1.5 pt-0 min-[360px]:col-span-1 min-[360px]:grid min-[360px]:h-full min-[360px]:grid-cols-2 min-[360px]:items-center min-[360px]:justify-items-end min-[360px]:pt-5">
+                  <div className="flex justify-end gap-1.5 pt-0 min-[360px]:grid min-[360px]:h-full min-[360px]:grid-cols-2 min-[360px]:items-center min-[360px]:justify-items-end min-[360px]:pt-5">
                     {index === 0 ? (
                       <button
                         type="button"
@@ -538,11 +535,11 @@ export default function TodayQuickCard({
 
         <div
           aria-hidden="true"
-          className="mx-auto h-px w-full max-w-[20rem]"
+          className="h-px w-full"
           style={{ backgroundColor: "var(--border-strong)" }}
         />
 
-        <div className="mx-auto w-full max-w-[16rem] space-y-3 sm:max-w-[17rem]">
+        <div className="w-full space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <p className="theme-copy text-xs font-semibold">
                 총 지출 {formatMoney(expenseTotal)}
@@ -607,7 +604,7 @@ export default function TodayQuickCard({
 
         <div
           aria-hidden="true"
-          className="mx-auto h-px w-full max-w-[17rem]"
+          className="h-px w-full"
           style={{ backgroundColor: "var(--border-strong)" }}
         />
 
@@ -715,9 +712,9 @@ export default function TodayQuickCard({
           </div>
         ) : null}
 
-        <div className="space-y-2 text-center">
+        <div className="space-y-2 text-left sm:text-center">
           <label
-            className="theme-label block text-center text-sm font-semibold"
+            className="theme-label block text-left text-sm font-semibold sm:text-center"
             style={{ marginBottom: "12px" }}
           >
             특이사항
@@ -734,7 +731,7 @@ export default function TodayQuickCard({
         <button
           onClick={onSave}
           disabled={saving}
-          className="retro-button-solid ui-action-fit min-h-[48px] px-5 py-3.5 text-base font-semibold disabled:opacity-60"
+          className="retro-button-solid ui-action-fit min-h-[48px] w-full px-5 py-3.5 text-base font-semibold disabled:opacity-60 sm:w-auto sm:self-center"
           style={{ marginBottom: "12px" }}
         >
           {saving ? "저장 중..." : "저 장"}

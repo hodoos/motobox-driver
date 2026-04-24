@@ -4,9 +4,8 @@ import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { isAdminUser, isVendorUser } from "../../lib/admin";
+import { isAdminUser } from "../../lib/admin";
 import {
-  canAccessCommunityBoard,
   COMMUNITY_BOARD_DEFINITIONS,
 } from "../../lib/communityBoards";
 import {
@@ -15,7 +14,10 @@ import {
   DashboardSectionId,
 } from "../../lib/dashboardNavigation";
 import {
+  canUserAccessMenuCategory,
+  canUserAccessMenuItem,
   getDefaultMenuVisibilitySettings,
+  MENU_VISIBILITY_DEFINITIONS,
   MENU_VISIBILITY_UPDATED_EVENT,
 } from "../../lib/menuVisibility";
 import { KAKAO_INQUIRY_URL } from "../../lib/support";
@@ -54,8 +56,117 @@ type ThemeMode = "dark" | "light";
 const THEME_STORAGE_KEY = "motobox:theme";
 let lastKnownMenuOpen = false;
 
+const MENU_ITEM_ROUTE_MAP: Partial<Record<MenuVisibilityItemKey, string>> = {
+  dashboard: "/dashboard",
+  "my-page": "/settings",
+  admin: "/admin",
+  "vendor-home": "/vendor",
+};
+
+const MENU_ITEM_DASHBOARD_SECTION_MAP: Partial<
+  Record<MenuVisibilityItemKey, DashboardSectionId>
+> = {
+  dashboard: "home",
+  "today-quick-card": "today-quick-card",
+  "work-summary": "work-summary",
+  stats: "stats",
+  "daily-sales-list": "daily-sales-list",
+  "work-calendar": "work-calendar",
+};
+
 function persistMenuOpen(nextOpen: boolean) {
   lastKnownMenuOpen = nextOpen;
+}
+
+function getMenuItemHref(key: MenuVisibilityItemKey) {
+  if (MENU_ITEM_ROUTE_MAP[key]) {
+    return MENU_ITEM_ROUTE_MAP[key];
+  }
+
+  return COMMUNITY_BOARD_DEFINITIONS.find((board) => board.key === key)?.path;
+}
+
+function getMenuItemDashboardSectionId(key: MenuVisibilityItemKey) {
+  return MENU_ITEM_DASHBOARD_SECTION_MAP[key];
+}
+
+function canUseIntrinsicMenuItem(user: User | null, key: MenuVisibilityItemKey) {
+  if (!user) {
+    return false;
+  }
+
+  if (key === "admin") {
+    return isAdminUser(user);
+  }
+
+  return true;
+}
+
+function isPlaceholderMenuItem(key: MenuVisibilityItemKey) {
+  const board = COMMUNITY_BOARD_DEFINITIONS.find((item) => item.key === key);
+  return Boolean(board && board.title.includes("구현중"));
+}
+
+function getMenuItemKeyByPath(pathname: string): MenuVisibilityItemKey | null {
+  if (pathname === "/dashboard") {
+    return "dashboard";
+  }
+
+  if (pathname === "/settings") {
+    return "my-page";
+  }
+
+  if (pathname === "/admin") {
+    return "admin";
+  }
+
+  if (pathname === "/vendor") {
+    return "vendor-home";
+  }
+
+  return COMMUNITY_BOARD_DEFINITIONS.find((board) => board.path === pathname)?.key ?? null;
+}
+
+function getFallbackMenuHref(user: User | null, menuVisibility: MenuVisibilitySettings) {
+  if (!user) {
+    return "/";
+  }
+
+  const sortedDefinitions = [...MENU_VISIBILITY_DEFINITIONS].sort(
+    (left, right) =>
+      menuVisibility.categories[left.key].order - menuVisibility.categories[right.key].order
+  );
+
+  for (const definition of sortedDefinitions) {
+    if (!canUserAccessMenuCategory(menuVisibility, definition.key, user)) {
+      continue;
+    }
+
+    const sortedItems = [...(definition.items ?? [])].sort(
+      (left, right) => menuVisibility.items[left.key].order - menuVisibility.items[right.key].order
+    );
+
+    for (const item of sortedItems) {
+      if (
+        !canUseIntrinsicMenuItem(user, item.key) ||
+        !canUserAccessMenuItem(menuVisibility, item.key, user)
+      ) {
+        continue;
+      }
+
+      const href = getMenuItemHref(item.key);
+
+      if (href) {
+        return href;
+      }
+
+      if (getMenuItemDashboardSectionId(item.key)) {
+        return "/dashboard";
+      }
+    }
+  }
+
+  return "/";
 }
 
 function LogoWordmark({
@@ -400,12 +511,6 @@ function createMenuSections(
   user: User | null,
   menuVisibility: MenuVisibilitySettings
 ): MenuSection[] {
-  const menuItemVisibility = menuVisibility.items ?? getDefaultMenuVisibilitySettings().items;
-  const getVisibleMenuItems = (items: MenuItem[]) =>
-    items.filter((item) =>
-      item.visibilityKey ? menuItemVisibility[item.visibilityKey] : true
-    );
-
   if (!user) {
     return [
       {
@@ -416,134 +521,50 @@ function createMenuSections(
     ];
   }
 
-  const basicItems: MenuItem[] = [
-    {
-      id: "dashboard",
-      href: "/dashboard",
-      label: "홈",
-      dashboardSectionId: "home",
-      visibilityKey: "dashboard",
-    },
-    {
-      id: "my-page",
-      href: "/settings",
-      label: "마이페이지",
-      visibilityKey: "my-page",
-    },
-  ];
+  const sections: Array<MenuSection | null> = [...MENU_VISIBILITY_DEFINITIONS]
+    .sort(
+      (left, right) =>
+        menuVisibility.categories[left.key].order - menuVisibility.categories[right.key].order
+    )
+    .map((definition) => {
+      if (!canUserAccessMenuCategory(menuVisibility, definition.key, user)) {
+        return null;
+      }
 
-  if (menuVisibility.admin && isAdminUser(user)) {
-    basicItems.push({ id: "admin", href: "/admin", label: "관리자" });
-  }
+      const items = [...(definition.items ?? [])]
+        .sort(
+          (left, right) =>
+            menuVisibility.items[left.key].order - menuVisibility.items[right.key].order
+        )
+        .filter(
+          (item) =>
+            canUseIntrinsicMenuItem(user, item.key) &&
+            canUserAccessMenuItem(menuVisibility, item.key, user)
+        )
+        .map(
+          (item) =>
+            ({
+              id: item.key,
+              label: menuVisibility.items[item.key].label,
+              href: getMenuItemHref(item.key),
+              dashboardSectionId: getMenuItemDashboardSectionId(item.key),
+              isPlaceholder: isPlaceholderMenuItem(item.key),
+              visibilityKey: item.key,
+            }) satisfies MenuItem
+        );
 
-  const communityItems = COMMUNITY_BOARD_DEFINITIONS.filter(
-    (board) => board.sectionTitle === "커뮤니티"
-  ).map((board) => ({
-    id: board.key,
-    href: board.path,
-    label: board.menuLabel,
-    isPlaceholder: true,
-    visibilityKey: board.key,
-  } satisfies MenuItem));
+      if (items.length === 0) {
+        return null;
+      }
 
-  const vendorSections = isVendorUser(user)
-    ? [
-        {
-          id: "vendor-only",
-          title: "밴더 전용",
-          items: [
-            {
-              id: "vendor-home",
-              href: "/vendor",
-              label: "밴더 전용 페이지",
-              visibilityKey: "vendor-home",
-            },
-          ],
-        } satisfies MenuSection,
-      ]
-    : [];
+      return {
+        id: definition.key,
+        title: menuVisibility.categories[definition.key].label,
+        items,
+      } satisfies MenuSection;
+    });
 
-  const affiliateSections: MenuSection[] = COMMUNITY_BOARD_DEFINITIONS.filter(
-    (board) => board.sectionTitle === "제휴 전용" && canAccessCommunityBoard(board, user)
-  ).map((board) => ({
-    id: `${board.key}-section`,
-    title: board.sectionTitle,
-    items: [
-      {
-        id: board.key,
-        href: board.path,
-        label: board.menuLabel,
-        visibilityKey: board.key,
-      },
-    ],
-  }));
-
-  return [
-    menuVisibility.basic
-      ? {
-          id: "basic",
-          title: "기본",
-          items: getVisibleMenuItems(basicItems),
-        }
-      : null,
-    menuVisibility.dashboard
-      ? {
-          id: "dashboard-sections",
-          title: "대시보드",
-          items: getVisibleMenuItems([
-            {
-              id: "today-quick-card",
-              label: "업무 작성",
-              dashboardSectionId: "today-quick-card",
-              visibilityKey: "today-quick-card",
-            },
-            {
-              id: "work-summary",
-              label: "근무 통계",
-              dashboardSectionId: "work-summary",
-              visibilityKey: "work-summary",
-            },
-            {
-              id: "stats",
-              label: "매출 통계",
-              dashboardSectionId: "stats",
-              visibilityKey: "stats",
-            },
-            {
-              id: "daily-sales-list",
-              label: "일별 매출 - 리스트",
-              dashboardSectionId: "daily-sales-list",
-              visibilityKey: "daily-sales-list",
-            },
-            {
-              id: "work-calendar",
-              label: "일별 매출 - 캘린더",
-              dashboardSectionId: "work-calendar",
-              visibilityKey: "work-calendar",
-            },
-          ]),
-        }
-      : null,
-    menuVisibility.community
-      ? {
-          id: "community",
-          title: "커뮤니티",
-          items: getVisibleMenuItems(communityItems),
-        }
-      : null,
-    ...(menuVisibility.affiliate
-      ? affiliateSections.map((section) => ({
-          ...section,
-          items: getVisibleMenuItems(section.items),
-        }))
-      : []),
-    ...(menuVisibility.vendor
-      ? vendorSections.map((section) => ({
-          ...section,
-          items: getVisibleMenuItems(section.items),
-        }))
-      : []),
-  ].filter((section): section is MenuSection => Boolean(section && section.items.length > 0));
+  return sections.filter((section): section is MenuSection => section !== null);
 }
 
 export default function AppTopBar() {
@@ -633,6 +654,39 @@ export default function AppTopBar() {
       );
     };
   }, []);
+
+  useEffect(() => {
+    if (!user || pathname === "/") {
+      return;
+    }
+
+    const currentItemKey = getMenuItemKeyByPath(pathname);
+
+    if (!currentItemKey) {
+      return;
+    }
+
+    if (
+      canUseIntrinsicMenuItem(user, currentItemKey) &&
+      canUserAccessMenuItem(menuVisibility, currentItemKey, user)
+    ) {
+      return;
+    }
+
+    const fallbackHref = getFallbackMenuHref(user, menuVisibility);
+
+    queuePendingToast({
+      tone: "error",
+      title: "메뉴 진입 권한이 없습니다",
+      message: `${menuVisibility.items[currentItemKey].label} 메뉴 접근 권한을 관리자 설정에서 확인해주세요.`,
+    });
+
+    if (fallbackHref !== pathname) {
+      router.replace(fallbackHref);
+    } else {
+      router.replace("/");
+    }
+  }, [menuVisibility, pathname, router, user]);
 
   const menuSections = createMenuSections(user, menuVisibility);
   const isLandingPage = pathname === "/";
