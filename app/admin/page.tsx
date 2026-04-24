@@ -1494,9 +1494,11 @@ export default function AdminPage() {
       return;
     }
 
+    const nextMenuVisibilitySettings = updateResult.data.settings;
+
     setMenuVisibilityError(null);
-    setMenuVisibilitySettings(updateResult.data.settings);
-    setSavedMenuVisibilitySettings(updateResult.data.settings);
+    setMenuVisibilitySettings(nextMenuVisibilitySettings);
+    setSavedMenuVisibilitySettings(nextMenuVisibilitySettings);
 
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event(MENU_VISIBILITY_UPDATED_EVENT));
@@ -1515,7 +1517,7 @@ export default function AdminPage() {
         keys: categoryKeysToSave,
         settings: categoryKeysToSave.reduce<Record<string, MenuVisibilitySettings["categories"][MenuVisibilityKey]>>(
           (settings, categoryKey) => {
-            settings[categoryKey] = updateResult.data.settings.categories[categoryKey];
+            settings[categoryKey] = nextMenuVisibilitySettings.categories[categoryKey];
             return settings;
           },
           {}

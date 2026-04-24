@@ -70,7 +70,13 @@ export const COMMUNITY_BOARD_DEFINITIONS = [
 
 export type CommunityBoardKey = (typeof COMMUNITY_BOARD_DEFINITIONS)[number]["key"];
 
-export function getCommunityBoardDefinition(boardKey: string) {
+export function getCommunityBoardDefinition(boardKey: CommunityBoardKey): CommunityBoardDefinition;
+export function getCommunityBoardDefinition(
+  boardKey: string
+): CommunityBoardDefinition | null;
+export function getCommunityBoardDefinition(
+  boardKey: string
+): CommunityBoardDefinition | null {
   return COMMUNITY_BOARD_DEFINITIONS.find((board) => board.key === boardKey) ?? null;
 }
 

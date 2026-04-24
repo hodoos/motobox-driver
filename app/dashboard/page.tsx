@@ -356,7 +356,15 @@ function canAccessDashboardHomeLayoutItem(
     return true;
   }
 
-  return canUserAccessMenuItem(menuVisibilitySettings, itemId, user);
+  if (
+    itemId === "today-quick-card" ||
+    itemId === "daily-sales-list" ||
+    itemId === "work-calendar"
+  ) {
+    return canUserAccessMenuItem(menuVisibilitySettings, itemId, user);
+  }
+
+  return false;
 }
 
 function getFirstAccessibleDashboardSection(
