@@ -178,7 +178,7 @@ export type MenuAccessLevel = "authenticated" | AdminUserLevel;
 
 export type MenuWriteAccessLevel = "disabled" | MenuAccessLevel;
 
-export type MenuVisibilityItemKey =
+export type IntrinsicMenuVisibilityItemKey =
   | "admin"
   | "dashboard"
   | "my-page"
@@ -193,6 +193,12 @@ export type MenuVisibilityItemKey =
   | "tips"
   | "affiliate"
   | "vendor-home";
+
+export type CustomMenuVisibilityItemKey = `custom:${string}`;
+
+export type MenuVisibilityItemKey =
+  | IntrinsicMenuVisibilityItemKey
+  | CustomMenuVisibilityItemKey;
 
 export type MenuVisibilityCategorySettings = {
   visible: boolean;
@@ -216,12 +222,11 @@ export type MenuVisibilityItemSettingsEntry = {
   order: number;
   access_level: MenuAccessLevel;
   write_access_level: MenuWriteAccessLevel;
+  href: string | null;
+  archived: boolean;
 };
 
-export type MenuVisibilityItemSettings = Record<
-  MenuVisibilityItemKey,
-  MenuVisibilityItemSettingsEntry
->;
+export type MenuVisibilityItemSettings = Record<string, MenuVisibilityItemSettingsEntry>;
 
 export type MenuVisibilitySettings = {
   categories: MenuVisibilityCategorySettingsMap;
@@ -234,7 +239,7 @@ export type MenuVisibilityItemSettingsPatch = Partial<MenuVisibilityItemSettings
 
 export type MenuVisibilitySettingsPatch = {
   categories?: Partial<Record<MenuVisibilityKey, MenuVisibilityCategorySettingsPatch>>;
-  items?: Partial<Record<MenuVisibilityItemKey, MenuVisibilityItemSettingsPatch>>;
+  items?: Partial<Record<string, MenuVisibilityItemSettingsPatch>>;
 };
 
 export type MenuVisibilitySettingsResponse = {

@@ -56,7 +56,7 @@ export default function LoginCard({
               onChange={(e) => setIdentifier(e.target.value)}
               onKeyDown={handleKeyDown}
               autoComplete="username"
-              className="landing-input-fx block h-10 w-full rounded-[15px] border border-[var(--border)] bg-[rgba(10,11,18,0.86)] px-3.5 text-left text-sm text-[var(--text-strong)] placeholder:text-[var(--text-dim)] transition-all focus:border-[var(--border-strong)] focus:shadow-[0_0_0_3px_rgba(99,102,241,0.08)] focus:outline-none"
+              className="landing-input-fx block h-10 w-full rounded-[15px] border border-[var(--border)] bg-[rgba(10,11,18,0.86)] px-3.5 text-left text-sm text-[var(--text-strong)] placeholder:text-[var(--text-dim)] focus:border-[var(--border-strong)] focus:shadow-[0_0_0_3px_rgba(99,102,241,0.08)] focus:outline-none"
             />
 
             <input
@@ -66,7 +66,7 @@ export default function LoginCard({
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={handleKeyDown}
               autoComplete="current-password"
-              className="landing-input-fx block h-10 w-full rounded-[15px] border border-[var(--border)] bg-[rgba(10,11,18,0.86)] px-3.5 text-left text-sm text-[var(--text-strong)] placeholder:text-[var(--text-dim)] transition-all focus:border-[var(--border-strong)] focus:shadow-[0_0_0_3px_rgba(99,102,241,0.08)] focus:outline-none"
+              className="landing-input-fx block h-10 w-full rounded-[15px] border border-[var(--border)] bg-[rgba(10,11,18,0.86)] px-3.5 text-left text-sm text-[var(--text-strong)] placeholder:text-[var(--text-dim)] focus:border-[var(--border-strong)] focus:shadow-[0_0_0_3px_rgba(99,102,241,0.08)] focus:outline-none"
             />
 
             <div className="flex items-center justify-center">
@@ -87,7 +87,7 @@ export default function LoginCard({
               type="button"
               onClick={onLogin}
               onPointerDown={triggerLandingRipple}
-              className="landing-button-fx landing-button-fx--solid retro-button-solid min-h-[42px] rounded-full px-4 text-sm font-semibold transition-all hover:translate-y-[-1px] hover:shadow-lg active:scale-[0.98]"
+              className="landing-button-fx landing-button-fx--solid retro-button-solid min-h-[42px] rounded-full px-4 text-sm font-semibold"
             >
               로그인
             </button>
@@ -96,7 +96,7 @@ export default function LoginCard({
               type="button"
               onClick={onOpenSignup}
               onPointerDown={triggerLandingRipple}
-              className="landing-button-fx landing-button-fx--secondary retro-button min-h-[42px] rounded-full px-4 text-sm font-semibold transition-all hover:translate-y-[-1px] active:scale-[0.98]"
+              className="landing-button-fx landing-button-fx--secondary retro-button min-h-[42px] rounded-full px-4 text-sm font-semibold"
             >
               회원가입
             </button>
@@ -111,7 +111,7 @@ export default function LoginCard({
           target="_blank"
           rel="noreferrer"
           onPointerDown={triggerLandingRipple}
-          className="landing-button-fx landing-button-fx--solid landing-button-fx--support retro-button-solid inline-flex min-h-[40px] items-center justify-center rounded-full px-4.5 py-2 text-[13px] font-semibold transition-all hover:translate-y-[-1px] active:scale-[0.99]"
+          className="landing-button-fx landing-button-fx--solid landing-button-fx--support retro-button-solid inline-flex min-h-[40px] items-center justify-center rounded-full px-4.5 py-2 text-[13px] font-semibold"
           aria-label="카카오톡 문의하기"
         >
           카카오톡 문의하기

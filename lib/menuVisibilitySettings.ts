@@ -3,7 +3,8 @@ import path from "node:path";
 import {
   applyMenuVisibilitySettingsPatch,
   getDefaultMenuVisibilitySettings,
-  MENU_VISIBILITY_ITEM_KEYS,
+  getMenuVisibilityItemKeys,
+  isMenuVisibilityItemKey,
   MENU_VISIBILITY_KEYS,
   sanitizeMenuVisibilityCategorySettings,
   sanitizeMenuVisibilityItemSettings,
@@ -35,6 +36,12 @@ function normalizeMenuVisibilitySettings(value: unknown): MenuVisibilitySettings
     ? storedSettings.categories
     : null;
   const storedItemSettings = isRecord(storedSettings.items) ? storedSettings.items : null;
+  const nextItemKeys = Array.from(
+    new Set([
+      ...getMenuVisibilityItemKeys(defaultSettings),
+      ...(storedItemSettings ? Object.keys(storedItemSettings).filter(isMenuVisibilityItemKey) : []),
+    ])
+  );
   const nextCategories = MENU_VISIBILITY_KEYS.reduce<MenuVisibilitySettings["categories"]>(
     (categories, key) => {
       const storedCategoryValue =
@@ -50,7 +57,7 @@ function normalizeMenuVisibilitySettings(value: unknown): MenuVisibilitySettings
     },
     { ...defaultSettings.categories }
   );
-  const nextItemSettings = MENU_VISIBILITY_ITEM_KEYS.reduce<MenuVisibilitySettings["items"]>(
+  const nextItemSettings = nextItemKeys.reduce<MenuVisibilitySettings["items"]>(
     (items, key) => {
       const storedItemValue =
         storedItemSettings && isRecord(storedItemSettings[key])

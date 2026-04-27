@@ -143,7 +143,7 @@ export default function ReportList({
               data-report-date={dateKey}
               onClick={() => onDateClick(dateKey)}
               style={cardStyle}
-              className={`flex min-h-[104px] min-w-0 flex-col items-center rounded-[12px] border p-1.5 text-center transition active:scale-[0.99] hover:translate-y-[-1px] sm:min-h-[116px] sm:rounded-[18px] sm:p-2 md:min-h-[124px] md:rounded-[22px] md:p-2.5 ${
+              className={`flex min-h-[104px] min-w-0 flex-col items-center rounded-[12px] border p-1.5 text-center sm:min-h-[116px] sm:rounded-[18px] sm:p-2 md:min-h-[124px] md:rounded-[22px] md:p-2.5 ${
                 isBiweeklyAnchor
                   ? "border-[var(--border-strong)] bg-[rgba(255,255,255,0.08)]"
                   : isToday

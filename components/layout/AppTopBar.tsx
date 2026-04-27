@@ -17,7 +17,9 @@ import {
   canUserAccessMenuCategory,
   canUserAccessMenuItem,
   getDefaultMenuVisibilitySettings,
+  getMenuVisibilityItemHref,
   getMenuVisibilityItemsForCategory,
+  isCustomMenuVisibilityItemKey,
   MENU_VISIBILITY_DEFINITIONS,
   MENU_VISIBILITY_UPDATED_EVENT,
 } from "../../lib/menuVisibility";
@@ -31,6 +33,7 @@ import {
 } from "../../lib/toast";
 import { triggerLandingRipple } from "../../lib/landingRipple";
 import type {
+  IntrinsicMenuVisibilityItemKey,
   MenuVisibilityItemKey,
   MenuVisibilitySettings,
   MenuVisibilitySettingsResponse,
@@ -57,15 +60,8 @@ type ThemeMode = "dark" | "light";
 const THEME_STORAGE_KEY = "motobox:theme";
 let lastKnownMenuOpen = false;
 
-const MENU_ITEM_ROUTE_MAP: Partial<Record<MenuVisibilityItemKey, string>> = {
-  dashboard: "/dashboard",
-  "my-page": "/settings",
-  admin: "/admin",
-  "vendor-home": "/vendor",
-};
-
 const MENU_ITEM_DASHBOARD_SECTION_MAP: Partial<
-  Record<MenuVisibilityItemKey, DashboardSectionId>
+  Record<IntrinsicMenuVisibilityItemKey, DashboardSectionId>
 > = {
   dashboard: "home",
   "today-quick-card": "today-quick-card",
@@ -79,21 +75,29 @@ function persistMenuOpen(nextOpen: boolean) {
   lastKnownMenuOpen = nextOpen;
 }
 
-function getMenuItemHref(key: MenuVisibilityItemKey) {
-  if (MENU_ITEM_ROUTE_MAP[key]) {
-    return MENU_ITEM_ROUTE_MAP[key];
-  }
+function isExternalMenuHref(href: string) {
+  return /^https?:\/\//i.test(href);
+}
 
-  return COMMUNITY_BOARD_DEFINITIONS.find((board) => board.key === key)?.path;
+function getMenuItemHref(key: MenuVisibilityItemKey, menuVisibility: MenuVisibilitySettings) {
+  return getMenuVisibilityItemHref(key, menuVisibility) ?? undefined;
 }
 
 function getMenuItemDashboardSectionId(key: MenuVisibilityItemKey) {
+  if (isCustomMenuVisibilityItemKey(key)) {
+    return undefined;
+  }
+
   return MENU_ITEM_DASHBOARD_SECTION_MAP[key];
 }
 
 function canUseIntrinsicMenuItem(user: User | null, key: MenuVisibilityItemKey) {
   if (!user) {
     return false;
+  }
+
+  if (isCustomMenuVisibilityItemKey(key)) {
+    return true;
   }
 
   if (key === "admin") {
@@ -155,9 +159,9 @@ function getFallbackMenuHref(user: User | null, menuVisibility: MenuVisibilitySe
         continue;
       }
 
-      const href = getMenuItemHref(item.key);
+      const href = getMenuItemHref(item.key, menuVisibility);
 
-      if (href) {
+      if (href && !isExternalMenuHref(href)) {
         return href;
       }
 
@@ -395,7 +399,7 @@ function LoadingIcon() {
     <svg
       aria-hidden="true"
       viewBox="0 0 24 24"
-      className="h-5 w-5 animate-spin"
+      className="h-5 w-5"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -547,9 +551,9 @@ function createMenuSections(
             ({
               id: item.key,
               label: menuVisibility.items[item.key].label,
-              href: getMenuItemHref(item.key),
+              href: getMenuItemHref(item.key, menuVisibility),
               dashboardSectionId: getMenuItemDashboardSectionId(item.key),
-              isPlaceholder: isPlaceholderMenuItem(item.key),
+              isPlaceholder: !isCustomMenuVisibilityItemKey(item.key) && isPlaceholderMenuItem(item.key),
               visibilityKey: item.key,
             }) satisfies MenuItem
         );
@@ -717,11 +721,11 @@ export default function AppTopBar() {
     ? "relative z-10 flex min-w-[2.25rem] shrink-0 items-center justify-end gap-1.5 sm:min-w-[2.5rem] sm:gap-2"
     : "relative z-10 flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2";
   const iconButtonClass = isLandingPage
-    ? "landing-nav-button flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[rgba(139,148,255,0.08)] p-0 text-[var(--text-strong)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm active:scale-95 sm:h-[36px] sm:w-[36px]"
-    : "retro-button flex h-[36px] w-[36px] items-center justify-center p-0 text-sm font-semibold transition-all hover:scale-105 active:scale-95 sm:h-[40px] sm:w-[40px]";
+    ? "landing-nav-button flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[rgba(139,148,255,0.08)] p-0 text-[var(--text-strong)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm sm:h-[36px] sm:w-[36px]"
+    : "retro-button flex h-[36px] w-[36px] items-center justify-center p-0 text-sm font-semibold sm:h-[40px] sm:w-[40px]";
   const primaryIconButtonClass = isLandingPage
-    ? "landing-nav-button landing-nav-button--solid flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[linear-gradient(180deg,rgba(99,102,241,0.96),rgba(79,70,229,0.88))] p-0 text-white shadow-[0_10px_24px_rgba(79,70,229,0.28)] active:scale-95 sm:h-[36px] sm:w-[36px]"
-    : "retro-button-solid flex h-[36px] w-[36px] items-center justify-center p-0 text-sm font-semibold transition-all hover:scale-105 active:scale-95 sm:h-[40px] sm:w-[40px]";
+    ? "landing-nav-button landing-nav-button--solid flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[linear-gradient(180deg,rgba(99,102,241,0.96),rgba(79,70,229,0.88))] p-0 text-white shadow-[0_10px_24px_rgba(79,70,229,0.28)] sm:h-[36px] sm:w-[36px]"
+    : "retro-button-solid flex h-[36px] w-[36px] items-center justify-center p-0 text-sm font-semibold sm:h-[40px] sm:w-[40px]";
   const menuPanelClass = isLandingPage
     ? "fixed left-1/2 top-[3.7rem] z-[60] w-[min(calc(100vw-1rem),22rem)] -translate-x-1/2 sm:top-[4.15rem] sm:w-[23rem]"
     : "fixed left-2 right-2 top-[3.95rem] z-[60] sm:left-3 sm:right-auto sm:top-[4.35rem] sm:w-[18rem]";
@@ -778,6 +782,11 @@ export default function AppTopBar() {
     }
 
     if (item.href) {
+      if (isExternalMenuHref(item.href)) {
+        window.open(item.href, "_blank", "noopener,noreferrer");
+        return;
+      }
+
       router.push(item.href);
     }
   };
@@ -848,7 +857,7 @@ export default function AppTopBar() {
               <Link
                 href={logoHref}
                 aria-label={logoAriaLabel}
-                className={`pointer-events-auto transition-transform hover:scale-105 active:scale-95 app-topbar-logo app-topbar-logo--animated landing-logo-link`}
+                className="pointer-events-auto app-topbar-logo app-topbar-logo--animated landing-logo-link"
               >
                 <LogoWordmark
                   mode={themeMode}
@@ -923,10 +932,10 @@ export default function AppTopBar() {
                               key={item.id}
                               type="button"
                               onClick={() => handleMenuItemSelect(item)}
-                              className={`block w-full rounded-[14px] px-3 py-2.5 text-left text-sm font-semibold transition ${
+                              className={`block w-full rounded-[14px] px-3 py-2.5 text-left text-sm font-semibold ${
                                 isCurrentPage
                                   ? "bg-[rgba(255,255,255,0.12)] text-[var(--text-strong)]"
-                                  : "text-[var(--text)] hover:bg-[rgba(255,255,255,0.06)]"
+                                  : "text-[var(--text)]"
                               }`}
                             >
                               {item.label}

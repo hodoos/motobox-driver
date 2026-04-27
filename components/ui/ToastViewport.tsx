@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, type CSSProperties } from "react";
 import type { ToastState, ToastTone } from "../../lib/toast";
 
 type Props = {
@@ -18,12 +17,6 @@ const TOAST_KICKER_LABEL = {
   success: "SYSTEM OK",
   error: "SYSTEM ALERT",
   info: "SYSTEM NOTE",
-} as const;
-
-const TOAST_DURATION = {
-  success: 2400,
-  error: 3600,
-  info: 3200,
 } as const;
 
 function ToastToneIcon({ tone }: { tone: ToastTone }) {
@@ -71,67 +64,55 @@ function ToastToneIcon({ tone }: { tone: ToastTone }) {
 }
 
 export default function ToastViewport({ toast, onDismiss }: Props) {
-  useEffect(() => {
-    if (!toast) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(onDismiss, TOAST_DURATION[toast.tone]);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [toast, onDismiss]);
-
   if (!toast) {
     return null;
   }
 
-  const dismissDelay = TOAST_DURATION[toast.tone];
-
   return (
-    <div
-      className="pointer-events-none fixed inset-x-0 top-[4.5rem] z-[100001] flex justify-center px-3 sm:top-[5.25rem]"
-    >
-      <div className="retro-toast-shell w-full max-w-[30rem]">
+    <div className="pointer-events-none fixed inset-x-0 top-18 z-[100001] flex justify-center px-2.5 sm:top-21 sm:px-4">
+      <div className="retro-toast-shell w-full max-w-120">
         <div
           role={toast.tone === "error" ? "alert" : "status"}
           aria-live={toast.tone === "error" ? "assertive" : "polite"}
           aria-atomic="true"
           className={`retro-toast retro-toast-${toast.tone} pointer-events-auto rounded-[28px] px-3 py-3 sm:px-4 sm:py-4`}
-          style={{ "--toast-duration": `${dismissDelay}ms` } as CSSProperties}
         >
           <div className="retro-toast__layout">
-            <div className={`retro-toast__icon retro-toast__icon--${toast.tone}`} aria-hidden="true">
-              <ToastToneIcon tone={toast.tone} />
-            </div>
-
-            <div className="min-w-0 space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="retro-toast__eyebrow retro-title text-[10px] leading-none tracking-[0.22em]">
-                  {TOAST_KICKER_LABEL[toast.tone]}
-                </span>
-                <span className="retro-toast__badge retro-title text-[10px] leading-none tracking-[0.18em]">
-                  {TOAST_BADGE_LABEL[toast.tone]}
-                </span>
+            <div className="retro-toast__main">
+              <div
+                className={`retro-toast__icon retro-toast__icon--${toast.tone}`}
+                aria-hidden="true"
+              >
+                <ToastToneIcon tone={toast.tone} />
               </div>
 
-              <div className="min-w-0 space-y-1.5">
-                <p className="retro-title theme-heading text-sm leading-tight sm:text-[15px]">
-                  {toast.title}
-                </p>
-                {toast.message ? (
-                  <p className="theme-copy text-[13px] leading-relaxed sm:text-sm">
-                    {toast.message}
+              <div className="retro-toast__content">
+                <div className="retro-toast__meta">
+                  <span className="retro-toast__eyebrow retro-title text-[10px] leading-none tracking-[0.22em]">
+                    {TOAST_KICKER_LABEL[toast.tone]}
+                  </span>
+                  <span className="retro-toast__badge retro-title text-[10px] leading-none tracking-[0.18em]">
+                    {TOAST_BADGE_LABEL[toast.tone]}
+                  </span>
+                </div>
+
+                <div className="retro-toast__copy">
+                  <p className="retro-title theme-heading text-sm leading-tight sm:text-[15px]">
+                    {toast.title}
                   </p>
-                ) : null}
+                  {toast.message ? (
+                    <p className="theme-copy text-[13px] leading-relaxed sm:text-sm">
+                      {toast.message}
+                    </p>
+                  ) : null}
+                </div>
               </div>
-
-              <div className="retro-toast__progress" aria-hidden="true" />
             </div>
 
             <button
               type="button"
               onClick={onDismiss}
-              className="retro-toast__dismiss retro-button min-h-10 min-w-10 shrink-0 px-3 text-[11px] font-semibold"
+              className="retro-toast__dismiss retro-button min-h-11 min-w-[5.25rem] shrink-0 px-4 text-xs font-semibold sm:min-h-12"
               aria-label="알림 닫기"
             >
               닫기

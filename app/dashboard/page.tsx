@@ -2247,7 +2247,7 @@ export default function DashboardPage() {
                 type="button"
                 key={item.dateKey}
                 onClick={() => openReportModal(item.dateKey)}
-                className="theme-note-box flex w-full flex-col items-start gap-3 rounded-[20px] px-4 py-3 text-left transition active:scale-[0.99] hover:-translate-y-px sm:flex-row sm:items-center sm:justify-between"
+                className="theme-note-box flex w-full flex-col items-start gap-3 rounded-[20px] px-4 py-3 text-left sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
                   <p className="theme-copy text-sm leading-relaxed sm:text-base">

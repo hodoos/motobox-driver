@@ -66,7 +66,7 @@ export default function CalendarBoard({
               <button
                 key={dateKey}
                 onClick={() => onDateClick(dateKey)}
-                className={`min-h-[72px] rounded-[18px] border p-1.5 text-left transition hover:-translate-y-px sm:min-h-[88px] sm:rounded-[24px] sm:p-2 md:min-h-[120px] md:rounded-3xl md:p-3 ${
+                className={`min-h-[72px] rounded-[18px] border p-1.5 text-left sm:min-h-[88px] sm:rounded-[24px] sm:p-2 md:min-h-[120px] md:rounded-3xl md:p-3 ${
                   isBiweeklyAnchor
                     ? "border-[var(--border-strong)] bg-[rgba(255,255,255,0.08)]"
                     : isToday

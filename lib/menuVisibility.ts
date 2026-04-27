@@ -7,6 +7,8 @@ import {
   USER_LEVEL_OPTIONS,
 } from "./userLevel";
 import type {
+  CustomMenuVisibilityItemKey,
+  IntrinsicMenuVisibilityItemKey,
   MenuAccessLevel,
   MenuVisibilityCategorySettings,
   MenuVisibilityCategorySettingsMap,
@@ -22,6 +24,19 @@ import type {
 } from "../types";
 
 export type MenuVisibilityDefinitionItem = {
+  key: IntrinsicMenuVisibilityItemKey;
+  parentKey: MenuVisibilityKey;
+  label: string;
+  description: string;
+  defaultOrder: number;
+  minimumAccessLevel: MenuAccessLevel;
+  defaultAccessLevel: MenuAccessLevel;
+  supportsWriteAccess: boolean;
+  minimumWriteAccessLevel: MenuWriteAccessLevel;
+  defaultWriteAccessLevel: MenuWriteAccessLevel;
+};
+
+export type MenuVisibilityResolvedItem = {
   key: MenuVisibilityItemKey;
   parentKey: MenuVisibilityKey;
   label: string;
@@ -32,6 +47,8 @@ export type MenuVisibilityDefinitionItem = {
   supportsWriteAccess: boolean;
   minimumWriteAccessLevel: MenuWriteAccessLevel;
   defaultWriteAccessLevel: MenuWriteAccessLevel;
+  href: string | null;
+  isCustom: boolean;
 };
 
 export type MenuVisibilityDefinition = {
@@ -58,6 +75,8 @@ export const MENU_WRITE_ACCESS_LEVEL_OPTIONS = [
   "disabled",
   ...MENU_ACCESS_LEVEL_OPTIONS,
 ] as const satisfies readonly MenuWriteAccessLevel[];
+
+const CUSTOM_MENU_VISIBILITY_ITEM_KEY_PREFIX = "custom:" as const;
 
 const MENU_ACCESS_LEVEL_RANK: Record<MenuAccessLevel, number> = {
   authenticated: -1,
@@ -303,9 +322,22 @@ export const MENU_VISIBILITY_ITEM_DEFINITIONS = MENU_VISIBILITY_DEFINITIONS.flat
   (definition) => definition.items ?? []
 );
 
-export const MENU_VISIBILITY_ITEM_KEYS: MenuVisibilityItemKey[] = MENU_VISIBILITY_ITEM_DEFINITIONS.map(
-  (definition) => definition.key
-);
+export const MENU_VISIBILITY_ITEM_KEYS: IntrinsicMenuVisibilityItemKey[] =
+  MENU_VISIBILITY_ITEM_DEFINITIONS.map((definition) => definition.key);
+
+const MENU_VISIBILITY_ITEM_HREF_MAP: Partial<
+  Record<IntrinsicMenuVisibilityItemKey, string>
+> = {
+  dashboard: "/dashboard",
+  "my-page": "/settings",
+  admin: "/admin",
+  "today-quick-card": "/dashboard",
+  "work-summary": "/dashboard",
+  stats: "/dashboard",
+  "daily-sales-list": "/dashboard",
+  "work-calendar": "/dashboard",
+  "vendor-home": "/vendor",
+};
 
 export function getMenuVisibilityDefinition(key: MenuVisibilityKey) {
   return MENU_VISIBILITY_DEFINITIONS.find((definition) => definition.key === key) ?? null;
@@ -313,6 +345,129 @@ export function getMenuVisibilityDefinition(key: MenuVisibilityKey) {
 
 export function getMenuVisibilityItemDefinition(key: MenuVisibilityItemKey) {
   return MENU_VISIBILITY_ITEM_DEFINITIONS.find((definition) => definition.key === key) ?? null;
+}
+
+export function isCustomMenuVisibilityItemKey(
+  value: unknown
+): value is CustomMenuVisibilityItemKey {
+  return (
+    typeof value === "string" &&
+    value.startsWith(CUSTOM_MENU_VISIBILITY_ITEM_KEY_PREFIX) &&
+    value.length > CUSTOM_MENU_VISIBILITY_ITEM_KEY_PREFIX.length
+  );
+}
+
+export function createCustomMenuVisibilityItemKey(): CustomMenuVisibilityItemKey {
+  const uniquePart =
+    typeof globalThis.crypto?.randomUUID === "function"
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+
+  return `${CUSTOM_MENU_VISIBILITY_ITEM_KEY_PREFIX}${uniquePart.replace(/[^a-zA-Z0-9-]/g, "").toLowerCase()}`;
+}
+
+export function getMenuVisibilityItemKeys(
+  settings?: Pick<MenuVisibilitySettings, "items"> | null
+) {
+  const seen = new Set<string>();
+  const keys: MenuVisibilityItemKey[] = [];
+
+  for (const key of MENU_VISIBILITY_ITEM_KEYS) {
+    seen.add(key);
+    keys.push(key);
+  }
+
+  if (!settings?.items) {
+    return keys;
+  }
+
+  for (const key of Object.keys(settings.items)) {
+    if (isMenuVisibilityItemKey(key) && !seen.has(key)) {
+      seen.add(key);
+      keys.push(key);
+    }
+  }
+
+  return keys;
+}
+
+export function getMenuVisibilityResolvedItem(
+  key: MenuVisibilityItemKey,
+  settings?: Pick<MenuVisibilitySettings, "items"> | null
+): MenuVisibilityResolvedItem | null {
+  const definition = getMenuVisibilityItemDefinition(key);
+
+  if (definition) {
+    return {
+      ...definition,
+      href: null,
+      isCustom: false,
+    };
+  }
+
+  const itemSettings = settings?.items?.[key];
+
+  if (!itemSettings || itemSettings.archived) {
+    return null;
+  }
+
+  return {
+    key,
+    parentKey: normalizeMenuParentKey(itemSettings.parent_key, "basic"),
+    label: normalizeMenuLabel(itemSettings.label, "새 메뉴"),
+    description: "직접 추가한 메뉴입니다.",
+    defaultOrder: normalizeMenuOrder(itemSettings.order, 0),
+    minimumAccessLevel: "authenticated",
+    defaultAccessLevel: itemSettings.access_level,
+    supportsWriteAccess: false,
+    minimumWriteAccessLevel: "disabled",
+    defaultWriteAccessLevel: "disabled",
+    href: normalizeMenuHref(itemSettings.href),
+    isCustom: true,
+  };
+}
+
+export function getMenuVisibilityItemHref(
+  key: MenuVisibilityItemKey,
+  settings?: Pick<MenuVisibilitySettings, "items"> | null
+) {
+  if (isCustomMenuVisibilityItemKey(key)) {
+    const href = normalizeMenuHref(settings?.items?.[key]?.href);
+
+    if (href) {
+      return href;
+    }
+
+    const parentKey = settings?.items?.[key]?.parent_key;
+
+    return isMenuVisibilityKey(parentKey)
+      ? getDefaultMenuVisibilityCategoryHref(parentKey)
+      : null;
+  }
+
+  if (MENU_VISIBILITY_ITEM_HREF_MAP[key]) {
+    return MENU_VISIBILITY_ITEM_HREF_MAP[key];
+  }
+
+  return COMMUNITY_BOARD_DEFINITIONS.find((board) => board.key === key)?.path ?? null;
+}
+
+export function getDefaultMenuVisibilityCategoryHref(key: MenuVisibilityKey) {
+  const definition = getMenuVisibilityDefinition(key);
+
+  if (!definition?.items?.length) {
+    return null;
+  }
+
+  for (const item of definition.items) {
+    const href = getMenuVisibilityItemHref(item.key);
+
+    if (href) {
+      return href;
+    }
+  }
+
+  return null;
 }
 
 export function getMenuVisibilityItemParentKey(
@@ -332,9 +487,11 @@ export function getMenuVisibilityItemsForCategory(
   settings: Pick<MenuVisibilitySettings, "items">,
   key: MenuVisibilityKey
 ) {
-  return MENU_VISIBILITY_ITEM_DEFINITIONS.filter(
-    (definition) => getMenuVisibilityItemParentKey(definition.key, settings) === key
-  );
+  return getMenuVisibilityItemKeys(settings)
+    .map((itemKey) => getMenuVisibilityResolvedItem(itemKey, settings))
+    .filter(
+      (item): item is MenuVisibilityResolvedItem => item !== null && item.parentKey === key
+    );
 }
 
 export function isMenuVisibilityKey(value: unknown): value is MenuVisibilityKey {
@@ -344,7 +501,8 @@ export function isMenuVisibilityKey(value: unknown): value is MenuVisibilityKey 
 export function isMenuVisibilityItemKey(value: unknown): value is MenuVisibilityItemKey {
   return (
     typeof value === "string" &&
-    MENU_VISIBILITY_ITEM_KEYS.includes(value as MenuVisibilityItemKey)
+    (MENU_VISIBILITY_ITEM_KEYS.includes(value as IntrinsicMenuVisibilityItemKey) ||
+      isCustomMenuVisibilityItemKey(value))
   );
 }
 
@@ -367,6 +525,15 @@ function normalizeMenuLabel(value: unknown, fallback: string) {
 
   const trimmedValue = value.trim();
   return trimmedValue ? trimmedValue.slice(0, 40) : fallback;
+}
+
+function normalizeMenuHref(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  return trimmedValue ? trimmedValue.slice(0, 240) : null;
 }
 
 function normalizeMenuOrder(value: unknown, fallback: number) {
@@ -423,6 +590,8 @@ function createDefaultItemSetting(
     order: definition.defaultOrder,
     access_level: definition.defaultAccessLevel,
     write_access_level: definition.defaultWriteAccessLevel,
+    href: null,
+    archived: false,
   };
 }
 
@@ -465,13 +634,27 @@ export function sanitizeMenuVisibilityItemSettings(
   value: Partial<MenuVisibilityItemSettingsEntry> | null | undefined
 ): MenuVisibilityItemSettingsEntry {
   const definition = getMenuVisibilityItemDefinition(key);
+  const nextValue = value ?? {};
 
   if (!definition) {
-    throw new Error(`Unknown menu item key: ${key}`);
+    const accessLevel = isMenuAccessLevel(nextValue.access_level)
+      ? nextValue.access_level
+      : "authenticated";
+
+    return {
+      parent_key: normalizeMenuParentKey(nextValue.parent_key, "basic"),
+      visible: typeof nextValue.visible === "boolean" ? nextValue.visible : true,
+      enabled: typeof nextValue.enabled === "boolean" ? nextValue.enabled : true,
+      label: normalizeMenuLabel(nextValue.label, "새 메뉴"),
+      order: normalizeMenuOrder(nextValue.order, 0),
+      access_level: getMoreRestrictiveMenuAccessLevel(accessLevel, "authenticated"),
+      write_access_level: "disabled",
+      href: normalizeMenuHref(nextValue.href),
+      archived: typeof nextValue.archived === "boolean" ? nextValue.archived : false,
+    };
   }
 
   const defaultValue = createDefaultItemSetting(definition);
-  const nextValue = value ?? {};
   const accessLevel = isMenuAccessLevel(nextValue.access_level)
     ? nextValue.access_level
     : defaultValue.access_level;
@@ -492,6 +675,8 @@ export function sanitizeMenuVisibilityItemSettings(
           definition.minimumWriteAccessLevel
         )
       : "disabled",
+    href: null,
+    archived: false,
   };
 }
 
@@ -586,10 +771,9 @@ function normalizeMenuItemSettingsPatch(value: unknown): Partial<MenuVisibilityI
     (items, [key, entryValue]) => {
       if (isMenuVisibilityItemKey(key) && isRecord(entryValue)) {
         const definition = getMenuVisibilityItemDefinition(key);
-
-        if (!definition) {
-          return items;
-        }
+        const labelFallback = definition?.label ?? "새 메뉴";
+        const orderFallback = definition?.defaultOrder ?? 0;
+        const minimumAccessLevel = definition?.minimumAccessLevel ?? "authenticated";
 
         const nextPatch: MenuVisibilityItemSettingsPatch = {};
 
@@ -606,27 +790,35 @@ function normalizeMenuItemSettingsPatch(value: unknown): Partial<MenuVisibilityI
         }
 
         if (typeof entryValue.label === "string") {
-          nextPatch.label = normalizeMenuLabel(entryValue.label, definition.label);
+          nextPatch.label = normalizeMenuLabel(entryValue.label, labelFallback);
         }
 
         if (typeof entryValue.order === "number" && Number.isFinite(entryValue.order)) {
-          nextPatch.order = normalizeMenuOrder(entryValue.order, definition.defaultOrder);
+          nextPatch.order = normalizeMenuOrder(entryValue.order, orderFallback);
         }
 
         if (isMenuAccessLevel(entryValue.access_level)) {
           nextPatch.access_level = getMoreRestrictiveMenuAccessLevel(
             entryValue.access_level,
-            definition.minimumAccessLevel
+            minimumAccessLevel
           );
         }
 
-        if (isMenuWriteAccessLevel(entryValue.write_access_level)) {
+        if (definition && isMenuWriteAccessLevel(entryValue.write_access_level)) {
           nextPatch.write_access_level = definition.supportsWriteAccess
             ? getMoreRestrictiveMenuWriteAccessLevel(
                 entryValue.write_access_level,
                 definition.minimumWriteAccessLevel
               )
             : "disabled";
+        }
+
+        if (!definition && (typeof entryValue.href === "string" || entryValue.href === null)) {
+          nextPatch.href = normalizeMenuHref(entryValue.href);
+        }
+
+        if (!definition && typeof entryValue.archived === "boolean") {
+          nextPatch.archived = entryValue.archived;
         }
 
         if (Object.keys(nextPatch).length > 0) {
@@ -651,6 +843,12 @@ export function applyMenuVisibilitySettingsPatch(
     ? normalizeMenuCategorySettingsPatch(patch.categories)
     : {};
   const nextItemPatch = patch.items ? normalizeMenuItemSettingsPatch(patch.items) : {};
+  const nextItemKeys = Array.from(
+    new Set([
+      ...getMenuVisibilityItemKeys(currentSettings),
+      ...Object.keys(nextItemPatch).filter(isMenuVisibilityItemKey),
+    ])
+  );
 
   return {
     categories: MENU_VISIBILITY_KEYS.reduce<MenuVisibilityCategorySettingsMap>((categories, key) => {
@@ -660,8 +858,9 @@ export function applyMenuVisibilitySettingsPatch(
       });
       return categories;
     }, {} as MenuVisibilityCategorySettingsMap),
-    items: MENU_VISIBILITY_ITEM_KEYS.reduce<MenuVisibilityItemSettings>((items, key) => {
+    items: nextItemKeys.reduce<MenuVisibilityItemSettings>((items, key) => {
       items[key] = sanitizeMenuVisibilityItemSettings(key, {
+        ...defaultSettings.items[key],
         ...currentItems[key],
         ...nextItemPatch[key],
       });
@@ -802,7 +1001,12 @@ export function canUserAccessMenuItem(
 
   const itemSettings = settings.items[key];
 
-  if (!itemSettings || !itemSettings.enabled || (!itemSettings.visible && !canPreviewHidden)) {
+  if (
+    !itemSettings ||
+    itemSettings.archived ||
+    !itemSettings.enabled ||
+    (!itemSettings.visible && !canPreviewHidden)
+  ) {
     return false;
   }
 

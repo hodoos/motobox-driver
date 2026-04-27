@@ -6,12 +6,17 @@ import { useRouter } from "next/navigation";
 import { recordOperatorAuditLog } from "../../lib/operatorAuditLogClient";
 import {
   applyMenuVisibilitySettingsPatch,
+  createCustomMenuVisibilityItemKey,
   getDefaultMenuVisibilitySettings,
+  getDefaultMenuVisibilityCategoryHref,
   getMenuAccessLevelLabel,
+  getMenuVisibilityItemKeys,
   getMenuVisibilityItemParentKey,
   getMenuVisibilityItemsForCategory,
+  getMenuVisibilityResolvedItem,
   getMenuWriteAccessLevelLabel,
   hasWritableMenuChildren,
+  isCustomMenuVisibilityItemKey,
   MENU_ACCESS_LEVEL_OPTIONS,
   MENU_VISIBILITY_DEFINITIONS,
   MENU_VISIBILITY_ITEM_DEFINITIONS,
@@ -154,6 +159,15 @@ const MENU_ENABLED_SELECT_OPTIONS = [
   { value: "false", label: "미사용" },
 ] as const;
 
+function normalizeMenuItemHrefDraft(value: string) {
+  return value.trim().slice(0, 240);
+}
+
+function isValidMenuItemHref(value: string) {
+  const normalizedValue = normalizeMenuItemHrefDraft(value);
+  return normalizedValue.startsWith("/") || /^https?:\/\//i.test(normalizedValue);
+}
+
 const USER_LIST_SORT_COLUMNS: readonly UserListSortColumn[] = [
   { key: "driver_name", label: "이름" },
   { key: "email", label: "이메일" },
@@ -223,7 +237,7 @@ function ChevronIcon({ isOpen }: { isOpen: boolean }) {
     <svg
       aria-hidden="true"
       viewBox="0 0 24 24"
-      className={`h-4 w-4 shrink-0 transition-transform ${isOpen ? "rotate-90" : "rotate-0"}`}
+      className={`h-4 w-4 shrink-0 ${isOpen ? "rotate-90" : "rotate-0"}`}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -253,7 +267,7 @@ function AdminFolderSection({
         type="button"
         onClick={() => setIsOpen((current) => !current)}
         aria-expanded={isOpen}
-        className="theme-note-box flex w-full items-start justify-between gap-3 rounded-[20px] px-4 py-3 text-left transition hover:bg-[rgba(255,255,255,0.05)]"
+        className="theme-note-box flex w-full items-start justify-between gap-3 rounded-[20px] px-4 py-3 text-left"
       >
         <div className="flex min-w-0 items-start gap-3">
           <div className="pt-0.5 text-[var(--text-strong)]">
@@ -943,6 +957,9 @@ export default function AdminPage() {
   const [menuItemLabelDrafts, setMenuItemLabelDrafts] = useState<
     Partial<Record<MenuVisibilityItemKey, string>>
   >({});
+  const [menuItemHrefDrafts, setMenuItemHrefDrafts] = useState<
+    Partial<Record<MenuVisibilityItemKey, string>>
+  >({});
   const [toast, setToast] = useState<ToastState | null>(null);
   const [managedUsersError, setManagedUsersError] = useState<string | null>(null);
   const [auditLogsError, setAuditLogsError] = useState<string | null>(null);
@@ -1539,30 +1556,45 @@ export default function AdminPage() {
     key: MenuVisibilityItemKey,
     nextParentKey: MenuVisibilityKey
   ) => {
-    setMenuVisibilitySettings((current) => {
-      const currentParentKey = getMenuVisibilityItemParentKey(key, current);
+    const currentParentKey = getMenuVisibilityItemParentKey(key, menuVisibilitySettings);
 
-      if (!currentParentKey || currentParentKey === nextParentKey) {
-        return current;
-      }
+    if (!currentParentKey || currentParentKey === nextParentKey) {
+      return;
+    }
 
-      const nextSiblingDefinitions = getMenuVisibilityItemsForCategory(current, nextParentKey).filter(
-        (item) => item.key !== key
-      );
-      const nextOrder =
-        nextSiblingDefinitions.length > 0
-          ? Math.max(...nextSiblingDefinitions.map((item) => current.items[item.key].order)) + 1
-          : 0;
-
-      return applyMenuVisibilitySettingsPatch(current, {
-        items: {
-          [key]: {
-            parent_key: nextParentKey,
-            order: nextOrder,
-          },
+    const nextSiblingDefinitions = getMenuVisibilityItemsForCategory(
+      menuVisibilitySettings,
+      nextParentKey
+    ).filter((item) => item.key !== key);
+    const nextOrder =
+      nextSiblingDefinitions.length > 0
+        ? Math.max(
+            ...nextSiblingDefinitions.map((item) => menuVisibilitySettings.items[item.key].order)
+          ) + 1
+        : 0;
+    const currentHrefValue = normalizeMenuItemHrefDraft(
+      menuItemHrefDrafts[key] ?? menuVisibilitySettings.items[key]?.href ?? ""
+    );
+    const currentDefaultHref = getDefaultMenuVisibilityCategoryHref(currentParentKey) ?? "";
+    const nextDefaultHref = getDefaultMenuVisibilityCategoryHref(nextParentKey) ?? "";
+    const shouldSyncHref =
+      isCustomMenuVisibilityItemKey(key) &&
+      (currentHrefValue.length === 0 || currentHrefValue === currentDefaultHref);
+    const nextSettings = applyMenuVisibilitySettingsPatch(menuVisibilitySettings, {
+      items: {
+        [key]: {
+          parent_key: nextParentKey,
+          order: nextOrder,
+          ...(shouldSyncHref ? { href: nextDefaultHref || null } : {}),
         },
-      });
+      },
     });
+
+    setMenuVisibilitySettings(nextSettings);
+
+    if (shouldSyncHref && menuItemHrefDrafts[key] !== undefined) {
+      updateMenuItemHrefDraft(key, nextDefaultHref);
+    }
   };
 
   const restoreMenuItemDrafts = (
@@ -1575,10 +1607,33 @@ export default function AdminPage() {
     );
   };
 
+  const removeMenuItemDraft = (key: MenuVisibilityItemKey) => {
+    setMenuVisibilitySettings((current) => {
+      if (!Object.prototype.hasOwnProperty.call(current.items, key)) {
+        return current;
+      }
+
+      const nextItems = { ...current.items };
+      delete nextItems[key];
+
+      return {
+        ...current,
+        items: nextItems,
+      };
+    });
+  };
+
   const updateMenuItemLabelDraft = (key: MenuVisibilityItemKey, value: string) => {
     setMenuItemLabelDrafts((current) => ({
       ...current,
       [key]: value.slice(0, 40),
+    }));
+  };
+
+  const updateMenuItemHrefDraft = (key: MenuVisibilityItemKey, value: string) => {
+    setMenuItemHrefDrafts((current) => ({
+      ...current,
+      [key]: value.slice(0, 240),
     }));
   };
 
@@ -1589,6 +1644,22 @@ export default function AdminPage() {
       return next;
     });
   };
+
+  const clearMenuItemHrefDraft = (key: MenuVisibilityItemKey) => {
+    setMenuItemHrefDrafts((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const clearMenuItemDrafts = (key: MenuVisibilityItemKey) => {
+    clearMenuItemLabelDraft(key);
+    clearMenuItemHrefDraft(key);
+  };
+
+  const isSavedMenuItemKey = (key: MenuVisibilityItemKey) =>
+    Object.prototype.hasOwnProperty.call(savedMenuVisibilitySettings.items, key);
 
   const hasMenuCategoryChanges = (key: MenuVisibilityKey) => {
     const currentValue = menuVisibilitySettings.categories[key];
@@ -1610,9 +1681,45 @@ export default function AdminPage() {
     );
 
   const getDirtyMenuItemKeys = () =>
-    MENU_VISIBILITY_ITEM_DEFINITIONS.map((definition) => definition.key).filter((itemKey) =>
-      hasMenuItemChanges(itemKey)
+    Array.from(
+      new Set([
+        ...getMenuVisibilityItemKeys(menuVisibilitySettings),
+        ...getMenuVisibilityItemKeys(savedMenuVisibilitySettings),
+      ])
+    ).filter((itemKey) => hasMenuItemChanges(itemKey));
+
+  const openNewMenuItemEditor = (initialParentKey?: MenuVisibilityKey) => {
+    const nextParentKey = initialParentKey ?? sortedMenuDefinitions[0]?.key ?? "basic";
+    const nextKey = createCustomMenuVisibilityItemKey();
+    const siblingItems = getMenuVisibilityItemsForCategory(menuVisibilitySettings, nextParentKey);
+    const nextHref = getDefaultMenuVisibilityCategoryHref(nextParentKey);
+    const nextOrder =
+      siblingItems.length > 0
+        ? Math.max(...siblingItems.map((item) => menuVisibilitySettings.items[item.key].order)) + 1
+        : 0;
+
+    setMenuVisibilitySettings((current) =>
+      applyMenuVisibilitySettingsPatch(current, {
+        items: {
+          [nextKey]: {
+            parent_key: nextParentKey,
+            label: "새 메뉴",
+            order: nextOrder,
+            access_level: current.categories[nextParentKey].access_level,
+            visible: true,
+            enabled: true,
+            href: nextHref,
+            archived: false,
+          },
+        },
+      })
     );
+    setMenuItemLabelDrafts((current) => ({
+      ...current,
+      [nextKey]: "새 메뉴",
+    }));
+    setActiveMenuItemEditorKey(nextKey);
+  };
 
   const handleMenuCategorySave = async (
     key: MenuVisibilityKey,
@@ -1739,11 +1846,13 @@ export default function AdminPage() {
 
   const handleMenuItemSave = async (
     key: MenuVisibilityItemKey,
-    labelOverride?: string
+    labelOverride?: string,
+    hrefOverride?: string
   ) => {
     const definition = MENU_VISIBILITY_ITEM_DEFINITIONS.find((item) => item.key === key);
     const dirtyItemKeys = getDirtyMenuItemKeys();
     const parentKey = getMenuVisibilityItemParentKey(key, menuVisibilitySettings);
+    const autoHref = parentKey ? getDefaultMenuVisibilityCategoryHref(parentKey) ?? "" : "";
     const siblingItemKeys = parentKey
       ? getMenuVisibilityItemsForCategory(menuVisibilitySettings, parentKey).map((item) => item.key)
       : [key];
@@ -1757,12 +1866,29 @@ export default function AdminPage() {
 
       return nextLabel.trim().length === 0;
     });
+    const nextHrefValue =
+      typeof hrefOverride === "string"
+        ? normalizeMenuItemHrefDraft(hrefOverride)
+        : normalizeMenuItemHrefDraft(menuVisibilitySettings.items[key]?.href ?? autoHref);
+    const hasInvalidCustomHref =
+      isCustomMenuVisibilityItemKey(key) &&
+      !menuVisibilitySettings.items[key]?.archived &&
+      !isValidMenuItemHref(nextHrefValue);
 
     if (hasEmptyItemLabel) {
       showToast(
         "error",
         "메뉴 이름을 확인해주세요",
         "메뉴 이름은 비워둘 수 없습니다."
+      );
+      return false;
+    }
+
+    if (hasInvalidCustomHref) {
+      showToast(
+        "error",
+        "연결 경로를 확인해주세요",
+        "새 메뉴는 /로 시작하는 내부 경로 또는 http/https 주소가 필요합니다."
       );
       return false;
     }
@@ -1776,13 +1902,17 @@ export default function AdminPage() {
     const patch: MenuVisibilitySettingsPatch = {
       items: resolvedItemKeysToSave.reduce<NonNullable<MenuVisibilitySettingsPatch["items"]>>(
         (items, itemKey) => {
-          items[itemKey] =
-            itemKey === key && typeof labelOverride === "string"
-              ? {
-                  ...menuVisibilitySettings.items[itemKey],
-                  label: labelOverride,
-                }
-              : menuVisibilitySettings.items[itemKey];
+          if (itemKey === key) {
+            items[itemKey] = {
+              ...menuVisibilitySettings.items[itemKey],
+              ...(typeof labelOverride === "string" ? { label: labelOverride } : {}),
+              ...(isCustomMenuVisibilityItemKey(itemKey) ? { href: nextHrefValue || null } : {}),
+            };
+
+            return items;
+          }
+
+          items[itemKey] = menuVisibilitySettings.items[itemKey];
           return items;
         },
         {}
@@ -1869,7 +1999,7 @@ export default function AdminPage() {
       "하위 메뉴 설정을 저장했습니다",
       resolvedItemKeysToSave.length > 1
         ? `하위 메뉴 ${resolvedItemKeysToSave.length}개의 정렬 및 설정이 반영되었습니다.`
-        : `${definition?.label ?? key} 메뉴 설정이 반영되었습니다.`
+        : `${menuVisibilitySettings.items[key]?.label ?? definition?.label ?? key} 메뉴 설정이 반영되었습니다.`
     );
 
     return true;
@@ -1909,14 +2039,26 @@ export default function AdminPage() {
   };
 
   const cancelMenuItemEdit = (key: MenuVisibilityItemKey) => {
+    if (isCustomMenuVisibilityItemKey(key) && !isSavedMenuItemKey(key)) {
+      removeMenuItemDraft(key);
+      clearMenuItemDrafts(key);
+      closeMenuItemEditor();
+      return;
+    }
+
     const currentParentKey = getMenuVisibilityItemParentKey(key, menuVisibilitySettings);
     const savedParentKey = getMenuVisibilityItemParentKey(key, savedMenuVisibilitySettings);
     const relevantParentKeys = [currentParentKey, savedParentKey].filter(
       (parentKey): parentKey is MenuVisibilityKey => parentKey !== null
     );
-    const siblingItems = MENU_VISIBILITY_ITEM_DEFINITIONS.filter((item) => {
-      const currentItemParentKey = getMenuVisibilityItemParentKey(item.key, menuVisibilitySettings);
-      const savedItemParentKey = getMenuVisibilityItemParentKey(item.key, savedMenuVisibilitySettings);
+    const siblingItems = Array.from(
+      new Set([
+        ...getMenuVisibilityItemKeys(menuVisibilitySettings),
+        ...getMenuVisibilityItemKeys(savedMenuVisibilitySettings),
+      ])
+    ).filter((itemKey) => {
+      const currentItemParentKey = getMenuVisibilityItemParentKey(itemKey, menuVisibilitySettings);
+      const savedItemParentKey = getMenuVisibilityItemParentKey(itemKey, savedMenuVisibilitySettings);
 
       return (
         (currentItemParentKey !== null && relevantParentKeys.includes(currentItemParentKey)) ||
@@ -1924,8 +2066,8 @@ export default function AdminPage() {
       );
     }).reduce<
       Partial<Record<MenuVisibilityItemKey, MenuVisibilitySettings["items"][MenuVisibilityItemKey]>>
-    >((items, item) => {
-      items[item.key] = savedMenuVisibilitySettings.items[item.key];
+    >((items, itemKey) => {
+      items[itemKey] = savedMenuVisibilitySettings.items[itemKey];
       return items;
     }, {});
 
@@ -1936,39 +2078,57 @@ export default function AdminPage() {
             [key]: savedMenuVisibilitySettings.items[key],
           }
     );
-    clearMenuItemLabelDraft(key);
+    clearMenuItemDrafts(key);
     closeMenuItemEditor();
   };
 
   const saveMenuItemEdit = async (key: MenuVisibilityItemKey) => {
-    const didSave = await handleMenuItemSave(key, menuItemLabelDrafts[key]);
+    const didSave = await handleMenuItemSave(
+      key,
+      menuItemLabelDrafts[key],
+      menuItemHrefDrafts[key]
+    );
 
     if (didSave) {
-      clearMenuItemLabelDraft(key);
+      clearMenuItemDrafts(key);
       closeMenuItemEditor();
     }
   };
 
   const deleteMenuItem = async (key: MenuVisibilityItemKey) => {
+    if (isCustomMenuVisibilityItemKey(key) && !isSavedMenuItemKey(key)) {
+      removeMenuItemDraft(key);
+      clearMenuItemDrafts(key);
+      closeMenuItemEditor();
+      return;
+    }
+
     updateMenuItemDraft(key, {
       visible: false,
       enabled: false,
+      ...(isCustomMenuVisibilityItemKey(key) ? { archived: true } : {}),
     });
 
     const didSave = await handleMenuItemSave(key);
 
     if (didSave) {
-      clearMenuItemLabelDraft(key);
+      clearMenuItemDrafts(key);
       closeMenuItemEditor();
     }
   };
 
-  const activeMenuItemDefinition = activeMenuItemEditorKey
-    ? MENU_VISIBILITY_ITEM_DEFINITIONS.find((item) => item.key === activeMenuItemEditorKey) ?? null
+  const activeMenuItemResolved = activeMenuItemEditorKey
+    ? getMenuVisibilityResolvedItem(activeMenuItemEditorKey, menuVisibilitySettings)
     : null;
   const activeMenuItemSettings = activeMenuItemEditorKey
     ? menuVisibilityItems[activeMenuItemEditorKey]
     : null;
+  const isActiveCustomMenuItem = activeMenuItemEditorKey
+    ? isCustomMenuVisibilityItemKey(activeMenuItemEditorKey)
+    : false;
+  const isActiveNewCustomMenuItem = activeMenuItemEditorKey
+    ? isActiveCustomMenuItem && !isSavedMenuItemKey(activeMenuItemEditorKey)
+    : false;
   const activeMenuItemParentKey = activeMenuItemEditorKey
     ? getMenuVisibilityItemParentKey(activeMenuItemEditorKey, menuVisibilitySettings)
     : null;
@@ -1990,16 +2150,26 @@ export default function AdminPage() {
     activeMenuItemEditorKey && menuItemLabelDrafts[activeMenuItemEditorKey] !== undefined
       ? menuItemLabelDrafts[activeMenuItemEditorKey] ?? ""
       : activeMenuItemSettings?.label ?? "";
+  const activeMenuItemHrefValue =
+    activeMenuItemEditorKey && menuItemHrefDrafts[activeMenuItemEditorKey] !== undefined
+      ? menuItemHrefDrafts[activeMenuItemEditorKey] ?? ""
+      : activeMenuItemSettings?.href ?? "";
   const isActiveMenuItemSaving = activeMenuItemEditorKey
     ? menuVisibilitySavingKey === getItemSavingStateKey(activeMenuItemEditorKey)
     : false;
   const isActiveMenuItemDirty = activeMenuItemEditorKey
     ? hasMenuItemChanges(activeMenuItemEditorKey) ||
-      activeMenuItemLabelValue !== (activeMenuItemSettings?.label ?? "")
+      activeMenuItemLabelValue !== (activeMenuItemSettings?.label ?? "") ||
+      activeMenuItemHrefValue !== (activeMenuItemSettings?.href ?? "")
     : false;
   const isActiveMenuItemNameEmpty = activeMenuItemLabelValue
     ? activeMenuItemLabelValue.trim().length === 0
     : true;
+  const isActiveMenuItemHrefInvalid =
+    isActiveCustomMenuItem &&
+    activeMenuItemSettings !== null &&
+    !activeMenuItemSettings.archived &&
+    !isValidMenuItemHref(activeMenuItemHrefValue);
 
   const handleUserListSortChange = (key: UserListSortKey) => {
     setUserListSort((current) => {
@@ -2171,11 +2341,19 @@ export default function AdminPage() {
                             />
                           </>
                         ) : (
-                          <MenuMiniButton
-                            label="수정"
-                            onClick={() => openMenuCategoryEditor(item.key)}
-                            className="w-full sm:w-auto"
-                          />
+                          <>
+                            <MenuMiniButton
+                              label="메뉴 추가"
+                              onClick={() => openNewMenuItemEditor(item.key)}
+                              tone="solid"
+                              className="w-full sm:w-auto"
+                            />
+                            <MenuMiniButton
+                              label="수정"
+                              onClick={() => openMenuCategoryEditor(item.key)}
+                              className="w-full sm:w-auto"
+                            />
+                          </>
                         )}
                       </div>
                     </div>
@@ -2515,7 +2693,7 @@ export default function AdminPage() {
                             <button
                               type="button"
                               onClick={() => handleUserListSortChange(column.key)}
-                              className="flex w-full items-center gap-2 text-left transition hover:text-[var(--text-strong)]"
+                              className="flex w-full items-center gap-2 text-left"
                             >
                               <span>{column.label}</span>
                               <SortIndicator
@@ -2687,7 +2865,7 @@ export default function AdminPage() {
         ) : null}
       </div>
 
-      {activeMenuItemEditorKey && activeMenuItemSettings && activeMenuItemDefinition ? (
+      {activeMenuItemEditorKey && activeMenuItemSettings && activeMenuItemResolved ? (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-4 sm:items-center sm:px-6 sm:py-6">
           <button
             type="button"
@@ -2699,13 +2877,20 @@ export default function AdminPage() {
           <div className="retro-panel relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col gap-4 overflow-hidden rounded-[28px] px-4 py-4 sm:max-h-[calc(100dvh-3rem)] sm:px-6 sm:py-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="theme-kicker text-[11px] tracking-[0.18em]">하위 메뉴 수정</p>
+                <p className="theme-kicker text-[11px] tracking-[0.18em]">
+                  {isActiveNewCustomMenuItem ? "메뉴 추가" : "하위 메뉴 수정"}
+                </p>
                 <p className="theme-heading mt-2 text-base font-semibold leading-relaxed sm:text-lg">
-                  {activeMenuItemLabelValue || activeMenuItemDefinition.label}
+                  {activeMenuItemLabelValue || activeMenuItemResolved.label}
                 </p>
                 <p className="theme-copy mt-2 text-sm leading-relaxed">
                   상위 카테고리: {activeMenuItemParentLabel}
                 </p>
+                {isActiveCustomMenuItem ? (
+                  <p className="theme-copy mt-2 text-xs leading-relaxed">
+                    새 메뉴는 메뉴 이름, 연결 경로, 진입 권한, 표시 상태를 초기값부터 바로 설정할 수 있습니다.
+                  </p>
+                ) : null}
               </div>
 
               <MenuMiniButton
@@ -2731,6 +2916,31 @@ export default function AdminPage() {
                     className="w-full px-3 py-2.5 text-sm"
                   />
                 </label>
+
+                {isActiveCustomMenuItem ? (
+                  <label className="flex flex-col gap-2 rounded-2xl border border-(--border)/70 bg-[rgba(255,255,255,0.05)] px-3 py-3 sm:col-span-2">
+                    <span className="theme-heading text-xs font-semibold">연결 경로</span>
+                    <input
+                      type="text"
+                      maxLength={240}
+                      value={activeMenuItemHrefValue}
+                      disabled={isActiveMenuItemSaving}
+                      onChange={(event) =>
+                        updateMenuItemHrefDraft(activeMenuItemEditorKey, event.target.value)
+                      }
+                      placeholder="/dashboard 또는 https://example.com"
+                      className="w-full px-3 py-2.5 text-sm"
+                    />
+                    <p className="theme-copy text-xs leading-relaxed">
+                      내부 페이지는 /로 시작하고, 외부 링크는 http 또는 https 주소를 입력해주세요.
+                    </p>
+                    {isActiveMenuItemHrefInvalid ? (
+                      <p className="text-xs font-semibold text-[rgba(255,120,120,0.95)]">
+                        저장하려면 연결 경로를 올바르게 입력해야 합니다.
+                      </p>
+                    ) : null}
+                  </label>
+                ) : null}
 
                   <div className="sm:col-span-2">
                     <MenuSelectField
@@ -2789,7 +2999,7 @@ export default function AdminPage() {
 
                 <div className="sm:col-span-2">
                   <MenuOrderMoveField
-                    position={activeMenuItemIndex}
+                    position={Math.max(activeMenuItemIndex, 0)}
                     canMoveUp={activeMenuItemIndex > 0}
                     canMoveDown={activeMenuItemIndex < activeMenuItemSiblingDefinitions.length - 1}
                     disabled={isActiveMenuItemSaving}
@@ -2808,12 +3018,14 @@ export default function AdminPage() {
                     void deleteMenuItem(activeMenuItemEditorKey);
                   }}
                   disabled={isActiveMenuItemSaving}
-                  className="min-h-9 w-full rounded-xl border border-[rgba(255,97,97,0.45)] bg-[rgba(255,97,97,0.12)] px-3 py-2 text-xs font-semibold text-(--text-strong) transition hover:bg-[rgba(255,97,97,0.18)] disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto"
+                  className="min-h-9 w-full rounded-xl border border-[rgba(255,97,97,0.45)] bg-[rgba(255,97,97,0.12)] px-3 py-2 text-xs font-semibold text-(--text-strong) disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto"
                 >
                   메뉴 삭제
                 </button>
                 <p className="theme-copy mt-2 text-xs leading-relaxed">
-                  삭제를 누르면 이 메뉴는 숨김 + 사용 중지 상태로 저장됩니다.
+                  {isActiveCustomMenuItem
+                    ? "직접 추가한 메뉴는 목록에서 제거되고, 기존 메뉴는 숨김 + 사용 중지 상태로 저장됩니다."
+                    : "삭제를 누르면 이 메뉴는 숨김 + 사용 중지 상태로 저장됩니다."}
                 </p>
               </div>
 
@@ -2832,6 +3044,7 @@ export default function AdminPage() {
                   disabled={
                     isActiveMenuItemSaving ||
                     isActiveMenuItemNameEmpty ||
+                    isActiveMenuItemHrefInvalid ||
                     !isActiveMenuItemDirty
                   }
                   tone="solid"

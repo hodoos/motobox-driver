@@ -70,6 +70,25 @@
   --summary-blue-value: rgba(239, 245, 255, 0.98);
   --app-logo-glow-core: rgba(255, 149, 0, 0.24);
   --app-logo-glow-mid: rgba(99, 102, 241, 0.18);
+  --toast-shell-glow-top: rgba(255, 149, 0, 0.2);
+  --toast-shell-glow-bottom: rgba(99, 102, 241, 0.18);
+  --toast-panel-bg: linear-gradient(180deg, rgba(18, 18, 22, 0.96), rgba(11, 11, 14, 0.98));
+  --toast-panel-shadow:
+    0 26px 56px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+  --toast-panel-sheen:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02) 28%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 36%);
+  --toast-icon-border: rgba(255, 255, 255, 0.14);
+  --toast-icon-bg: rgba(255, 255, 255, 0.08);
+  --toast-chip-border: rgba(255, 255, 255, 0.1);
+  --toast-chip-bg: rgba(255, 255, 255, 0.05);
+  --toast-kicker-color: rgba(210, 214, 255, 0.72);
+  --toast-dismiss-bg: rgba(255, 255, 255, 0.06);
+  --toast-dismiss-border: rgba(255, 255, 255, 0.14);
+  --toast-dismiss-text: rgba(242, 244, 255, 0.96);
+  --toast-dismiss-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 :root[data-theme="light"] {
@@ -146,6 +165,28 @@
   --summary-blue-value: #184f96;
   --app-logo-glow-core: rgba(255, 168, 88, 0.32);
   --app-logo-glow-mid: rgba(114, 154, 226, 0.18);
+  --toast-shell-glow-top: rgba(255, 188, 124, 0.34);
+  --toast-shell-glow-bottom: rgba(79, 134, 225, 0.14);
+  --toast-panel-bg: linear-gradient(180deg, rgba(255, 252, 247, 0.98), rgba(248, 236, 221, 0.99));
+  --toast-panel-shadow:
+    0 24px 52px rgba(171, 124, 77, 0.16),
+    0 10px 26px rgba(255, 211, 167, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -1px 0 rgba(236, 211, 178, 0.24);
+  --toast-panel-sheen:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 246, 233, 0.52) 30%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(circle at top right, rgba(255, 214, 166, 0.34), rgba(255, 255, 255, 0) 40%);
+  --toast-icon-border: rgba(208, 147, 84, 0.16);
+  --toast-icon-bg: rgba(255, 255, 255, 0.7);
+  --toast-chip-border: rgba(208, 147, 84, 0.18);
+  --toast-chip-bg: rgba(255, 255, 255, 0.58);
+  --toast-kicker-color: rgba(101, 113, 136, 0.82);
+  --toast-dismiss-bg: rgba(255, 255, 255, 0.82);
+  --toast-dismiss-border: rgba(208, 147, 84, 0.24);
+  --toast-dismiss-text: #23324a;
+  --toast-dismiss-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    0 10px 20px rgba(171, 124, 77, 0.12);
 }
 
 * {
@@ -911,18 +952,6 @@ textarea {
   }
 }
 
-@keyframes retro-toast-progress {
-  0% {
-    transform: scaleX(1);
-    opacity: 1;
-  }
-
-  100% {
-    transform: scaleX(0);
-    opacity: 0.82;
-  }
-}
-
 @keyframes retro-loading-orb {
   0%,
   100% {
@@ -957,8 +986,8 @@ textarea {
   inset: 0.75rem 1.25rem -0.7rem;
   border-radius: 30px;
   background:
-    radial-gradient(circle at top, rgba(255, 149, 0, 0.18), transparent 52%),
-    radial-gradient(circle at bottom, rgba(99, 102, 241, 0.18), transparent 58%);
+    radial-gradient(circle at top, var(--toast-shell-glow-top), transparent 52%),
+    radial-gradient(circle at bottom, var(--toast-shell-glow-bottom), transparent 58%);
   filter: blur(24px);
   opacity: 0.72;
   pointer-events: none;
@@ -969,11 +998,8 @@ textarea {
   overflow: hidden;
   isolation: isolate;
   border: 1px solid var(--border-strong);
-  background: linear-gradient(180deg, rgba(18, 18, 22, 0.96), rgba(11, 11, 14, 0.98));
-  box-shadow:
-    0 26px 56px rgba(0, 0, 0, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+  background: var(--toast-panel-bg);
+  box-shadow: var(--toast-panel-shadow);
   backdrop-filter: blur(20px) saturate(1.08);
   animation: retro-toast-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -982,9 +1008,7 @@ textarea {
   content: "";
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02) 28%, rgba(255, 255, 255, 0) 100%),
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 36%);
+  background: var(--toast-panel-sheen);
   opacity: 0.9;
   z-index: 0;
 }
@@ -992,20 +1016,50 @@ textarea {
 .retro-toast__layout {
   position: relative;
   z-index: 1;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.9rem;
+}
+
+.retro-toast__main {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
   gap: 0.85rem;
+}
+
+.retro-toast__content {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.retro-toast__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.retro-toast__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 
 .retro-toast__icon {
   display: grid;
   width: 3.25rem;
   height: 3.25rem;
+  flex-shrink: 0;
   place-items: center;
   border-radius: 1.05rem;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--toast-icon-border);
+  background: var(--toast-icon-bg);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
@@ -1019,10 +1073,10 @@ textarea {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--toast-chip-border);
+  background: var(--toast-chip-bg);
   padding: 0.42rem 0.74rem;
-  color: var(--text-dim);
+  color: var(--toast-kicker-color);
 }
 
 .retro-toast-success {
@@ -1053,21 +1107,13 @@ textarea {
   padding: 0.42rem 0.72rem;
 }
 
-.retro-toast__progress {
-  position: relative;
-  height: 0.34rem;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.retro-toast__progress::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.96), var(--toast-accent));
-  transform-origin: left center;
-  animation: retro-toast-progress var(--toast-duration, 3200ms) linear forwards;
+.retro-toast__dismiss {
+  align-self: stretch;
+  justify-content: center;
+  border-color: var(--toast-dismiss-border);
+  background: var(--toast-dismiss-bg);
+  color: var(--toast-dismiss-text);
+  box-shadow: var(--toast-dismiss-shadow);
 }
 
 .retro-toast-success .retro-toast__badge,
@@ -1086,6 +1132,39 @@ textarea {
 .retro-toast-info .retro-toast__icon {
   color: rgba(238, 246, 255, 0.96);
   background: rgba(173, 210, 255, 0.12);
+}
+
+:root[data-theme="light"] .retro-toast-success {
+  border-color: rgba(83, 153, 109, 0.22);
+  background: linear-gradient(180deg, rgba(249, 255, 250, 0.98), rgba(232, 245, 235, 0.98));
+}
+
+:root[data-theme="light"] .retro-toast-error {
+  border-color: rgba(213, 110, 110, 0.24);
+  background: linear-gradient(180deg, rgba(255, 249, 249, 0.98), rgba(249, 232, 232, 0.98));
+}
+
+:root[data-theme="light"] .retro-toast-info {
+  border-color: rgba(92, 143, 214, 0.24);
+  background: linear-gradient(180deg, rgba(248, 252, 255, 0.98), rgba(233, 242, 251, 0.98));
+}
+
+:root[data-theme="light"] .retro-toast-success .retro-toast__badge,
+:root[data-theme="light"] .retro-toast-success .retro-toast__icon {
+  color: #2f6d43;
+  background: rgba(117, 189, 142, 0.16);
+}
+
+:root[data-theme="light"] .retro-toast-error .retro-toast__badge,
+:root[data-theme="light"] .retro-toast-error .retro-toast__icon {
+  color: #a24747;
+  background: rgba(226, 132, 132, 0.16);
+}
+
+:root[data-theme="light"] .retro-toast-info .retro-toast__badge,
+:root[data-theme="light"] .retro-toast-info .retro-toast__icon {
+  color: #2d64ad;
+  background: rgba(118, 170, 234, 0.16);
 }
 
 .retro-loading-panel {
@@ -1183,19 +1262,6 @@ textarea {
   animation-delay: 0.24s;
 }
 
-:root[data-theme="light"] .retro-toast {
-  box-shadow:
-    0 24px 50px rgba(171, 124, 77, 0.18),
-    0 10px 24px rgba(255, 211, 167, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.86),
-    inset 0 -1px 0 rgba(236, 211, 178, 0.24);
-}
-
-:root[data-theme="light"] .retro-toast__eyebrow {
-  border-color: rgba(208, 147, 84, 0.16);
-  background: rgba(255, 255, 255, 0.42);
-}
-
 :root[data-theme="light"] .retro-loading-shell__orb {
   box-shadow:
     0 18px 34px rgba(171, 124, 77, 0.16),
@@ -1203,17 +1269,49 @@ textarea {
 }
 
 @media (max-width: 639px) {
+  .retro-toast-shell::before {
+    inset: 0.65rem 0.8rem -0.55rem;
+    filter: blur(18px);
+  }
+
   .retro-toast__layout {
-    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .retro-toast__main {
+    gap: 0.75rem;
+  }
+
+  .retro-toast__icon {
+    width: 2.9rem;
+    height: 2.9rem;
+    border-radius: 0.95rem;
+  }
+
+  .retro-toast__layout {
+    flex-direction: column;
   }
 
   .retro-toast__dismiss {
-    grid-column: 1 / -1;
     width: 100%;
   }
 }
 
 @media (min-width: 640px) {
+  .retro-toast__layout {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .retro-toast__main {
+    flex: 1;
+  }
+
+  .retro-toast__dismiss {
+    width: auto;
+    min-width: 5.5rem;
+  }
+
   .retro-loading-shell {
     grid-template-columns: auto minmax(0, 1fr);
     gap: 1.15rem;
@@ -1431,6 +1529,157 @@ textarea {
   border: 1px solid var(--border);
   background: var(--accent-soft);
   color: var(--text);
+}
+
+/* Disable project-wide hover motion and animation effects. */
+*,
+*::before,
+*::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+html:focus-within {
+  scroll-behavior: auto;
+}
+
+.landing-topbar-fx:hover,
+.landing-logo-link:hover,
+.landing-nav-button:hover,
+.landing-nav-button--solid:hover,
+.landing-panel-fx:hover,
+.landing-panel-fx--support:hover,
+.landing-badge-fx:hover,
+.landing-input-fx:hover,
+.landing-input-fx:focus,
+.landing-button-fx:hover,
+.landing-button-fx--solid:hover,
+.landing-button-fx--secondary:hover,
+.retro-panel:not(.landing-panel-fx):hover,
+.retro-card:hover,
+.theme-note-box:not(.landing-panel-fx):hover,
+.retro-button:hover,
+.retro-button-solid:hover,
+.retro-calendar .react-calendar__tile:enabled:hover,
+.retro-calendar .react-calendar__tile:enabled:focus-visible,
+.retro-calendar .retro-calendar__tile--biweekly:enabled:hover,
+.retro-calendar .retro-calendar__tile--biweekly:enabled:focus-visible,
+.retro-calendar .retro-calendar__tile--anchor:enabled:hover,
+.retro-calendar .retro-calendar__tile--anchor:enabled:focus-visible,
+.admin-sheet-table tbody tr:hover td,
+.admin-sheet-table tbody tr.admin-sheet-row--operator:hover td,
+.admin-sheet-table tbody tr.admin-sheet-row--admin:hover td,
+.admin-sheet-table tbody tr.admin-sheet-row--affiliate:hover td,
+.admin-sheet-table tbody tr.admin-sheet-row--vendor:hover td,
+input:not([type="checkbox"]):not(.landing-input-fx):hover,
+textarea:not(.landing-input-fx):hover,
+select:not(.landing-input-fx):hover,
+input:not([type="checkbox"]):not(.landing-input-fx):focus,
+textarea:not(.landing-input-fx):focus,
+select:not(.landing-input-fx):focus,
+.retro-button:not(.landing-button-fx):not(.landing-nav-button):hover,
+.retro-button-solid:not(.landing-button-fx):not(.landing-nav-button):hover {
+  transform: none !important;
+  filter: none !important;
+}
+
+.retro-calendar .react-calendar__tile:enabled:hover,
+.retro-calendar .react-calendar__tile:enabled:focus-visible {
+  border-color: transparent !important;
+  background: var(--calendar-tile-bg) !important;
+  box-shadow: none !important;
+}
+
+.retro-calendar .react-calendar__tile--now:enabled:hover,
+.retro-calendar .react-calendar__tile--now:enabled:focus-visible {
+  border-color: var(--calendar-tile-now-border) !important;
+  background: var(--calendar-tile-now-bg) !important;
+}
+
+.retro-calendar .react-calendar__tile--active:enabled:hover,
+.retro-calendar .react-calendar__tile--active:enabled:focus-visible,
+.retro-calendar .react-calendar__tile--hasActive:enabled:hover,
+.retro-calendar .react-calendar__tile--hasActive:enabled:focus-visible {
+  border-color: var(--calendar-tile-active-border) !important;
+  background: var(--calendar-tile-active-bg) !important;
+}
+
+.retro-calendar .retro-calendar__tile--biweekly:enabled:hover,
+.retro-calendar .retro-calendar__tile--biweekly:enabled:focus-visible,
+.retro-calendar .retro-calendar__tile--anchor:enabled:hover,
+.retro-calendar .retro-calendar__tile--anchor:enabled:focus-visible {
+  box-shadow: inset 0 0 0 1px rgba(255, 92, 92, 0.18) !important;
+}
+
+.admin-sheet-table tbody tr:hover td {
+  background: transparent !important;
+}
+
+.admin-sheet-table tbody tr:nth-child(even):hover td {
+  background: var(--surface-muted) !important;
+}
+
+.admin-sheet-table tbody tr.admin-sheet-row--operator:hover td {
+  background: rgba(120, 18, 18, 0.34) !important;
+}
+
+.admin-sheet-table tbody tr.admin-sheet-row--admin:hover td {
+  background: rgba(122, 68, 12, 0.3) !important;
+}
+
+.admin-sheet-table tbody tr.admin-sheet-row--affiliate:hover td {
+  background: rgba(18, 58, 120, 0.28) !important;
+}
+
+.admin-sheet-table tbody tr.admin-sheet-row--vendor:hover td {
+  background: rgba(122, 104, 11, 0.28) !important;
+}
+
+input:not([type="checkbox"]):not(.landing-input-fx):hover,
+textarea:not(.landing-input-fx):hover,
+select:not(.landing-input-fx):hover,
+input:not([type="checkbox"]):not(.landing-input-fx):focus,
+textarea:not(.landing-input-fx):focus,
+select:not(.landing-input-fx):focus {
+  box-shadow: none !important;
+}
+
+:root[data-theme="light"] input:not([type="checkbox"]):not(.landing-input-fx):hover,
+:root[data-theme="light"] textarea:not(.landing-input-fx):hover,
+:root[data-theme="light"] select:not(.landing-input-fx):hover {
+  border-color: rgba(191, 138, 79, 0.58) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(255, 249, 242, 0.99)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    inset 0 0 0 2px rgba(255, 236, 213, 0.78),
+    0 7px 16px rgba(180, 137, 89, 0.12) !important;
+}
+
+.landing-nav-button::before,
+.landing-button-fx::before,
+.landing-nav-button::after,
+.landing-button-fx::after,
+.retro-button:not(.landing-button-fx):not(.landing-nav-button)::before,
+.retro-button-solid:not(.landing-button-fx):not(.landing-nav-button)::before,
+.retro-button:not(.landing-button-fx):not(.landing-nav-button)::after,
+.retro-button-solid:not(.landing-button-fx):not(.landing-nav-button)::after {
+  animation: none !important;
+  opacity: 0 !important;
+}
+
+.landing-nav-button:hover::after,
+.landing-button-fx:hover::after,
+.retro-button:not(.landing-button-fx):not(.landing-nav-button):hover::after,
+.retro-button-solid:not(.landing-button-fx):not(.landing-nav-button):hover::after,
+.retro-button:not(.landing-button-fx):not(.landing-nav-button):active::before,
+.retro-button-solid:not(.landing-button-fx):not(.landing-nav-button):active::before {
+  animation: none !important;
+  opacity: 0 !important;
+  transform: none !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb);
 }
 
 @media (prefers-reduced-motion: reduce) {
