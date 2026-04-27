@@ -213,7 +213,7 @@
         "order": 5,
         "access_level": "authenticated",
         "write_access_level": "disabled",
-        "href": "/dashboard",
+        "href": "/dashboard/vehicle-management",
         "archived": false
       }
     }

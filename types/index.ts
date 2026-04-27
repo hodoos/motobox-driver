@@ -145,6 +145,65 @@ export type CommunityPostMutationResponse = {
   storage: Exclude<CommunityPostStorageMode, "mixed">;
 };
 
+export type VehicleManagementStorageMode = "database" | "file-fallback";
+
+export type VehicleExpenseCategory =
+  | "fuel"
+  | "maintenance"
+  | "repair"
+  | "parking"
+  | "wash"
+  | "insurance"
+  | "toll"
+  | "other";
+
+export type VehicleProfileRow = {
+  user_id: string;
+  vehicle_name: string | null;
+  vehicle_model: string | null;
+  plate_number: string | null;
+  fuel_type: string | null;
+  current_mileage_km: number | null;
+  insurance_annual_cost: number | null;
+  inspection_due_date: string | null;
+  note: string | null;
+  updated_at: string;
+};
+
+export type VehicleExpenseRow = {
+  id: string;
+  user_id: string;
+  expense_date: string;
+  category: VehicleExpenseCategory;
+  title: string;
+  amount: number;
+  vendor: string | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type VehicleManagementResponse = {
+  profile: VehicleProfileRow | null;
+  expenses: VehicleExpenseRow[];
+  storage: VehicleManagementStorageMode;
+};
+
+export type VehicleProfileMutationResponse = {
+  profile: VehicleProfileRow | null;
+  storage: VehicleManagementStorageMode;
+};
+
+export type VehicleExpenseMutationResponse = {
+  expense: VehicleExpenseRow;
+  storage: VehicleManagementStorageMode;
+};
+
+export type VehicleExpenseDeleteResponse = {
+  deletedId: string;
+  storage: VehicleManagementStorageMode;
+};
+
 export type StaffAuditLogRow = {
   id: string;
   actor_user_id: string;

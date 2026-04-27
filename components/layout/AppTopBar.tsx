@@ -968,10 +968,8 @@ export default function AppTopBar() {
                               key={item.id}
                               type="button"
                               onClick={() => handleMenuItemSelect(item)}
-                              className={`block w-full rounded-[14px] px-3 py-2.5 text-left text-sm font-semibold ${
-                                isCurrentPage
-                                  ? "bg-[rgba(255,255,255,0.12)] text-[var(--text-strong)]"
-                                  : "text-[var(--text)]"
+                              className={`app-topbar-menu-item ${
+                                isCurrentPage ? "app-topbar-menu-item--active" : ""
                               }`}
                             >
                               {item.label}

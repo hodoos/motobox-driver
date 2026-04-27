@@ -92,36 +92,8 @@ export function PageLoadingShell({
 }: PageLoadingShellProps) {
   return (
     <PageShell contentClassName={contentClassName}>
-      <div
-        className="retro-panel retro-loading-panel w-full rounded-[30px] px-4 py-4 sm:px-6 sm:py-5"
-        role="status"
-        aria-live="polite"
-        aria-busy="true"
-      >
-        <div className="retro-loading-shell">
-          <div className="retro-loading-shell__signal" aria-hidden="true">
-            <div className="retro-loading-shell__orb">
-              <PageLoadingIcon />
-            </div>
-            <div className="retro-loading-shell__bars">
-              <span />
-              <span />
-              <span />
-            </div>
-          </div>
-
-          <div className="min-w-0 space-y-2 text-center sm:text-left">
-            <p className="retro-title theme-kicker text-[11px] tracking-[0.22em]">
-              SYSTEM LOADING
-            </p>
-            <p className="retro-title theme-heading text-base leading-snug sm:text-lg">
-              {message}
-            </p>
-            <p className="theme-copy text-sm leading-relaxed">
-              잠시만 기다려주세요. 현재 화면과 필요한 데이터를 테마에 맞게 정리하고 있습니다.
-            </p>
-          </div>
-        </div>
+      <div className="sr-only" role="status" aria-live="polite" aria-busy="true">
+        {message}
       </div>
     </PageShell>
   );
