@@ -430,7 +430,7 @@ export function getMenuVisibilityResolvedItem(
 export function getMenuVisibilityItemHref(
   key: MenuVisibilityItemKey,
   settings?: Pick<MenuVisibilitySettings, "items"> | null
-) {
+): string | null {
   if (isCustomMenuVisibilityItemKey(key)) {
     const href = normalizeMenuHref(settings?.items?.[key]?.href);
 
@@ -452,7 +452,9 @@ export function getMenuVisibilityItemHref(
   return COMMUNITY_BOARD_DEFINITIONS.find((board) => board.key === key)?.path ?? null;
 }
 
-export function getDefaultMenuVisibilityCategoryHref(key: MenuVisibilityKey) {
+export function getDefaultMenuVisibilityCategoryHref(
+  key: MenuVisibilityKey
+): string | null {
   const definition = getMenuVisibilityDefinition(key);
 
   if (!definition?.items?.length) {

@@ -419,6 +419,29 @@ function LoadingIcon() {
   );
 }
 
+function MenuEntryLoadingCard() {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
+      <div aria-hidden="true" className="absolute inset-0 bg-[rgba(4,4,6,0.48)] backdrop-blur-[3px]" />
+      <div
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+        className="retro-panel retro-loading-panel pointer-events-none relative w-full max-w-72 rounded-3xl px-4 py-4 text-center sm:max-w-80 sm:px-5 sm:py-5"
+      >
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-(--border-strong)/70 bg-[rgba(255,255,255,0.06)] text-(--text-strong)">
+            <LoadingIcon />
+          </div>
+          <p className="retro-title theme-heading text-base leading-snug sm:text-lg">
+            메뉴 진입 중..
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SunIcon() {
   return (
     <svg
@@ -580,6 +603,7 @@ export default function AppTopBar() {
     pathname === "/" ? false : lastKnownMenuOpen
   );
   const [authPending, setAuthPending] = useState(false);
+  const [menuEntryPending, setMenuEntryPending] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => readStoredTheme());
   const [toast, setToast] = useState<ToastState | null>(null);
   const [menuVisibility, setMenuVisibility] = useState<MenuVisibilitySettings>(() =>
@@ -589,6 +613,10 @@ export default function AppTopBar() {
   useEffect(() => {
     persistMenuOpen(pathname === "/" ? false : menuOpen);
   }, [menuOpen, pathname]);
+
+  useEffect(() => {
+    setMenuEntryPending(false);
+  }, [pathname]);
 
   useEffect(() => {
     let isDisposed = false;
@@ -765,6 +793,7 @@ export default function AppTopBar() {
             })
           );
         } else {
+          setMenuEntryPending(true);
           window.sessionStorage.setItem(
             DASHBOARD_SECTION_STORAGE_KEY,
             item.dashboardSectionId
@@ -787,6 +816,11 @@ export default function AppTopBar() {
         return;
       }
 
+      if (item.href === pathname) {
+        return;
+      }
+
+      setMenuEntryPending(true);
       router.push(item.href);
     }
   };
@@ -827,6 +861,8 @@ export default function AppTopBar() {
     >
       <div className={`mx-auto w-full ${topBarWidthClass}`}>
         <ToastViewport toast={toast} onDismiss={() => setToast(null)} />
+
+        {menuEntryPending ? <MenuEntryLoadingCard /> : null}
 
         {menuOpen ? (
           <div
